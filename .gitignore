@@ -1,0 +1,13 @@
+# Pre-compiled Python files
+*.pyc
+
+# Logs
+*.log
+
+# Minified JavaScript
+*.min.js
+
+# Ninja files
+.ninja_deps
+.ninja_log
+build.ninja
