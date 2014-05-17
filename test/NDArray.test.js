@@ -1,0 +1,381 @@
+describe('NDArray', function(){
+	describe('constructor', function(){
+		it('No error with integer shape', function(){
+			expect(function (){new numjs.NDArray(100)}).to.not.throw(Error);
+		})
+		it('No error with integer array shape', function(){
+			expect(function (){new numjs.NDArray([100])}).to.not.throw(Error);
+		})
+		it('No error with multi-dimensional integer array shape', function(){
+			expect(function (){new numjs.NDArray([2, 5, 1])}).to.not.throw(Error);
+		})
+		it('No error with explicit F64 data type', function(){
+			expect(function (){new numjs.NDArray([2, 5, 1], numjs.DataType('f64'))}).to.not.throw(Error);
+		})
+		it('No error with F32 data type', function(){
+			expect(function (){new numjs.NDArray([2, 5, 1], numjs.DataType('f32'))}).to.not.throw(Error);
+		})
+	})
+	describe('length', function(){
+		it('Equals to the number passed in constructor', function(){
+			expect((new numjs.NDArray(42)).length).to.equal(42);
+		})
+		it('Equals to the number passed in constructor as an array', function(){
+			expect((new numjs.NDArray([42])).length).to.equal(42);
+		})
+		it('Equals to the product of dimensions passed in constructor', function(){
+			expect((new numjs.NDArray([2, 5, 3])).length).to.equal(30);
+		})
+	})
+	describe('reshape', function(){
+		it('Preserves length', function(){
+			var x = new numjs.NDArray([7,5,3]);
+			var y = x.reshape([21,5]);
+			expect(y.length).to.equal(x.length);
+		})
+		it('Changes shape', function(){
+			var x = new numjs.NDArray([7,5,3]);
+			var y = x.reshape([21,5]);
+			expect(y.shape).to.deep.equal([21,5]);
+		})
+		it('Rearranges data', function(){
+			var x = numjs.linspace(1, 8, 8).reshape([2, 2, 2]);
+			expect(x.get(0, 0, 0)).to.equal(1);
+			expect(x.get(0, 0, 1)).to.equal(2);
+			expect(x.get(0, 1, 0)).to.equal(3);
+			expect(x.get(0, 1, 1)).to.equal(4);
+			expect(x.get(1, 0, 0)).to.equal(5);
+			expect(x.get(1, 0, 1)).to.equal(6);
+			expect(x.get(1, 1, 0)).to.equal(7);
+			expect(x.get(1, 1, 1)).to.equal(8);
+		})
+	})
+	describe('set', function(){
+		it('No error with 1D array', function(){
+			var x = new numjs.NDArray(2);
+			expect(function (){x.set([0], 1)}).to.not.throw(Error);
+			expect(function (){x.set([1], -1)}).to.not.throw(Error);
+		})
+		it('No error with multi-dimensional array', function(){
+			var x = new numjs.NDArray([2,2,2]);
+			expect(function (){x.set([0, 0, 0], 1)}).to.not.throw(Error);
+			expect(function (){x.set([0, 0, 1], 2)}).to.not.throw(Error);
+			expect(function (){x.set([0, 1, 0], 3)}).to.not.throw(Error);
+			expect(function (){x.set([0, 1, 1], 4)}).to.not.throw(Error);
+			expect(function (){x.set([1, 0, 0], 5)}).to.not.throw(Error);
+			expect(function (){x.set([1, 0, 1], 6)}).to.not.throw(Error);
+			expect(function (){x.set([1, 1, 0], 7)}).to.not.throw(Error);
+			expect(function (){x.set([1, 1, 1], 8)}).to.not.throw(Error);
+		})
+	})
+	describe('get', function(){
+		it('Can be used with a single index', function(){
+			var x = new numjs.NDArray(2);
+			x.set([0], 42);
+			x.set([1], 10);
+			expect(x.get(1)).to.equal(10);
+		})
+		it('Can be used with a multiple indices', function(){
+			var x = new numjs.NDArray([2,2,2]);
+			x.set([0, 0, 0], 1);
+			x.set([0, 0, 1], 2);
+			x.set([0, 1, 0], 3);
+			x.set([0, 1, 1], 4);
+			x.set([1, 0, 0], 5);
+			x.set([1, 0, 1], 6);
+			x.set([1, 1, 0], 7);
+			x.set([1, 1, 1], 8);
+		})
+		it('Can be used with an array of indices', function(){
+			var x = new numjs.NDArray([2,2,2]);
+			x.set([0, 0, 0], 1);
+			x.set([0, 0, 1], 2);
+			x.set([0, 1, 0], 3);
+			x.set([0, 1, 1], 4);
+			x.set([1, 0, 0], 5);
+			x.set([1, 0, 1], 6);
+			x.set([1, 1, 0], 7);
+			x.set([1, 1, 1], 8);
+			expect(x.get([1, 1, 0])).to.equal(7);
+		})
+	})
+	describe('add', function(){
+		describe('Add array', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				var y = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				y.set([0], 8);
+				y.set([1], -1);
+				y.set([2], 10);
+				var z = x.add(y);
+				expect(z.get(0)).to.equal(9);
+				expect(z.get(1)).to.equal(3);
+				expect(z.get(2)).to.equal(19);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				y.set([0, 0], 8);
+				y.set([0, 1], -1);
+				y.set([1, 0], 10);
+				y.set([1, 1], -21);
+				var z = x.add(y);
+				expect(z.get(0, 0)).to.equal(9);
+				expect(z.get(0, 1)).to.equal(3);
+				expect(z.get(1, 0)).to.equal(19);
+				expect(z.get(1, 1)).to.equal(-38);
+			})
+		})
+		describe('Add scalar', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				var z = x.add(-7);
+				expect(z.get(0)).to.equal(-6);
+				expect(z.get(1)).to.equal(-3);
+				expect(z.get(2)).to.equal(2);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				var z = x.add(42);
+				expect(z.get(0, 0)).to.equal(43);
+				expect(z.get(0, 1)).to.equal(46);
+				expect(z.get(1, 0)).to.equal(51);
+				expect(z.get(1, 1)).to.equal(25);
+			})
+		})
+	})
+	describe('sub', function(){
+		describe('Subtract array', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				var y = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				y.set([0], 8);
+				y.set([1], -1);
+				y.set([2], 10);
+				var z = x.sub(y);
+				expect(z.get(0)).to.equal(-7);
+				expect(z.get(1)).to.equal(5);
+				expect(z.get(2)).to.equal(-1);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				y.set([0, 0], 8);
+				y.set([0, 1], -1);
+				y.set([1, 0], 10);
+				y.set([1, 1], -21);
+				var z = x.sub(y);
+				expect(z.get(0, 0)).to.equal(-7);
+				expect(z.get(0, 1)).to.equal(5);
+				expect(z.get(1, 0)).to.equal(-1);
+				expect(z.get(1, 1)).to.equal(4);
+			})
+		})
+		describe('Subtract scalar', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				var z = x.sub(-7);
+				expect(z.get(0)).to.equal(8);
+				expect(z.get(1)).to.equal(11);
+				expect(z.get(2)).to.equal(16);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				var z = x.sub(42);
+				expect(z.get(0, 0)).to.equal(-41);
+				expect(z.get(0, 1)).to.equal(-38);
+				expect(z.get(1, 0)).to.equal(-33);
+				expect(z.get(1, 1)).to.equal(-59);
+			})
+		})
+	})
+	describe('mul', function(){
+		describe('Multiply by array', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				var y = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				y.set([0], 8);
+				y.set([1], -1);
+				y.set([2], 10);
+				var z = x.mul(y);
+				expect(z.get(0)).to.equal(8);
+				expect(z.get(1)).to.equal(-4);
+				expect(z.get(2)).to.equal(90);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				y.set([0, 0], 8);
+				y.set([0, 1], -1);
+				y.set([1, 0], 10);
+				y.set([1, 1], -21);
+				var z = x.mul(y);
+				expect(z.get(0, 0)).to.equal(8);
+				expect(z.get(0, 1)).to.equal(-4);
+				expect(z.get(1, 0)).to.equal(90);
+				expect(z.get(1, 1)).to.equal(357);
+			})
+		})
+		describe('Multiply by scalar', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				var y = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				var z = x.mul(-10);
+				expect(z.get(0)).to.equal(-10);
+				expect(z.get(1)).to.equal(-40);
+				expect(z.get(2)).to.equal(-90);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				var z = x.mul(10);
+				expect(z.get(0, 0)).to.equal(10);
+				expect(z.get(0, 1)).to.equal(40);
+				expect(z.get(1, 0)).to.equal(90);
+				expect(z.get(1, 1)).to.equal(-170);
+			})
+		})
+	})
+	describe('div', function(){
+		describe('Divide by array', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				var y = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				y.set([0], 2);
+				y.set([1], -4);
+				y.set([2], 8);
+				var z = x.div(y);
+				expect(z.get(0)).to.equal(0.5);
+				expect(z.get(1)).to.equal(-1);
+				expect(z.get(2)).to.equal(1.125);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				y.set([0, 0], -2);
+				y.set([0, 1], 4);
+				y.set([1, 0], -8);
+				y.set([1, 1], 16);
+				var z = x.div(y);
+				expect(z.get(0, 0)).to.equal(-0.5);
+				expect(z.get(0, 1)).to.equal(1);
+				expect(z.get(1, 0)).to.equal(-1.125);
+				expect(z.get(1, 1)).to.equal(-1.0625);
+			})
+		})
+		describe('Divide by scalar', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.NDArray(3);
+				var y = new numjs.NDArray(3);
+				x.set([0], 1);
+				x.set([1], 4);
+				x.set([2], 9);
+				var z = x.div(-2);
+				expect(z.get(0)).to.equal(-0.5);
+				expect(z.get(1)).to.equal(-2);
+				expect(z.get(2)).to.equal(-4.5);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.NDArray([2,2]);
+				var y = new numjs.NDArray([2,2]);
+				x.set([0, 0], 1);
+				x.set([0, 1], 4);
+				x.set([1, 0], 9);
+				x.set([1, 1], -17);
+				var z = x.div(-4);
+				expect(z.get(0, 0)).to.equal(-0.25);
+				expect(z.get(0, 1)).to.equal(-1);
+				expect(z.get(1, 0)).to.equal(-2.25);
+				expect(z.get(1, 1)).to.equal(4.25);
+			})
+		})
+	})
+})
+describe('linspace', function(){
+	it('Has length of 50 with default arguments', function(){
+		expect((new numjs.linspace(0, 1)).length).to.equal(50);
+	})
+	it('Has the specified number of samples', function(){
+		expect((new numjs.linspace(0, 1, 243)).length).to.equal(243);
+	})
+	it('Has expected values', function(){
+		var start = 50;
+		var stop = 99;
+		var x = numjs.linspace(start, stop);
+		for (var i = 0; i < x.length; i++) {
+			expect(x.get(i)).to.equal(start+i);
+		}
+	})
+	describe('with includeStop === false', function(){
+		it('Has the specified number of samples', function(){
+			expect((new numjs.linspace(0, 1, 243, false)).length).to.equal(243);
+		})
+		it('Does not contain the right endpoint', function(){
+			var x = numjs.linspace(-1, 1, 1000, false);
+			expect(x.get(x.length - 1)).to.not.equal(1);
+		})
+	})
+})
+describe('exp', function() {
+	it('Correct result for 1-dimensional newly created output array', function(){
+		var x = new numjs.NDArray(3);
+		x.set([0], 1);
+		x.set([1], -1);
+		x.set([2], 0);
+		var y = numjs.exp(x);
+		expect(y.get(0)).to.be.closeTo(Math.exp(1), Math.exp(1) * Number.EPSILON * 3);
+		expect(y.get(1)).to.be.closeTo(Math.exp(-1), Math.exp(-1) * Number.EPSILON * 3);
+		expect(y.get(2)).to.equal(1);
+	})
+})
