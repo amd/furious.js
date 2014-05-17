@@ -7,6 +7,15 @@
 # Minified JavaScript
 *.min.js
 
+# Object files
+*.o
+*.bc
+*.pexe
+*.nexe
+
+# Generated documentation
+doc/**
+
 # Ninja files
 .ninja_deps
 .ninja_log
