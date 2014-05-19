@@ -342,6 +342,32 @@ describe('NDArray', function(){
 		})
 	})
 })
+describe('array', function(){
+	it('Matches the length of the provided array', function(){
+		expect((new numjs.array([0, 1])).length).to.equal(2);
+		expect((new numjs.array([[0, 1], [2,3], [3,4]])).length).to.equal(6);
+	})
+	it('Matches the shape of the provided array', function(){
+		expect((new numjs.array([0, 1])).shape).to.deep.equal([2]);
+		expect((new numjs.array([[0, 1], [2,3], [3,4]])).shape).to.deep.equal([3, 2]);
+		expect((new numjs.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])).shape).to.deep.equal([2, 2, 3]);
+	})
+	it('Matches the data of the provided array', function(){
+		var x = new numjs.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]);
+		expect(x.get(0, 0, 0)).to.equal(1);
+		expect(x.get(0, 0, 1)).to.equal(2);
+		expect(x.get(0, 0, 2)).to.equal(3);
+		expect(x.get(0, 1, 0)).to.equal(4);
+		expect(x.get(0, 1, 1)).to.equal(5);
+		expect(x.get(0, 1, 2)).to.equal(6);
+		expect(x.get(1, 0, 0)).to.equal(7);
+		expect(x.get(1, 0, 1)).to.equal(8);
+		expect(x.get(1, 0, 2)).to.equal(9);
+		expect(x.get(1, 1, 0)).to.equal(10);
+		expect(x.get(1, 1, 1)).to.equal(11);
+		expect(x.get(1, 1, 2)).to.equal(12);
+	})
+})
 describe('linspace', function(){
 	it('Has length of 50 with default arguments', function(){
 		expect((new numjs.linspace(0, 1)).length).to.equal(50);
