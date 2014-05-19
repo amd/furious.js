@@ -346,3 +346,12 @@ describe('exp', function() {
 		expect(y.get(2)).to.equal(1);
 	})
 })
+describe('log', function() {
+	it('Correct result for 1-dimensional newly created output array', function(){
+		var x = new numjs.array([1, 3, 10]);
+		var y = numjs.log(x);
+		expect(y.get(0)).to.equal(0);
+		expect(y.get(1)).to.be.closeTo(Math.log(3), Math.log(3) * Number.EPSILON * 3);
+		expect(y.get(2)).to.be.closeTo(Math.log(10), Math.log(10) * Number.EPSILON * 3);
+	})
+})
