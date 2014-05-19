@@ -102,30 +102,16 @@ describe('NDArray', function(){
 	describe('add', function(){
 		describe('Add array', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				var y = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
-				y.set([0], 8);
-				y.set([1], -1);
-				y.set([2], 10);
+				var x = new numjs.array([1, 4, 9]);
+				var y = new numjs.array([8, -1, 10]);
 				var z = x.add(y);
 				expect(z.get(0)).to.equal(9);
 				expect(z.get(1)).to.equal(3);
 				expect(z.get(2)).to.equal(19);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
-				y.set([0, 0], 8);
-				y.set([0, 1], -1);
-				y.set([1, 0], 10);
-				y.set([1, 1], -21);
+				var x = new numjs.array([[1, 4], [9, -17]]);
+				var y = new numjs.array([[8, -1], [10, -21]]);
 				var z = x.add(y);
 				expect(z.get(0, 0)).to.equal(9);
 				expect(z.get(0, 1)).to.equal(3);
@@ -135,22 +121,14 @@ describe('NDArray', function(){
 		})
 		describe('Add scalar', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
+				var x = new numjs.array([1, 4, 9]);
 				var z = x.add(-7);
 				expect(z.get(0)).to.equal(-6);
 				expect(z.get(1)).to.equal(-3);
 				expect(z.get(2)).to.equal(2);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
+				var x = new numjs.array([[1, 4], [9, -17]]);
 				var z = x.add(42);
 				expect(z.get(0, 0)).to.equal(43);
 				expect(z.get(0, 1)).to.equal(46);
@@ -162,30 +140,16 @@ describe('NDArray', function(){
 	describe('sub', function(){
 		describe('Subtract array', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				var y = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
-				y.set([0], 8);
-				y.set([1], -1);
-				y.set([2], 10);
+				var x = new numjs.array([1, 4, 9]);
+				var y = new numjs.array([8, -1, 10]);
 				var z = x.sub(y);
 				expect(z.get(0)).to.equal(-7);
 				expect(z.get(1)).to.equal(5);
 				expect(z.get(2)).to.equal(-1);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
-				y.set([0, 0], 8);
-				y.set([0, 1], -1);
-				y.set([1, 0], 10);
-				y.set([1, 1], -21);
+				var x = new numjs.array([[1, 4], [9, -17]]);
+				var y = new numjs.array([[8, -1], [10, -21]]);
 				var z = x.sub(y);
 				expect(z.get(0, 0)).to.equal(-7);
 				expect(z.get(0, 1)).to.equal(5);
@@ -195,22 +159,14 @@ describe('NDArray', function(){
 		})
 		describe('Subtract scalar', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
+				var x = new numjs.array([1, 4, 9]);
 				var z = x.sub(-7);
 				expect(z.get(0)).to.equal(8);
 				expect(z.get(1)).to.equal(11);
 				expect(z.get(2)).to.equal(16);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
+				var x = new numjs.array([[1, 4], [9, -17]]);
 				var z = x.sub(42);
 				expect(z.get(0, 0)).to.equal(-41);
 				expect(z.get(0, 1)).to.equal(-38);
@@ -222,30 +178,16 @@ describe('NDArray', function(){
 	describe('mul', function(){
 		describe('Multiply by array', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				var y = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
-				y.set([0], 8);
-				y.set([1], -1);
-				y.set([2], 10);
+				var x = new numjs.array([1, 4, 9]);
+				var y = new numjs.array([8, -1, 10]);
 				var z = x.mul(y);
 				expect(z.get(0)).to.equal(8);
 				expect(z.get(1)).to.equal(-4);
 				expect(z.get(2)).to.equal(90);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
-				y.set([0, 0], 8);
-				y.set([0, 1], -1);
-				y.set([1, 0], 10);
-				y.set([1, 1], -21);
+				var x = new numjs.array([[1, 4], [9, -17]]);
+				var y = new numjs.array([[8, -1], [10, -21]]);
 				var z = x.mul(y);
 				expect(z.get(0, 0)).to.equal(8);
 				expect(z.get(0, 1)).to.equal(-4);
@@ -255,23 +197,14 @@ describe('NDArray', function(){
 		})
 		describe('Multiply by scalar', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				var y = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
+				var x = new numjs.array([1, 4, 9]);
 				var z = x.mul(-10);
 				expect(z.get(0)).to.equal(-10);
 				expect(z.get(1)).to.equal(-40);
 				expect(z.get(2)).to.equal(-90);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
+				var x = new numjs.array([[1, 4], [9, -17]]);
 				var z = x.mul(10);
 				expect(z.get(0, 0)).to.equal(10);
 				expect(z.get(0, 1)).to.equal(40);
@@ -283,30 +216,16 @@ describe('NDArray', function(){
 	describe('div', function(){
 		describe('Divide by array', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				var y = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
-				y.set([0], 2);
-				y.set([1], -4);
-				y.set([2], 8);
+				var x = new numjs.array([1, 4, 9]);
+				var y = new numjs.array([2, -4, 8]);
 				var z = x.div(y);
 				expect(z.get(0)).to.equal(0.5);
 				expect(z.get(1)).to.equal(-1);
 				expect(z.get(2)).to.equal(1.125);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
-				y.set([0, 0], -2);
-				y.set([0, 1], 4);
-				y.set([1, 0], -8);
-				y.set([1, 1], 16);
+				var x = new numjs.array([[1, 4], [9, -17]]);
+				var y = new numjs.array([[-2, 4], [-8, 16]]);
 				var z = x.div(y);
 				expect(z.get(0, 0)).to.equal(-0.5);
 				expect(z.get(0, 1)).to.equal(1);
@@ -316,23 +235,14 @@ describe('NDArray', function(){
 		})
 		describe('Divide by scalar', function(){
 			it('Correct result for 1-dimensional arrays', function(){
-				var x = new numjs.NDArray(3);
-				var y = new numjs.NDArray(3);
-				x.set([0], 1);
-				x.set([1], 4);
-				x.set([2], 9);
+				var x = new numjs.array([1, 4, 9]);
 				var z = x.div(-2);
 				expect(z.get(0)).to.equal(-0.5);
 				expect(z.get(1)).to.equal(-2);
 				expect(z.get(2)).to.equal(-4.5);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
-				var x = new numjs.NDArray([2,2]);
-				var y = new numjs.NDArray([2,2]);
-				x.set([0, 0], 1);
-				x.set([0, 1], 4);
-				x.set([1, 0], 9);
-				x.set([1, 1], -17);
+				var x = new numjs.array([[1, 4], [9, -17]]);
 				var z = x.div(-4);
 				expect(z.get(0, 0)).to.equal(-0.25);
 				expect(z.get(0, 1)).to.equal(-1);
@@ -395,10 +305,7 @@ describe('linspace', function(){
 })
 describe('exp', function() {
 	it('Correct result for 1-dimensional newly created output array', function(){
-		var x = new numjs.NDArray(3);
-		x.set([0], 1);
-		x.set([1], -1);
-		x.set([2], 0);
+		var x = new numjs.array([1, -1, 0]);
 		var y = numjs.exp(x);
 		expect(y.get(0)).to.be.closeTo(Math.exp(1), Math.exp(1) * Number.EPSILON * 3);
 		expect(y.get(1)).to.be.closeTo(Math.exp(-1), Math.exp(-1) * Number.EPSILON * 3);
