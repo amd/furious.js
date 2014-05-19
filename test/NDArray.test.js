@@ -160,18 +160,15 @@ describe('NDArray', function(){
 		describe('Subtract scalar', function(){
 			it('Correct result for 1-dimensional arrays', function(){
 				var x = new numjs.array([1, 4, 9]);
-				var z = x.sub(-7);
-				expect(z.get(0)).to.equal(8);
-				expect(z.get(1)).to.equal(11);
-				expect(z.get(2)).to.equal(16);
+				var y = x.sub(-7);
+				var yRef = new numjs.array([8, 11, 16]);
+				expect(numjs.abs(y.sub(yRef)).max()).to.equal(0);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
 				var x = new numjs.array([[1, 4], [9, -17]]);
-				var z = x.sub(42);
-				expect(z.get(0, 0)).to.equal(-41);
-				expect(z.get(0, 1)).to.equal(-38);
-				expect(z.get(1, 0)).to.equal(-33);
-				expect(z.get(1, 1)).to.equal(-59);
+				var y = x.sub(42);
+				var yRef = new numjs.array([[-41, -38], [-33, -59]]);
+				expect(numjs.abs(y.sub(yRef)).max()).to.equal(0);
 			})
 		})
 	})
@@ -181,35 +178,29 @@ describe('NDArray', function(){
 				var x = new numjs.array([1, 4, 9]);
 				var y = new numjs.array([8, -1, 10]);
 				var z = x.mul(y);
-				expect(z.get(0)).to.equal(8);
-				expect(z.get(1)).to.equal(-4);
-				expect(z.get(2)).to.equal(90);
+				var zRef = new numjs.array([8, -4, 90]);
+				expect(numjs.abs(z.sub(zRef)).max()).to.equal(0);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
 				var x = new numjs.array([[1, 4], [9, -17]]);
 				var y = new numjs.array([[8, -1], [10, -21]]);
 				var z = x.mul(y);
-				expect(z.get(0, 0)).to.equal(8);
-				expect(z.get(0, 1)).to.equal(-4);
-				expect(z.get(1, 0)).to.equal(90);
-				expect(z.get(1, 1)).to.equal(357);
+				var zRef = new numjs.array([[8, -4], [90, 357]]);
+				expect(numjs.abs(z.sub(zRef)).max()).to.equal(0);
 			})
 		})
 		describe('Multiply by scalar', function(){
 			it('Correct result for 1-dimensional arrays', function(){
 				var x = new numjs.array([1, 4, 9]);
-				var z = x.mul(-10);
-				expect(z.get(0)).to.equal(-10);
-				expect(z.get(1)).to.equal(-40);
-				expect(z.get(2)).to.equal(-90);
+				var y = x.mul(-10);
+				var yRef = new numjs.array([-10, -40, -90]);
+				expect(numjs.abs(y.sub(yRef)).max()).to.equal(0);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
 				var x = new numjs.array([[1, 4], [9, -17]]);
-				var z = x.mul(10);
-				expect(z.get(0, 0)).to.equal(10);
-				expect(z.get(0, 1)).to.equal(40);
-				expect(z.get(1, 0)).to.equal(90);
-				expect(z.get(1, 1)).to.equal(-170);
+				var y = x.mul(10);
+				var yRef = new numjs.array([[10, 40], [90, -170]]);
+				expect(numjs.abs(y.sub(yRef)).max()).to.equal(0);
 			})
 		})
 	})
@@ -219,35 +210,29 @@ describe('NDArray', function(){
 				var x = new numjs.array([1, 4, 9]);
 				var y = new numjs.array([2, -4, 8]);
 				var z = x.div(y);
-				expect(z.get(0)).to.equal(0.5);
-				expect(z.get(1)).to.equal(-1);
-				expect(z.get(2)).to.equal(1.125);
+				var zRef = new numjs.array([0.5, -1, 1.125]);
+				expect(numjs.abs(z.sub(zRef)).max()).to.equal(0);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
 				var x = new numjs.array([[1, 4], [9, -17]]);
 				var y = new numjs.array([[-2, 4], [-8, 16]]);
 				var z = x.div(y);
-				expect(z.get(0, 0)).to.equal(-0.5);
-				expect(z.get(0, 1)).to.equal(1);
-				expect(z.get(1, 0)).to.equal(-1.125);
-				expect(z.get(1, 1)).to.equal(-1.0625);
+				var zRef = new numjs.array([[-0.5, 1], [-1.125, -1.0625]]);
+				expect(numjs.abs(z.sub(zRef)).max()).to.equal(0);
 			})
 		})
 		describe('Divide by scalar', function(){
 			it('Correct result for 1-dimensional arrays', function(){
 				var x = new numjs.array([1, 4, 9]);
 				var z = x.div(-2);
-				expect(z.get(0)).to.equal(-0.5);
-				expect(z.get(1)).to.equal(-2);
-				expect(z.get(2)).to.equal(-4.5);
+				var zRef = new numjs.array([-0.5, -2, -4.5]);
+				expect(numjs.abs(z.sub(zRef)).max()).to.equal(0);
 			})
 			it('Correct result for 2-dimensional arrays', function(){
 				var x = new numjs.array([[1, 4], [9, -17]]);
-				var z = x.div(-4);
-				expect(z.get(0, 0)).to.equal(-0.25);
-				expect(z.get(0, 1)).to.equal(-1);
-				expect(z.get(1, 0)).to.equal(-2.25);
-				expect(z.get(1, 1)).to.equal(4.25);
+				var y = x.div(-4);
+				var yRef = new numjs.array([[-0.25, -1], [-2.25, 4.25]]);
+				expect(numjs.abs(y.sub(yRef)).max()).to.equal(0);
 			})
 		})
 	})
