@@ -251,6 +251,30 @@ describe('NDArray', function(){
 			})
 		})
 	})
+	describe('min', function(){
+		describe('All elements', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.array([1, 4, 9]);
+				expect(x.min()).to.equal(1);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.array([[-2, 4], [-8, 16]]);
+				expect(x.min()).to.equal(-8);
+			})
+		})
+	})
+	describe('max', function(){
+		describe('All elements', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.array([1, 4, 9]);
+				expect(x.max()).to.equal(9);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.array([[-2, 4], [-8, 16]]);
+				expect(x.max()).to.equal(16);
+			})
+		})
+	})
 })
 describe('array', function(){
 	it('Matches the length of the provided array', function(){
@@ -301,6 +325,16 @@ describe('linspace', function(){
 			var x = numjs.linspace(-1, 1, 1000, false);
 			expect(x.get(x.length - 1)).to.not.equal(1);
 		})
+	})
+})
+describe('abs', function() {
+	it('Correct result for 2-dimensional array', function(){
+		var x = new numjs.array([1, -7.5, 0, -15]);
+		var y = numjs.abs(x);
+		expect(y.get(0)).to.equal(1);
+		expect(y.get(1)).to.equal(7.5);
+		expect(y.get(2)).to.equal(0);
+		expect(y.get(3)).to.equal(15);
 	})
 })
 describe('exp', function() {
