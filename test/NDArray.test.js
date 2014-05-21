@@ -401,6 +401,46 @@ describe('NDArray', function(){
 			})
 		})
 	})
+	describe('dot', function(){
+		it('Correct shape for 2-dimensional arrays', function(){
+			var x = new numjs.NDArray([2, 5]);
+			var y = new numjs.NDArray([5, 11]);
+			expect(numjs.dot(x, y).shape).to.deep.equal([2, 11]);
+		})
+		it('Correct shape for 3-dimensional arrays', function(){
+			var x = new numjs.NDArray([2, 3, 4]);
+			var y = new numjs.NDArray([7, 4, 8]);
+			expect(numjs.dot(x, y).shape).to.deep.equal([2, 3, 7, 8]);
+		})
+		it('Correct shape for 4-dimensional arrays', function(){
+			var x = new numjs.NDArray([2, 3, 4, 5]);
+			var y = new numjs.NDArray([6, 7, 5, 8]);
+			expect(numjs.dot(x, y).shape).to.deep.equal([2, 3, 4, 6, 7, 8]);
+		})
+		it('Correct value for 1-dimensional arrays', function(){
+			var x = numjs.array([2, 5]);
+			var y = numjs.array([5, 11]);
+			expect(numjs.dot(x, y).get(0)).to.equal(65);
+		})
+		it('Correct value for 2-dimensional arrays', function(){
+			var x = numjs.array([[64,  2,  3],
+			                     [61, 60,  6]]);
+			var y = numjs.array([[92, 99,  1,  8, 15],
+			                     [67, 74, 51, 58, 40],
+			                     [98, 80,  7, 14, 16]]);
+			var z = numjs.dot(x, y);
+			expect(z.get(0, 0)).to.equal(6316);
+			expect(z.get(0, 1)).to.equal(6724);
+			expect(z.get(0, 2)).to.equal(187);
+			expect(z.get(0, 3)).to.equal(670);
+			expect(z.get(0, 4)).to.equal(1088);
+			expect(z.get(1, 0)).to.equal(10220);
+			expect(z.get(1, 1)).to.equal(10959);
+			expect(z.get(1, 2)).to.equal(3163);
+			expect(z.get(1, 3)).to.equal(4052);
+			expect(z.get(1, 4)).to.equal(3411);
+		})
+	})
 })
 describe('array', function(){
 	it('Matches the length of the provided array', function(){
