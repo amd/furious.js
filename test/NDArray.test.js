@@ -247,6 +247,49 @@ describe('NDArray', function(){
 				expect(x.min()).to.equal(-8);
 			})
 		})
+		describe('Along an axis', function(){
+			it('Correct shape for 3-dimensional arrays', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]);
+				expect(x.min(0).shape).to.deep.equal([3, 4]);
+				expect(x.min(1).shape).to.deep.equal([2, 4]);
+				expect(x.min(2).shape).to.deep.equal([2, 3]);
+			})
+			it('Correct result for 3-dimensional arrays, axis 0', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).min(0);
+				expect(x.get(0, 0)).to.equal(1);
+				expect(x.get(0, 1)).to.equal(2);
+				expect(x.get(0, 2)).to.equal(3);
+				expect(x.get(0, 3)).to.equal(4);
+				expect(x.get(1, 0)).to.equal(5);
+				expect(x.get(1, 1)).to.equal(6);
+				expect(x.get(1, 2)).to.equal(7);
+				expect(x.get(1, 3)).to.equal(8);
+				expect(x.get(2, 0)).to.equal(9);
+				expect(x.get(2, 1)).to.equal(10);
+				expect(x.get(2, 2)).to.equal(11);
+				expect(x.get(2, 3)).to.equal(12);
+			})
+			it('Correct result for 3-dimensional arrays, axis 1', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).min(1);
+				expect(x.get(0, 0)).to.equal(1);
+				expect(x.get(0, 1)).to.equal(2);
+				expect(x.get(0, 2)).to.equal(3);
+				expect(x.get(0, 3)).to.equal(4);
+				expect(x.get(1, 0)).to.equal(13);
+				expect(x.get(1, 1)).to.equal(14);
+				expect(x.get(1, 2)).to.equal(15);
+				expect(x.get(1, 3)).to.equal(16);
+			})
+			it('Correct result for 3-dimensional arrays, axis 2', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).min(2);
+				expect(x.get(0, 0)).to.equal(1);
+				expect(x.get(0, 1)).to.equal(5);
+				expect(x.get(0, 2)).to.equal(9);
+				expect(x.get(1, 0)).to.equal(13);
+				expect(x.get(1, 1)).to.equal(17);
+				expect(x.get(1, 2)).to.equal(21);
+			})
+		})
 	})
 	describe('max', function(){
 		describe('All elements', function(){
@@ -257,6 +300,49 @@ describe('NDArray', function(){
 			it('Correct result for 2-dimensional arrays', function(){
 				var x = new numjs.array([[-2, 4], [-8, 16]]);
 				expect(x.max()).to.equal(16);
+			})
+		})
+		describe('Along an axis', function(){
+			it('Correct shape for 3-dimensional arrays', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]);
+				expect(x.max(0).shape).to.deep.equal([3, 4]);
+				expect(x.max(1).shape).to.deep.equal([2, 4]);
+				expect(x.max(2).shape).to.deep.equal([2, 3]);
+			})
+			it('Correct result for 3-dimensional arrays, axis 0', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).max(0);
+				expect(x.get(0, 0)).to.equal(13);
+				expect(x.get(0, 1)).to.equal(14);
+				expect(x.get(0, 2)).to.equal(15);
+				expect(x.get(0, 3)).to.equal(16);
+				expect(x.get(1, 0)).to.equal(17);
+				expect(x.get(1, 1)).to.equal(18);
+				expect(x.get(1, 2)).to.equal(19);
+				expect(x.get(1, 3)).to.equal(20);
+				expect(x.get(2, 0)).to.equal(21);
+				expect(x.get(2, 1)).to.equal(22);
+				expect(x.get(2, 2)).to.equal(23);
+				expect(x.get(2, 3)).to.equal(24);
+			})
+			it('Correct result for 3-dimensional arrays, axis 1', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).max(1);
+				expect(x.get(0, 0)).to.equal(9);
+				expect(x.get(0, 1)).to.equal(10);
+				expect(x.get(0, 2)).to.equal(11);
+				expect(x.get(0, 3)).to.equal(12);
+				expect(x.get(1, 0)).to.equal(21);
+				expect(x.get(1, 1)).to.equal(22);
+				expect(x.get(1, 2)).to.equal(23);
+				expect(x.get(1, 3)).to.equal(24);
+			})
+			it('Correct result for 3-dimensional arrays, axis 2', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).max(2);
+				expect(x.get(0, 0)).to.equal(4);
+				expect(x.get(0, 1)).to.equal(8);
+				expect(x.get(0, 2)).to.equal(12);
+				expect(x.get(1, 0)).to.equal(16);
+				expect(x.get(1, 1)).to.equal(20);
+				expect(x.get(1, 2)).to.equal(24);
 			})
 		})
 	})
