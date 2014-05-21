@@ -346,6 +346,61 @@ describe('NDArray', function(){
 			})
 		})
 	})
+	describe('sum', function(){
+		describe('All elements', function(){
+			it('Correct result for 1-dimensional arrays', function(){
+				var x = new numjs.array([1, 4, 9]);
+				expect(x.sum()).to.equal(14);
+			})
+			it('Correct result for 2-dimensional arrays', function(){
+				var x = new numjs.array([[-2, 4], [-8, 16]]);
+				expect(x.sum()).to.equal(10);
+			})
+		})
+		describe('Along an axis', function(){
+			it('Correct shape for 3-dimensional arrays', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]);
+				expect(x.sum(0).shape).to.deep.equal([3, 4]);
+				expect(x.sum(1).shape).to.deep.equal([2, 4]);
+				expect(x.sum(2).shape).to.deep.equal([2, 3]);
+			})
+			it('Correct result for 3-dimensional arrays, axis 0', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).sum(0);
+				expect(x.get(0, 0)).to.equal(14);
+				expect(x.get(0, 1)).to.equal(16);
+				expect(x.get(0, 2)).to.equal(18);
+				expect(x.get(0, 3)).to.equal(20);
+				expect(x.get(1, 0)).to.equal(22);
+				expect(x.get(1, 1)).to.equal(24);
+				expect(x.get(1, 2)).to.equal(26);
+				expect(x.get(1, 3)).to.equal(28);
+				expect(x.get(2, 0)).to.equal(30);
+				expect(x.get(2, 1)).to.equal(32);
+				expect(x.get(2, 2)).to.equal(34);
+				expect(x.get(2, 3)).to.equal(36);
+			})
+			it('Correct result for 3-dimensional arrays, axis 1', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).sum(1);
+				expect(x.get(0, 0)).to.equal(15);
+				expect(x.get(0, 1)).to.equal(18);
+				expect(x.get(0, 2)).to.equal(21);
+				expect(x.get(0, 3)).to.equal(24);
+				expect(x.get(1, 0)).to.equal(51);
+				expect(x.get(1, 1)).to.equal(54);
+				expect(x.get(1, 2)).to.equal(57);
+				expect(x.get(1, 3)).to.equal(60);
+			})
+			it('Correct result for 3-dimensional arrays, axis 2', function(){
+				var x = numjs.linspace(1, 24, 24).reshape([2, 3, 4]).sum(2);
+				expect(x.get(0, 0)).to.equal(10);
+				expect(x.get(0, 1)).to.equal(26);
+				expect(x.get(0, 2)).to.equal(42);
+				expect(x.get(1, 0)).to.equal(58);
+				expect(x.get(1, 1)).to.equal(74);
+				expect(x.get(1, 2)).to.equal(90);
+			})
+		})
+	})
 })
 describe('array', function(){
 	it('Matches the length of the provided array', function(){
