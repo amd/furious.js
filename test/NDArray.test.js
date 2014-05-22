@@ -99,6 +99,19 @@ describe('NDArray', function(){
 			expect(x.get([1, 1, 0])).to.equal(7);
 		})
 	})
+	describe('toArray', function(){
+		it('Works with 1-dimensional array', function(){
+			var x = numjs.array([42, 10]);
+			expect(x.toArray()).to.deep.equal([42, 10]);
+		})
+		it('Works with 2-dimensional array', function(){
+			var array = [[16,  2,  3, 13,  5],
+			             [11, 10,  8,  9,  7],
+			             [ 6, 12,  4, 14, 15]];
+			var x = numjs.array(array);
+			expect(x.toArray()).to.deep.equal(array);
+		})
+	})
 	describe('add', function(){
 		describe('Add array', function(){
 			it('Correct result for 1-dimensional arrays', function(){
