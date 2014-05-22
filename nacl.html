@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>NumJS PNaCl Backend Demo</title>
+	</head>
+	<body>
+		<div>
+			<script type="text/javascript">
+				(function () {
+					function dotProductJS(xArray, yArray) {
+						var n = xArray.length;
+						var s = 0.0;
+						for (var i = 0; i < n; ++i) {
+							s += xArray[i] * yArray[i];
+						}
+						return s;
+					}
+
+					function hasPNaCl() {
+						try {
+							return (typeof navigator.mimeTypes['application/x-pnacl']) !== "undefined";
+						} catch (e) {
+							return false;
+						}
+					}
+
+
+					var length = 1024*1024*32;
+					var x = new Float32Array(length);
+					var y = new Float32Array(length);
+					for (var i = 0; i < x.length; i++) {
+						x[i] = Math.random();
+						y[i] = Math.random();
+					}
+
+					if (hasPNaCl()) {
+						console.log("PNaCl detected");
+						
+						var pnacl = document.createElement('object');
+						var timestamp = 0.0;
+						var iteration = 0;
+						pnacl.width = 0;
+						pnacl.height = 0;
+						pnacl.data = "numjs.nmf";
+						pnacl.type = "application/x-pnacl";
+						pnacl.addEventListener('load', function () {
+							timestamp = performance.now();
+							pnacl.postMessage({
+								"operation": "dotProduct",
+								"x": x.buffer,
+								"xOffset": x.byteOffset,
+								"y": y.buffer,
+								"yOffset": y.byteOffset,
+								"length": 1024*1024
+							});
+						}, true);
+						pnacl.addEventListener('message', function (message) {
+							var ping = performance.now() - timestamp;
+							console.log("PNaCl: " + ping.toFixed(3) + " ms");
+
+							if (iteration++ < 10) {
+								timestamp = performance.now();
+								pnacl.postMessage({
+									"operation": "dotProduct",
+									"x": x.buffer,
+									"xOffset": x.byteOffset,
+									"y": y.buffer,
+									"yOffset": y.byteOffset,
+									"length": 1024*1024
+								});
+							} else {
+								window.sum = 0;
+								for (var i = 0; i < 10000; i++) {
+									var s = dotProductJS(x.subarray(0, 128), y.subarray(0, 128));
+								}
+								window.sum += s;
+								for (var i = 0; i < 10; i++) {
+									timestamp = performance.now();
+									var s = dotProductJS(x, y);
+									var ping = performance.now() - timestamp;
+									console.log("JS: " + ping.toFixed(3) + " ms");
+									window.sum += s;
+								}
+							}
+						}, true);
+						document.body.appendChild(pnacl);
+					} else {
+						console.log("PNaCl not supported");
+						window.sum = 0;
+						for (var i = 0; i < 10; i++) {
+							timestamp = performance.now();
+							var s = dotProductJS(x, y);
+							var ping = performance.now() - timestamp;
+							console.log("JS: " + ping.toFixed(3) + " ms");
+							window.sum += s;
+						}
+					}
+				}());
+			</script>
+		</div>
+	</body>
+</html>
