@@ -8,76 +8,104 @@
 #include <ppapi/c/ppp_messaging.h>
 #include <ppapi/c/ppp_instance.h>
 
-#include <ppapi/c/ppb_console.h>
-#include <ppapi/c/ppb_messaging.h>
-#include <ppapi/c/ppb_var.h>
-#include <ppapi/c/ppb_var_dictionary.h>
-#include <ppapi/c/ppb_var_array_buffer.h>
+#include "Error.h"
+#include "DataType.h"
+#include "Interfaces.h"
+#include "Commands.h"
 
-#define NUMJS_VAR_FROM_STRING_LITERAL(interface, string) \
-	interface->VarFromUtf8(string, sizeof(string) - 1)
+const struct PPB_Console_1_0* consoleInterface = NULL;
+const struct PPB_Var_1_1* varInterface = NULL;
+const struct PPB_Messaging_1_0* messagingInterface = NULL;
+const struct PPB_VarDictionary_1_0* dictionaryInterface = NULL;
+const struct PPB_VarArray_1_0* arrayInterface = NULL;
+const struct PPB_VarArrayBuffer_1_0* bufferInterface = NULL;
 
-static const struct PPB_Console_1_0* consoleInterface = NULL;
-static const struct PPB_Var_1_1* varInterface = NULL;
-static const struct PPB_Messaging_1_0* messagingInterface = NULL;
-static const struct PPB_VarDictionary_1_0* dictionaryInterface = NULL;
-static const struct PPB_VarArrayBuffer_1_0* arrayBufferInterface = NULL;
-
-static struct PP_Var operationStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var commandStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var typeStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 static struct PP_Var idStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var outStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var inStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 static struct PP_Var shapeStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var arrayStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var bufferStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 static struct PP_Var xStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 static struct PP_Var yStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 static struct PP_Var zStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var lengthStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var replyVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+
 static struct PP_Var statusStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 static struct PP_Var errorStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 static struct PP_Var successStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 
-static float xArray[1024*1024*32];
-static float yArray[1024*1024*32];
-
 PP_EXPORT int32_t PPP_InitializeModule(PP_Module module, PPB_GetInterface get_browser_interface) {
 	consoleInterface = get_browser_interface(PPB_CONSOLE_INTERFACE_1_0);
-	messagingInterface = get_browser_interface(PPB_MESSAGING_INTERFACE_1_0);
-	varInterface = get_browser_interface(PPB_VAR_INTERFACE_1_1);
-	dictionaryInterface = get_browser_interface(PPB_VAR_DICTIONARY_INTERFACE_1_0);
-	arrayBufferInterface = get_browser_interface(PPB_VAR_ARRAY_BUFFER_INTERFACE_1_0);
-	operationStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "operation");
-	idStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "id");
-	xStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "x");
-	xOffsetStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "xOffset");
-	yStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "y");
-	yOffsetStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "yOffset");
-	zStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "z");
-	zOffsetStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "zOffset");
-	lengthStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "length");
-	statusStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "status");
-	errorStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "error");
-	successStringVar = NUMJS_VAR_FROM_STRING_LITERAL(varInterface, "success");
-	for (size_t i = 0; i < 1024*1024*32; i++) {
-		xArray[i] = (float)rand() / (float)RAND_MAX;
-		yArray[i] = (float)rand() / (float)RAND_MAX;
+	if (consoleInterface == NULL) {
+		return PP_ERROR_NOINTERFACE;
 	}
+	messagingInterface = get_browser_interface(PPB_MESSAGING_INTERFACE_1_0);
+	if (messagingInterface == NULL) {
+		return PP_ERROR_NOINTERFACE;
+	}
+	varInterface = get_browser_interface(PPB_VAR_INTERFACE_1_1);
+	if (varInterface == NULL) {
+		return PP_ERROR_NOINTERFACE;
+	}
+	dictionaryInterface = get_browser_interface(PPB_VAR_DICTIONARY_INTERFACE_1_0);
+	if (dictionaryInterface == NULL) {
+		return PP_ERROR_NOINTERFACE;
+	}
+	arrayInterface = get_browser_interface(PPB_VAR_ARRAY_INTERFACE_1_0);
+	if (arrayInterface == NULL) {
+		return PP_ERROR_NOINTERFACE;
+	}
+	bufferInterface = get_browser_interface(PPB_VAR_ARRAY_BUFFER_INTERFACE_1_0);
+	if (bufferInterface == NULL) {
+		return PP_ERROR_NOINTERFACE;
+	}
+
+	commandStringVar = NUMJS_VAR_FROM_STRING_LITERAL("command");
+	typeStringVar = NUMJS_VAR_FROM_STRING_LITERAL("type");
+	idStringVar = NUMJS_VAR_FROM_STRING_LITERAL("id");
+	outStringVar = NUMJS_VAR_FROM_STRING_LITERAL("out");
+	inStringVar = NUMJS_VAR_FROM_STRING_LITERAL("in");
+	shapeStringVar = NUMJS_VAR_FROM_STRING_LITERAL("shape");
+	arrayStringVar = NUMJS_VAR_FROM_STRING_LITERAL("array");
+	bufferStringVar = NUMJS_VAR_FROM_STRING_LITERAL("buffer");
+	xStringVar = NUMJS_VAR_FROM_STRING_LITERAL("x");
+	yStringVar = NUMJS_VAR_FROM_STRING_LITERAL("y");
+	zStringVar = NUMJS_VAR_FROM_STRING_LITERAL("z");
+
+	statusStringVar = NUMJS_VAR_FROM_STRING_LITERAL("status");
+	errorStringVar = NUMJS_VAR_FROM_STRING_LITERAL("error");
+	successStringVar = NUMJS_VAR_FROM_STRING_LITERAL("success");
+
+	replyVar = dictionaryInterface->Create();
+
 	return PP_OK;
 }
 
 PP_EXPORT void PPP_ShutdownModule(void) {
-	varInterface->Release(successStringVar);
-	varInterface->Release(errorStringVar);
-	varInterface->Release(statusStringVar);
-	varInterface->Release(lengthStringVar);
-	varInterface->Release(zStringVar);
-	varInterface->Release(yStringVar);
-	varInterface->Release(xStringVar);
+	varInterface->Release(commandStringVar);
+	varInterface->Release(typeStringVar);
 	varInterface->Release(idStringVar);
-	varInterface->Release(operationStringVar);
+	varInterface->Release(outStringVar);
+	varInterface->Release(inStringVar);
+	varInterface->Release(shapeStringVar);
+	varInterface->Release(arrayStringVar);
+	varInterface->Release(bufferStringVar);
+	varInterface->Release(xStringVar);
+	varInterface->Release(yStringVar);
+	varInterface->Release(zStringVar);
+
+	varInterface->Release(statusStringVar);
+	varInterface->Release(errorStringVar);
+	varInterface->Release(successStringVar);
+
+	varInterface->Release(replyVar);
 }
 
 static PP_Bool onCreateInstance(PP_Instance instance, uint32_t argc, const char* argn[], const char* argv[]) {
-	struct PP_Var varMessage = varInterface->VarFromUtf8("PNaCl INIT", sizeof("PNaCl INIT") - 1);
-	consoleInterface->Log(instance, PP_LOGLEVEL_LOG, varMessage);
-	varInterface->Release(varMessage);
+	NUMJS_LOG_INFO("PNaCl INIT");
 	return PP_TRUE;
 }
 
@@ -102,130 +130,240 @@ static struct PPP_Instance_1_1 pluginInstanceInterface = {
 	.HandleDocumentLoad = onDocumentLoad
 };
 
-float dotProductF32(size_t length, const float x[restrict static length], const float y[restrict static length]);
+static void handleCreateCommand(PP_Instance instance, struct PP_Var message) {
+	enum NumJS_DataType type = NumJS_DataType_Invalid;
+	struct PP_Var outVar = PP_MakeUndefined();
+	struct PP_Var typeVar = PP_MakeUndefined();
+	struct PP_Var shapeVar = PP_MakeUndefined();
+	uint32_t* shapeBuffer = NULL;
+	uint32_t shapeSize = 0;
 
-static void handleDotProduct(PP_Instance instance, struct PP_Var message) {
-	struct PP_Var xVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-	struct PP_Var yVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-	struct PP_Var xOffsetVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-	struct PP_Var yOffsetVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-	struct PP_Var lengthVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-	struct PP_Var replyVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+	outVar = dictionaryInterface->Get(message, outStringVar);
+	if (outVar.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("Out not specified in CREATE");
+		goto cleanup;
+	} else if (outVar.type != PP_VARTYPE_INT32) {
+		NUMJS_LOG_ERROR("Unsupported out type: int32 expected in CREATE");
+		goto cleanup;
+	}
+	const int32_t out = outVar.value.as_int;
 
-	float* xPointer = NULL;
-	float* yPointer = NULL;
-
-	xVar = dictionaryInterface->Get(message, xStringVar);
-	if (xVar.type != PP_VARTYPE_ARRAY_BUFFER) {
+	typeVar = dictionaryInterface->Get(message, typeStringVar);
+	if (typeVar.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("Type not specified in CREATE");
 		goto cleanup;
 	}
 
-	yVar = dictionaryInterface->Get(message, yStringVar);
-	if (yVar.type != PP_VARTYPE_ARRAY_BUFFER) {
+	uint32_t typeLength = 0;
+	const char* const typePointer = varInterface->VarToUtf8(typeVar, &typeLength);
+	if (typePointer == NULL) {
+		NUMJS_LOG_ERROR("Unsupported type type in CREATE");
 		goto cleanup;
 	}
 
-	xOffsetVar = dictionaryInterface->Get(message, xOffsetStringVar);
-	if (xOffsetVar.type != PP_VARTYPE_INT32) {
-		goto cleanup;
-	}
-	const int32_t xOffset = xOffsetVar.value.as_int;
-
-	if (xOffset < 0) {
-		goto cleanup;
-	}
-
-	yOffsetVar = dictionaryInterface->Get(message, yOffsetStringVar);
-	if (yOffsetVar.type != PP_VARTYPE_INT32) {
-		goto cleanup;
-	}
-	const int32_t yOffset = yOffsetVar.value.as_int;
-
-	if (yOffset < 0) {
+	if (strncmp(typePointer, "f64", typeLength) == 0) {
+		type = NumJS_DataType_F64;
+	} else if (strncmp(typePointer, "f32", typeLength) == 0) {
+		type = NumJS_DataType_F32;
+	} else {
+		NUMJS_LOG_ERROR("Unsupported type value in CREATE");
 		goto cleanup;
 	}
 
-	lengthVar = dictionaryInterface->Get(message, lengthStringVar);
-	if (lengthVar.type != PP_VARTYPE_INT32) {
-		goto cleanup;
-	}
-	const int32_t length = lengthVar.value.as_int;
-
-	if (length < 0) {
+	shapeVar = dictionaryInterface->Get(message, shapeStringVar);
+	if (shapeVar.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("Shape not specified in CREATE");
 		goto cleanup;
 	}
 
-	uint32_t xSize = 0;
-	if (arrayBufferInterface->ByteLength(xVar, &xSize) != PP_TRUE) {
+	if (bufferInterface->ByteLength(shapeVar, &shapeSize) != PP_TRUE) {
+		NUMJS_LOG_ERROR("Invalid shape type in CREATE");
 		goto cleanup;
 	}
 
-	if ((xOffset + length) * sizeof(float) > xSize) {
+	if (shapeSize % 4 != 0) {
+		NUMJS_LOG_ERROR("Invalid shape size in CREATE");
+		goto cleanup;
+	}
+	const size_t shapeLength = shapeSize / 4;
+
+	if (shapeLength == 0) {
+		NUMJS_LOG_ERROR("Empty shape in CREATE");
 		goto cleanup;
 	}
 
-	uint32_t ySize;
-	if (arrayBufferInterface->ByteLength(yVar, &ySize) != PP_TRUE) {
+	shapeBuffer = bufferInterface->Map(shapeVar);
+	if (shapeBuffer == NULL) {
+		NUMJS_LOG_ERROR("Failed to map shape buffer in CREATE");
 		goto cleanup;
 	}
 
-	if ((yOffset + length) * sizeof(float) > xSize) {
-		goto cleanup;
-	}
-
-	xPointer = arrayBufferInterface->Map(xVar);
-	if (xPointer == NULL) {
-		goto cleanup;
-	}
-
-	yPointer = arrayBufferInterface->Map(yVar);
-	if (yPointer == NULL) {
-		goto cleanup;
-	}
-
-	replyVar = dictionaryInterface->Create();
-	if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
-		goto cleanup;
-	}
-
-	const float result = dotProductF32(length, xPointer, yPointer);
-	const struct PP_Var zVar = PP_MakeDouble(result);
-	if (dictionaryInterface->Set(replyVar, zStringVar, zVar) != PP_TRUE) {
-		goto cleanup;
+	enum NumJS_Error error = NumJS_Create(instance, out, shapeLength, shapeBuffer, type);
+	if (error == NumJS_Error_Ok) {
+		if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
+			NUMJS_LOG_ERROR("Failed to set success status in CREATE");
+			goto cleanup;
+		}
+	} else {
+		if (dictionaryInterface->Set(replyVar, statusStringVar, errorStringVar) != PP_TRUE) {
+			NUMJS_LOG_ERROR("Failed to set error status in CREATE");
+			goto cleanup;
+		}
 	}
 
 	messagingInterface->PostMessage(instance, replyVar);
+
+	dictionaryInterface->Delete(replyVar, statusStringVar);
 cleanup:
-	if (xPointer != NULL) {
-		arrayBufferInterface->Unmap(xVar);
+	if (shapeBuffer != NULL) {
+		bufferInterface->Unmap(shapeVar);
 	}
-	if (yPointer != NULL) {
-		arrayBufferInterface->Unmap(yVar);
+
+	varInterface->Release(outVar);
+	varInterface->Release(typeVar);
+	varInterface->Release(shapeVar);
+}
+
+static void handleReleaseCommand(PP_Instance instance, struct PP_Var message) {
+	const struct PP_Var inVar = dictionaryInterface->Get(message, inStringVar);
+	if (inVar.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("In not specified in RELEASE");
+		goto cleanup;
+	} else if (inVar.type != PP_VARTYPE_INT32) {
+		NUMJS_LOG_ERROR("Unsupported in type: int32 expected in RELEASE");
+		goto cleanup;
 	}
-	varInterface->Release(replyVar);
-	varInterface->Release(lengthVar);
-	varInterface->Release(yOffsetVar);
-	varInterface->Release(yVar);
-	varInterface->Release(xOffsetVar);
-	varInterface->Release(xVar);
+	const int32_t in = inVar.value.as_int;
+
+	enum NumJS_Error error = NumJS_Release(instance, in);
+	if (error == NumJS_Error_Ok) {
+		if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
+			NUMJS_LOG_ERROR("Failed to set success status in RELEASE");
+			goto cleanup;
+		}
+	} else {
+		if (dictionaryInterface->Set(replyVar, statusStringVar, errorStringVar) != PP_TRUE) {
+			NUMJS_LOG_ERROR("Failed to set error status in RELEASE");
+			goto cleanup;
+		}
+	}
+
+	messagingInterface->PostMessage(instance, replyVar);
+
+	dictionaryInterface->Delete(replyVar, statusStringVar);
+cleanup:
+	varInterface->Release(inVar);
+}
+
+static void handleGetBufferCommand(PP_Instance instance, struct PP_Var message) {
+	struct PP_Var inVar = PP_MakeUndefined();
+	struct PP_Var bufferVar = PP_MakeUndefined();
+
+	inVar = dictionaryInterface->Get(message, inStringVar);
+	if (inVar.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("In not specified in GET-BUFFER");
+		goto cleanup;
+	} else if (inVar.type != PP_VARTYPE_INT32) {
+		NUMJS_LOG_ERROR("Unsupported in type: int32 expected in GET-BUFFER");
+		goto cleanup;
+	}
+	const int32_t in = inVar.value.as_int;
+
+	enum NumJS_Error error = NumJS_GetBuffer(instance, in, &bufferVar);
+	if (error == NumJS_Error_Ok) {
+		if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
+			NUMJS_LOG_ERROR("Failed to set success status in GET-BUFFER");
+			goto cleanup;
+		}
+		if (dictionaryInterface->Set(replyVar, bufferStringVar, bufferVar) != PP_TRUE) {
+			NUMJS_LOG_ERROR("Failed to set buffer in GET-BUFFER");
+			goto cleanup;
+		}
+	} else {
+		if (dictionaryInterface->Set(replyVar, statusStringVar, errorStringVar) != PP_TRUE) {
+			NUMJS_LOG_ERROR("Failed to set error status in GET-BUFFER");
+			goto cleanup;
+		}
+	}
+
+	messagingInterface->PostMessage(instance, replyVar);
+
+	dictionaryInterface->Delete(replyVar, statusStringVar);
+cleanup:
+	varInterface->Release(inVar);
+	varInterface->Release(bufferVar);
 }
 
 static void handleMessage(PP_Instance instance, struct PP_Var message) {
-	if (message.type == PP_VARTYPE_DICTIONARY) {
-		const struct PP_Var operationVar = dictionaryInterface->Get(message, operationStringVar);
-		uint32_t operationLength = 0;
-		const char* const operationPointer = varInterface->VarToUtf8(operationVar, &operationLength);
-		if (strncmp(operationPointer, "ALLOC.F64", operationLength) == 0) {
-			handleAllocF64(instance, message);
-		} else if (strncmp(operationPointer, "ALLOC.F32", operationLength) == 0) {
-			handleAllocF32(instance, message);
-		} else if (strncmp(operationPointer, "LOG.F64", operationLength) == 0) {
-			handleExpF32(instance, message);
-		} else if (strncmp(operationPointer, "LOG.F32", operationLength) == 0) {
-			handleExpF32(instance, message);
-		}
-		varInterface->Release(operationVar);
+	struct PP_Var commandVar = PP_MakeUndefined();
+	struct PP_Var idVar = PP_MakeUndefined();
+
+	if (message.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("Message not specified");
+		goto cleanup;
+	} else if (message.type != PP_VARTYPE_DICTIONARY) {
+		NUMJS_LOG_ERROR("Unsupported message type: dictionary expected");
+		goto cleanup;
 	}
+
+	idVar = dictionaryInterface->Get(message, idStringVar);
+	if (idVar.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("Id not specified");
+		goto cleanup;
+	} else if (idVar.type != PP_VARTYPE_INT32) {
+		NUMJS_LOG_ERROR("Unsupported id type: int32 expected");
+		goto cleanup;
+	}
+	if (dictionaryInterface->Set(replyVar, idStringVar, idVar) != PP_TRUE) {
+		NUMJS_LOG_ERROR("Failed to set reply message id");
+		goto cleanup;
+	}
+
+	commandVar = dictionaryInterface->Get(message, commandStringVar);
+	if (commandVar.type == PP_VARTYPE_UNDEFINED) {
+		NUMJS_LOG_ERROR("Command not specified");
+		goto cleanup;
+	}
+
+	uint32_t commandLength = 0;
+	const char* const commandString = varInterface->VarToUtf8(commandVar, &commandLength);
+	/* For empty string VarToUtf8 returns zero length, but non-null pointer */
+	if (commandString == NULL) {
+		NUMJS_LOG_ERROR("Unsupported command type: string expected");
+		goto cleanup;
+	}
+
+	const enum NumJS_Command command = NumJS_Command_Parse(commandString, commandLength);
+	switch (command) {
+		case NumJS_Command_Create:
+			handleCreateCommand(instance, message);
+			break;
+		case NumJS_Command_Release:
+			handleReleaseCommand(instance, message);
+			break;
+		case NumJS_Command_GetBuffer:
+			handleGetBufferCommand(instance, message);
+			break;
+		case NumJS_Command_GetArray:
+		case NumJS_Command_Add:
+		case NumJS_Command_Sub:
+		case NumJS_Command_Mul:
+		case NumJS_Command_Div:
+		case NumJS_Command_IAdd:
+		case NumJS_Command_ISub:
+		case NumJS_Command_IRSub:
+		case NumJS_Command_IMul:
+		case NumJS_Command_IDiv:
+		case NumJS_Command_IRDiv:
+		case NumJS_Command_Invalid:
+		default:
+			NUMJS_LOG_ERROR("Unsupported command");
+			goto cleanup;
+	}
+
+cleanup:
+	varInterface->Release(commandVar);
+	varInterface->Release(idVar);
 }
 
 static struct PPP_Messaging_1_0 pluginMessagingInterface = {

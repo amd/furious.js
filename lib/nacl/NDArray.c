@@ -1,35 +1,41 @@
-#include <stddef.h>
-#include <pthread.h>
+#include "NDArray.h"
 
-typedef float v4sf __attribute__((vector_size(16)));
+#include <malloc.h>
+#include <string.h>
 
-float dotProductF32(size_t length, const float* x, const float* y) {
-	const v4sf* simd_x = (const v4sf*)x;
-	const v4sf* simd_y = (const v4sf*)y;
-	v4sf simd_sum0 = { 0.0f, 0.0f, 0.0f, 0.0f };
-	v4sf simd_sum1 = { 0.0f, 0.0f, 0.0f, 0.0f };
-	v4sf simd_sum2 = { 0.0f, 0.0f, 0.0f, 0.0f };
-	v4sf simd_sum3 = { 0.0f, 0.0f, 0.0f, 0.0f };
-	v4sf simd_sum4 = { 0.0f, 0.0f, 0.0f, 0.0f };
-	v4sf simd_sum5 = { 0.0f, 0.0f, 0.0f, 0.0f };
-	while (length >= 24) {
-		simd_sum0 += simd_x[0] * simd_y[0];
-		simd_sum1 += simd_x[1] * simd_y[1];
-		simd_sum2 += simd_x[2] * simd_y[2];
-		simd_sum3 += simd_x[3] * simd_y[3];
-		simd_sum4 += simd_x[4] * simd_y[4];
-		simd_sum5 += simd_x[5] * simd_y[5];
-		simd_x += 6;
-		simd_y += 6;
-		length -= 24;
+struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, uint32_t shape[static dimensions], enum NumJS_DataType dataType) {
+	const uint32_t headerSize = sizeof(struct NDArray);
+
+	/* Round dimensions to the nearest even number so that the data is 8-byte aligned (malloc returns 8-byte aligned pointer) */
+	const uint32_t paddedDimensions = (dimensions + 1) & -2;
+	const uint32_t shapeSize = paddedDimensions * sizeof(uint32_t);
+
+	const uint32_t elementSize = NumJS_DataType_GetSize(dataType);
+	const uint32_t dataSize = length * elementSize;
+	/* This multiplication can easily overflow */
+	if (dataSize < length) {
+		return NULL;
 	}
-	x = (const float*)simd_x;
-	y = (const float*)simd_y;
-	const v4sf simd_sum = (simd_sum0 + simd_sum1) + (simd_sum2 + simd_sum3) + (simd_sum4 + simd_sum5);
-	double sum = (simd_sum[0] + simd_sum[1]) + (simd_sum[2] + simd_sum[3]);
-	while (length > 0) {
-		sum += (*x++) * (*y++);
-		length--;
+
+	const uint32_t arraySize = headerSize + shapeSize + dataSize;
+	/* This addition can overflow if dataSize is close to 4GB */
+	if (arraySize < dataSize) {
+		return NULL;
 	}
-	return sum;
+	
+	struct NDArray* array = malloc(arraySize);
+	if (array == NULL) {
+		return NULL;
+	}
+
+	array->dataType = dataType;
+	array->length = length;
+	array->dimensions = dimensions;
+	memcpy(NumJS_NDArray_GetShape(array), shape, dimensions * sizeof(uint32_t));
+	memset(NumJS_NDArray_GetData(array), 0, length * elementSize);
+	return array;
+}
+
+void NumJS_NDArray_Delete(struct NDArray* array) {
+	free(array);
 }
