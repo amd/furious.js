@@ -9,41 +9,41 @@ enum NumJS_Command {
 	/* Invalid or unknown command */
 	NumJS_Command_Invalid = -1,
 	/* Create NDArray */
-	NumJS_Command_Create = 0,
+	NumJS_Command_Create,
 	/* Create NDArray from ArrayBuffer */
-	NumJS_Command_CreateFromBuffer = 0,
+	NumJS_Command_CreateFromBuffer,
 	/* Create NDArray from JS Array */
-	NumJS_Command_CreateFromArray = 0,
+	NumJS_Command_CreateFromArray,
 	/* Delete NDArray */
-	NumJS_Command_Release = 1,
+	NumJS_Command_Release,
 	/* Get data as ArrayBuffer */
-	NumJS_Command_GetBuffer = 2,
+	NumJS_Command_GetBuffer,
 	/* Get data as JS Array */
-	NumJS_Command_GetArray = 3,
+	NumJS_Command_GetArray,
 	/* Set data as ArrayBuffer */
-	NumJS_Command_SetBuffer = 2,
+	NumJS_Command_SetBuffer,
 	/* Set data as JS Array */
-	NumJS_Command_SetArray = 3,
+	NumJS_Command_SetArray,
 	/* Add: z[i] <- x[i] + y[i] */
-	NumJS_Command_Add = 4,
+	NumJS_Command_Add,
 	/* Subtract: z[i] <- x[i] - y[i] */
-	NumJS_Command_Sub = 5,
+	NumJS_Command_Sub,
 	/* Multiply: z[i] <- x[i] * y[i] */
-	NumJS_Command_Mul = 6,
+	NumJS_Command_Mul,
 	/* Divide: z[i] <- x[i] / y[i] */
-	NumJS_Command_Div = 7,
+	NumJS_Command_Div,
 	/* In-place add: x[i] <- x[i] + y[i] */
-	NumJS_Command_IAdd = 8,
+	NumJS_Command_IAdd,
 	/* In-place subtract: x[i] <- x[i] - y[i] */
-	NumJS_Command_ISub = 9,
+	NumJS_Command_ISub,
 	/* In-place reverse subtract: x[i] <- y[i] - x[i] */
-	NumJS_Command_IRSub = 10,
+	NumJS_Command_IRSub,
 	/* In-place multuply: x[i] <- x[i] * y[i] */
-	NumJS_Command_IMul = 11,
+	NumJS_Command_IMul,
 	/* In-place divide: x[i] <- x[i] / y[i] */
-	NumJS_Command_IDiv = 12,
+	NumJS_Command_IDiv,
 	/* In-place reverse divide: x[i] = y[i] / x[i] */
-	NumJS_Command_IRDiv = 13
+	NumJS_Command_IRDiv
 };
 
 enum NumJS_Command NumJS_Command_Parse(const char* string, uint32_t size);
