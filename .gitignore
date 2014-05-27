@@ -4,8 +4,9 @@
 # Logs
 *.log
 
-# Minified JavaScript
+# Minified JavaScript and source maps
 *.min.js
+*.map
 
 # Object files
 *.o
