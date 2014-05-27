@@ -26,9 +26,9 @@ if __name__ == '__main__':
             ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize.bat')
 
         # Rules
-        ninja.rule('BROWSERIFY', 'cmd /K "browserify $in --outfile $out"',
+        ninja.rule('BROWSERIFY', 'cmd /K "browserify $in --outfile $min -p [minifyify --map $map --output $map]"',
             description='BROWSERIFY $out')
-        ninja.rule('BROWSERIFY_STANDALONE', 'cmd /K "browserify --standalone $module --entry $entry --outfile $out"',
+        ninja.rule('BROWSERIFY_STANDALONE', 'cmd /K "browserify --standalone $module --entry $entry --outfile $min --plugin [minifyify --map $map --output $map]"',
             description='BROWSERIFY MODULE $module')
         if options.jsdoc_compiler:
             ninja.rule('COMPILE_JSDOC', '$jsdoc_compiler $in -d $output_directory',
@@ -48,11 +48,16 @@ if __name__ == '__main__':
         # Build targets
         js_source_dir = os.path.join(root_dir, 'lib')
         js_sources = [os.path.join(root_dir, path) for path in glob.glob(os.path.join(js_source_dir, "*.js"))]
-        ninja.build(os.path.join(root_dir, 'numjs.min.js'), 'BROWSERIFY_STANDALONE', js_sources,
-            variables={'module': 'numjs', 'entry': 'lib/numjs.js'})
+        js_source_min = os.path.join(root_dir, 'numjs.min.js')
+        js_source_map = os.path.join(root_dir, 'numjs.map')
+        ninja.build([js_source_min, js_source_map], 'BROWSERIFY_STANDALONE', js_sources,
+            variables={'module': 'numjs', 'entry': 'lib/numjs.js', 'min': js_source_min, 'map': js_source_map})
         js_test_source_dir = os.path.join(root_dir, 'test')
         js_test_sources = [os.path.join(root_dir, path) for path in glob.glob(os.path.join(js_test_source_dir, "*.test.js"))]
-        ninja.build(os.path.join(root_dir, 'test.min.js'), 'BROWSERIFY', js_test_sources)
+        js_test_source_min = os.path.join(root_dir, 'test.min.js')
+        js_test_source_map = os.path.join(root_dir, 'test.map')
+        ninja.build([js_test_source_min, js_test_source_map], 'BROWSERIFY', js_test_sources,
+            variables={'min': js_test_source_min, 'map': js_test_source_map})
         if options.jsdoc_compiler:
             ninja.build(os.path.join(root_dir, 'doc', 'index.html'), 'COMPILE_JSDOC', js_sources,
                 variables={'output_directory': 'doc'})
