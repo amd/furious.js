@@ -16,6 +16,9 @@
 # Generated documentation
 doc/**
 
+# NPM cache
+node_modules/**
+
 # Ninja files
 .ninja_deps
 .ninja_log
