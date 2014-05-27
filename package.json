@@ -1,0 +1,50 @@
+{
+	"name": "amd-numjs",
+	"version": "0.0.1",
+	"description": "High-performance library for n-dimensional array processing in JavaScript",
+	"author": "Marat Dukhan <marat.dukhan@amd.com>",
+	"contributors": [{
+		"name": "Marat Dukhan",
+		"email": "marat.dukhan@amd.com"
+	}],
+	"scripts": {
+		"test": "mocha --reporter spec",
+		"preinstall": "python configure.py"
+	},
+	"main": "lib/numjs.js",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/amd/NumJS"
+	},
+	"bugs": {
+		"url": "https://github.com/amd/NumJS/issues"
+	},
+	"keywords": [
+		"ndarray",
+		"array",
+		"matrix",
+		"tensor",
+		"ndarray",
+		"hpc",
+		"computing",
+		"blas",
+		"science",
+		"scientific",
+		"numeric",
+		"math",
+		"mathematics",
+		"statistics"
+	],
+	"dependencies": {
+		"chai": "~1.9.0",
+		"mocha": "*",
+		"browserify": "~4.1.5",
+		"minifyify": "~3.0.6"
+	},
+	"devDependencies": {
+	},
+	"license": "MIT",
+	"engines": {
+		"node": ">= 0.5.5"
+	}
+}
