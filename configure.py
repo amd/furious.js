@@ -5,7 +5,6 @@ import ninja_syntax
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()
-    parser.add_option("--with-closure-compiler", dest="closure_compiler", default=os.getenv("JS_CLOSURE_COMPILER"))
     parser.add_option("--with-jsdoc", dest="jsdoc_compiler", default=os.getenv("JSDOC_COMPILER"))
     parser.add_option("--with-nacl-sdk", dest="nacl_sdk", default=os.getenv("NACL_SDK_ROOT"))
     parser.add_option("--pepper-api", dest="pepper_api", default="canary")
@@ -17,8 +16,6 @@ if __name__ == '__main__':
         ninja = ninja_syntax.Writer(buildfile)
 
         # Variables
-        if options.closure_compiler:
-            ninja.variable('google_closure_compiler', options.closure_compiler)
         if options.jsdoc_compiler:
             ninja.variable('jsdoc_compiler', options.jsdoc_compiler)
         if options.nacl_sdk:
@@ -29,9 +26,10 @@ if __name__ == '__main__':
             ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize.bat')
 
         # Rules
-        if options.closure_compiler:
-            ninja.rule('COMPILE_CLOSURE_JS', 'java -jar $google_closure_compiler --js $in --js_output_file $out',
-                description='COMPILE CLOSURE-JS $in')
+        ninja.rule('BROWSERIFY', 'cmd /K "browserify $in --outfile $out"',
+            description='BROWSERIFY $out')
+        ninja.rule('BROWSERIFY_STANDALONE', 'cmd /K "browserify --standalone $module --entry $entry --outfile $out"',
+            description='BROWSERIFY MODULE $module')
         if options.jsdoc_compiler:
             ninja.rule('COMPILE_JSDOC', '$jsdoc_compiler $in -d $output_directory',
                 description='JSDOC $in')
@@ -50,11 +48,15 @@ if __name__ == '__main__':
         # Build targets
         js_source_dir = os.path.join(root_dir, 'lib')
         js_sources = [os.path.join(root_dir, path) for path in glob.glob(os.path.join(js_source_dir, "*.js"))]
-        if options.closure_compiler:
-            ninja.build(os.path.join(root_dir, 'numjs.min.js'), 'COMPILE_CLOSURE_JS', js_sources)
+        ninja.build(os.path.join(root_dir, 'numjs.min.js'), 'BROWSERIFY_STANDALONE', js_sources,
+            variables={'module': 'numjs', 'entry': 'lib/numjs.js'})
+        js_test_source_dir = os.path.join(root_dir, 'test')
+        js_test_sources = [os.path.join(root_dir, path) for path in glob.glob(os.path.join(js_test_source_dir, "*.test.js"))]
+        ninja.build(os.path.join(root_dir, 'test.min.js'), 'BROWSERIFY', js_test_sources)
         if options.jsdoc_compiler:
             ninja.build(os.path.join(root_dir, 'doc', 'index.html'), 'COMPILE_JSDOC', js_sources,
                 variables={'output_directory': 'doc'})
+        
 
         if options.nacl_sdk:
             c_source_dir = os.path.join(root_dir, "lib", "nacl")

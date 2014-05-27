@@ -1,3 +1,6 @@
+var numjs = require('../lib/numjs.js');
+var expect = require('chai').expect;
+
 describe('NDArray', function(){
 	describe('constructor', function(){
 		it('No error with integer shape', function(){
@@ -505,8 +508,8 @@ describe('exp', function() {
 	it('Correct result for 1-dimensional newly created output array', function(){
 		var x = new numjs.array([1, -1, 0]);
 		var y = numjs.exp(x);
-		expect(y.get(0)).to.be.closeTo(Math.exp(1), Math.exp(1) * Number.EPSILON * 3);
-		expect(y.get(1)).to.be.closeTo(Math.exp(-1), Math.exp(-1) * Number.EPSILON * 3);
+		expect(y.get(0)).to.be.closeTo(Math.exp(1), Math.exp(1) * 2.2204460492503130808472633361816E-16 * 3);
+		expect(y.get(1)).to.be.closeTo(Math.exp(-1), Math.exp(-1) * 2.2204460492503130808472633361816E-16 * 3);
 		expect(y.get(2)).to.equal(1);
 	})
 })
@@ -515,7 +518,7 @@ describe('log', function() {
 		var x = new numjs.array([1, 3, 10]);
 		var y = numjs.log(x);
 		expect(y.get(0)).to.equal(0);
-		expect(y.get(1)).to.be.closeTo(Math.log(3), Math.log(3) * Number.EPSILON * 3);
-		expect(y.get(2)).to.be.closeTo(Math.log(10), Math.log(10) * Number.EPSILON * 3);
+		expect(y.get(1)).to.be.closeTo(Math.log(3), Math.log(3) * 2.2204460492503130808472633361816E-16 * 3);
+		expect(y.get(2)).to.be.closeTo(Math.log(10), Math.log(10) * 2.2204460492503130808472633361816E-16 * 3);
 	})
 })

@@ -1,3 +1,6 @@
+var numjs = require('../lib/numjs.js');
+var expect = require('chai').expect;
+
 describe('DataType', function(){
 	describe('f32', function(){
 		it("should have size 4", function(){
