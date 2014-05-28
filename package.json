@@ -24,7 +24,6 @@
 		"array",
 		"matrix",
 		"tensor",
-		"ndarray",
 		"hpc",
 		"computing",
 		"blas",
