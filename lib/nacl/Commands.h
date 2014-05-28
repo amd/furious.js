@@ -49,6 +49,7 @@ enum NumJS_Command {
 enum NumJS_Command NumJS_Command_Parse(const char* string, uint32_t size);
 
 enum NumJS_Error NumJS_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType);
+enum NumJS_Error NumJS_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType, uint32_t bufferSize, void* buffer);
 enum NumJS_Error NumJS_Release(PP_Instance instance, int32_t idIn);
 enum NumJS_Error NumJS_GetBuffer(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]);
 enum NumJS_Error NumJS_GetArray(PP_Instance instance, int32_t idIn, struct PP_Var arrayOut[static 1]);

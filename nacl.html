@@ -63,29 +63,38 @@
 						pnacl.type = "application/x-pnacl";
 						pnacl.addEventListener('load', function () {
 							timestamp = performance.now();
-							for (var i = 0; i < 10; i++) {
-								var xId = allocator.newArrayId();
-								pnacl.postMessage({
-									"id": allocator.newMessageId(),
-									"command": "create",
-									"shape": new Uint32Array([1024, 1024]).buffer,
-									"datatype": "f64",
-									"out": xId
-								});
-								pnacl.postMessage({
-									"id": allocator.newMessageId(),
-									"command": "get-buffer",
-									"in": xId
-								});
-								pnacl.postMessage({
-									"id": allocator.newMessageId(),
-									"command": "release",
-									"in": xId
-								});
+							var x = new Float64Array(5);
+							for (var i = 0; i < 5; i++) {
+								x[i] = i + 1;
 							}
+							var xId = allocator.newArrayId();
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "create-from-buffer",
+								"shape": new Uint32Array([5]).buffer,
+								"datatype": "f64",
+								"buffer": x.buffer,
+								"out": xId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "get-buffer",
+								"in": xId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "release",
+								"in": xId
+							});
 						}, true);
 						pnacl.addEventListener('message', function (message) {
 							console.log("PNaCl message (id: " + message.data.id + ") has status: " + message.data.status);
+							if (typeof message.data.buffer !== 'undefined') {
+								var array = new Float64Array(message.data.buffer);
+								for (var i = 0; i < array.length; i++) {
+									console.log(i + ": " + array[i]);
+								}
+							}
 						}, true);
 						document.body.appendChild(pnacl);
 					} else {

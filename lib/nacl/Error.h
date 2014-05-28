@@ -2,7 +2,6 @@
 
 enum NumJS_Error {
 	NumJS_Error_Ok,
-	NumJS_Error_InvalidJSType,
 	/* The shape array has no elements */
 	NumJS_Error_EmptyShape,
 	/* Some of the shape elements is 0 */
@@ -11,6 +10,11 @@ enum NumJS_Error {
 	NumJS_Error_LengthOverflow,
 	/* The product of length by element size overflows */
 	NumJS_Error_SizeOverflow,
+	/* The size of the supplied buffer does not match the size of internal buffer */
+	NumJS_Error_IncompatibleBufferSize,
+	/* Datatype elements have zero size */
+	NumJS_Error_InvalidElementSize,
+	/* Datatype has invalid or unknown value */
 	NumJS_Error_InvalidDataType,
 	NumJS_Error_InvalidId,
 	NumJS_Error_MismatchingShape,
