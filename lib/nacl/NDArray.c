@@ -1,7 +1,8 @@
-#include "NDArray.h"
-
 #include <malloc.h>
 #include <string.h>
+
+#include "NDArray.h"
+#include "Util.h"
 
 struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, uint32_t shape[static dimensions], enum NumJS_DataType dataType) {
 	const uint32_t headerSize = sizeof(struct NDArray);
@@ -11,15 +12,15 @@ struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, uint3
 	const uint32_t shapeSize = paddedDimensions * sizeof(uint32_t);
 
 	const uint32_t elementSize = NumJS_DataType_GetSize(dataType);
-	const uint32_t dataSize = length * elementSize;
 	/* This multiplication can easily overflow */
-	if (dataSize < length) {
+	uint32_t dataSize;
+	if (!NumJS_Util_Mul32u(length, elementSize, &dataSize)) {
 		return NULL;
 	}
 
-	const uint32_t arraySize = headerSize + shapeSize + dataSize;
+	uint32_t arraySize = headerSize + shapeSize;
 	/* This addition can overflow if dataSize is close to 4GB */
-	if (arraySize < dataSize) {
+	if (!NumJS_Util_Add32u(arraySize, dataSize, &arraySize)) {
 		return NULL;
 	}
 	
@@ -32,7 +33,6 @@ struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, uint3
 	array->length = length;
 	array->dimensions = dimensions;
 	memcpy(NumJS_NDArray_GetShape(array), shape, dimensions * sizeof(uint32_t));
-	memset(NumJS_NDArray_GetData(array), 0, length * elementSize);
 	return array;
 }
 
