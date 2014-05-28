@@ -8,7 +8,7 @@
 		"email": "marat.dukhan@amd.com"
 	}],
 	"scripts": {
-		"test": "mocha --reporter spec",
+		"test": "mocha --reporter dot test/*.test.js",
 		"preinstall": "python configure.py"
 	},
 	"main": "lib/numjs.js",
@@ -42,6 +42,19 @@
 		"minifyify": "~3.0.6"
 	},
 	"devDependencies": {
+	},
+	"testling": {
+		"files": "test/*.js",
+		"browsers": [
+			"ie/10..latest",
+			"chrome/latest",
+			"firefox/latest",
+			"safari/latest",
+			"opera/latest",
+			"iphone/latest",
+			"ipad/latest",
+			"android-browser/latest"
+		]
 	},
 	"license": "MIT",
 	"engines": {
