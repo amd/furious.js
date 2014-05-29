@@ -22,16 +22,30 @@ if __name__ == '__main__':
             ninja.variable('jsdoc_compiler', options.jsdoc_compiler)
         if options.nacl_sdk:
             ninja.variable('nacl_sdk_dir', os.path.join(options.nacl_sdk, 'pepper_' + options.pepper_api))
-            ninja.variable('pnacl_toolchain_dir', '$nacl_sdk_dir/toolchain/win_pnacl')
-            ninja.variable('pnacl_cc', '$pnacl_toolchain_dir/bin/pnacl-clang.bat')
-            ninja.variable('pnacl_cxx', '$pnacl_toolchain_dir/bin/pnacl-clang++.bat')
-            ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize.bat')
+            if os.name == 'nt':
+                ninja.variable('pnacl_toolchain_dir', '$nacl_sdk_dir/toolchain/win_pnacl')
+            else:
+                ninja.variable('pnacl_toolchain_dir', '$nacl_sdk_dir/toolchain/linux_pnacl')
+            if os.name == 'nt':
+                ninja.variable('pnacl_cc', '$pnacl_toolchain_dir/bin/pnacl-clang.bat')
+                ninja.variable('pnacl_cxx', '$pnacl_toolchain_dir/bin/pnacl-clang++.bat')
+                ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize.bat')
+            else:
+                ninja.variable('pnacl_cc', '$pnacl_toolchain_dir/bin/pnacl-clang')
+                ninja.variable('pnacl_cxx', '$pnacl_toolchain_dir/bin/pnacl-clang++')
+                ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize')
 
         # Rules
-        ninja.rule('BROWSERIFY', 'cmd /K "browserify $in --outfile $min -p [minifyify --map $map --output $map]"',
-            description='BROWSERIFY $out')
-        ninja.rule('BROWSERIFY_STANDALONE', 'cmd /K "browserify --standalone $module --entry $entry --outfile $min --plugin [minifyify --map $map --output $map]"',
-            description='BROWSERIFY MODULE $module')
+	if os.name == 'nt':
+            ninja.rule('BROWSERIFY', 'cmd /K "browserify $in --outfile $min -p [minifyify --map $map --output $map]"',
+                description='BROWSERIFY $out')
+            ninja.rule('BROWSERIFY_STANDALONE', 'cmd /K "browserify --standalone $module --entry $entry --outfile $min --plugin [minifyify --map $map --output $map]"',
+                description='BROWSERIFY MODULE $module')
+	else:
+            ninja.rule('BROWSERIFY', 'browserify $in --outfile $min -p [minifyify --map $map --output $map]',
+                description='BROWSERIFY $out')
+            ninja.rule('BROWSERIFY_STANDALONE', 'browserify --standalone $module --entry $entry --outfile $min --plugin [minifyify --map $map --output $map]',
+                description='BROWSERIFY MODULE $module')
         if options.jsdoc_compiler:
             ninja.rule('COMPILE_JSDOC', '$jsdoc_compiler $in -d $output_directory',
                 description='JSDOC $in')
