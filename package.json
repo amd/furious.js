@@ -9,7 +9,6 @@
 	}],
 	"scripts": {
 		"test": "mocha --reporter dot test/*.test.js",
-		"preinstall": "python configure.py"
 	},
 	"main": "lib/numjs.js",
 	"repository": {
