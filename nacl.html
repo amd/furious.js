@@ -64,10 +64,17 @@
 						pnacl.addEventListener('load', function () {
 							timestamp = performance.now();
 							var x = new Float64Array(5);
+							var y = new Float64Array(5);
 							for (var i = 0; i < 5; i++) {
-								x[i] = i + 1;
+								x[i] = i+1;
+								y[i] = 2*i-1;
 							}
 							var xId = allocator.newArrayId();
+							var yId = allocator.newArrayId();
+							var sumId = allocator.newArrayId();
+							var diffId = allocator.newArrayId();
+							var prodId = allocator.newArrayId();
+							var fracId = allocator.newArrayId();
 							pnacl.postMessage({
 								"id": allocator.newMessageId(),
 								"command": "create-from-buffer",
@@ -78,13 +85,99 @@
 							});
 							pnacl.postMessage({
 								"id": allocator.newMessageId(),
+								"command": "create-from-buffer",
+								"shape": new Uint32Array([5]).buffer,
+								"datatype": "f64",
+								"buffer": y.buffer,
+								"out": yId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
 								"command": "get-buffer",
 								"in": xId
 							});
 							pnacl.postMessage({
 								"id": allocator.newMessageId(),
+								"command": "get-buffer",
+								"in": yId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "add",
+								"a": xId,
+								"b": yId,
+								"out": sumId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "sub",
+								"a": xId,
+								"b": yId,
+								"out": diffId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "mul",
+								"a": xId,
+								"b": yId,
+								"out": prodId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "div",
+								"a": xId,
+								"b": yId,
+								"out": fracId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
 								"command": "release",
 								"in": xId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "release",
+								"in": yId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "get-buffer",
+								"in": sumId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "release",
+								"in": sumId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "get-buffer",
+								"in": diffId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "release",
+								"in": diffId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "get-buffer",
+								"in": prodId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "release",
+								"in": prodId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "get-buffer",
+								"in": fracId
+							});
+							pnacl.postMessage({
+								"id": allocator.newMessageId(),
+								"command": "release",
+								"in": fracId
 							});
 						}, true);
 						pnacl.addEventListener('message', function (message) {

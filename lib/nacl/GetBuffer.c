@@ -26,7 +26,7 @@ void NumJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
 
 	error = NumJS_Message_Parse(NUMJS_COUNT_OF(getBufferDescriptors), getBufferDescriptors, variables, message);
 	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
+		NUMJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
@@ -36,7 +36,7 @@ void NumJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
 		goto cleanup;
 	}
 	if (dictionaryInterface->Set(NumJS_ResponseVariable, NumJS_StringVariables[NumJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
-		NUMJS_LOG_ERROR("Failed to set buffer in GET-BUFFER");
+		NUMJS_LOG_ERROR("Failed to set buffer");
 		goto cleanup;
 	}
 

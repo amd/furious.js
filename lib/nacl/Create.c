@@ -41,7 +41,7 @@ void NumJS_Parse_Create(PP_Instance instance, struct PP_Var message) {
 
 	error = NumJS_Message_Parse(NUMJS_COUNT_OF(createDescriptors), createDescriptors, variables, message);
 	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
+		NUMJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
@@ -94,7 +94,7 @@ void NumJS_Parse_CreateFromBuffer(PP_Instance instance, struct PP_Var message) {
 
 	error = NumJS_Message_Parse(NUMJS_COUNT_OF(createFromBufferDescriptors), createFromBufferDescriptors, variables, message);
 	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
+		NUMJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 

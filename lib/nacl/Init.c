@@ -141,14 +141,22 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case NumJS_Command_GetBuffer:
 			NumJS_Parse_GetBuffer(instance, message);
 			break;
+		case NumJS_Command_Add:
+			NumJS_Parse_Add(instance, message);
+			break;
+		case NumJS_Command_Sub:
+			NumJS_Parse_Sub(instance, message);
+			break;
+		case NumJS_Command_Mul:
+			NumJS_Parse_Mul(instance, message);
+			break;
+		case NumJS_Command_Div:
+			NumJS_Parse_Div(instance, message);
+			break;
 		case NumJS_Command_CreateFromArray:
 		case NumJS_Command_SetBuffer:
 		case NumJS_Command_GetArray:
 		case NumJS_Command_SetArray:
-		case NumJS_Command_Add:
-		case NumJS_Command_Sub:
-		case NumJS_Command_Mul:
-		case NumJS_Command_Div:
 		case NumJS_Command_IAdd:
 		case NumJS_Command_ISub:
 		case NumJS_Command_IRSub:

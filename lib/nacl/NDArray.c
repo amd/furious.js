@@ -4,7 +4,7 @@
 #include "NDArray.h"
 #include "Util.h"
 
-struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, uint32_t shape[static dimensions], enum NumJS_DataType dataType) {
+struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, const uint32_t shape[static dimensions], enum NumJS_DataType dataType) {
 	const uint32_t headerSize = sizeof(struct NDArray);
 
 	/* Round dimensions to the nearest even number so that the data is 8-byte aligned (malloc returns 8-byte aligned pointer) */

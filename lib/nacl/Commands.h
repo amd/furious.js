@@ -52,13 +52,13 @@ void NumJS_Parse_Create(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_CreateFromBuffer(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_Release(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Add(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Sub(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Mul(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Div(PP_Instance instance, struct PP_Var message);
 
 enum NumJS_Error NumJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType);
 enum NumJS_Error NumJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType, uint32_t bufferSize, void* buffer);
 enum NumJS_Error NumJS_Execute_Release(PP_Instance instance, int32_t idIn);
 enum NumJS_Error NumJS_Execute_GetBuffer(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]);
 enum NumJS_Error NumJS_Execute_GetArray(PP_Instance instance, int32_t idIn, struct PP_Var arrayOut[static 1]);
-enum NumJS_Error NumJS_Execute_Add(PP_Instance instance, int32_t idOut, int32_t idA, int32_t idB);
-enum NumJS_Error NumJS_Execute_Sub(PP_Instance instance, int32_t idOut, int32_t idA, int32_t idB);
-enum NumJS_Error NumJS_Execute_Mul(PP_Instance instance, int32_t idOut, int32_t idA, int32_t idB);
-enum NumJS_Error NumJS_Execute_Div(PP_Instance instance, int32_t idOut, int32_t idA, int32_t idB);

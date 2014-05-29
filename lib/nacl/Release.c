@@ -26,7 +26,7 @@ void NumJS_Parse_Release(PP_Instance instance, struct PP_Var message) {
 
 	error = NumJS_Message_Parse(NUMJS_COUNT_OF(releaseDescriptors), releaseDescriptors, variables, message);
 	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
+		NUMJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 

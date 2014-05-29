@@ -12,7 +12,7 @@ struct NDArray {
 	uint32_t size;
 };
 
-struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, uint32_t shape[static dimensions], enum NumJS_DataType dataType);
+struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, const uint32_t shape[static dimensions], enum NumJS_DataType dataType);
 void NumJS_NDArray_Delete(struct NDArray* array);
 
 inline uint32_t* NumJS_NDArray_GetShape(struct NDArray* array) {
