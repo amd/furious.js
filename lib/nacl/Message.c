@@ -4,12 +4,15 @@
 #include "Strings.h"
 #include "Interfaces.h"
 
+struct PP_Var NumJS_ResponseVariable = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+
 enum NumJS_Error NumJS_Message_Parse(uint32_t variablesCount, const struct NumJS_VariableDescriptor descriptors[static variablesCount], struct NumJS_Variable variables[static variablesCount], struct PP_Var request) {
 	enum NumJS_Error error = NumJS_Error_Ok;
 	/* Zero-initialization sets PPAPI variables to undefined value */
 	memset(variables, 0, sizeof(struct NumJS_Variable) * variablesCount);
 	for (uint32_t variableIndex = 0; variableIndex < variablesCount; variableIndex++) {
-		variables[variableIndex].pepperVariable = dictionaryInterface->Get(request, *descriptors[variableIndex].name);
+		variables[variableIndex].pepperVariable = dictionaryInterface->Get(request,
+			NumJS_StringVariables[descriptors[variableIndex].name]);
 		const PP_VarType pepperType = variables[variableIndex].pepperVariable.type;
 		if (pepperType == PP_VARTYPE_UNDEFINED) {
 			error = NumJS_Error_MissingVariable;

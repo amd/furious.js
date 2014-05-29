@@ -24,8 +24,6 @@ const struct PPB_VarDictionary_1_0* dictionaryInterface = NULL;
 const struct PPB_VarArray_1_0* arrayInterface = NULL;
 const struct PPB_VarArrayBuffer_1_0* bufferInterface = NULL;
 
-static struct PP_Var responseVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-
 PP_EXPORT int32_t PPP_InitializeModule(PP_Module module, PPB_GetInterface get_browser_interface) {
 	consoleInterface = get_browser_interface(PPB_CONSOLE_INTERFACE_1_0);
 	if (consoleInterface == NULL) {
@@ -54,13 +52,14 @@ PP_EXPORT int32_t PPP_InitializeModule(PP_Module module, PPB_GetInterface get_br
 
 	NumJS_Strings_Initialize();
 
-	responseVar = dictionaryInterface->Create();
+	NumJS_ResponseVariable = dictionaryInterface->Create();
 
 	return PP_OK;
 }
 
 PP_EXPORT void PPP_ShutdownModule(void) {
 	NumJS_Strings_Release();
+	varInterface->Release(NumJS_ResponseVariable);
 }
 
 static PP_Bool onCreateInstance(PP_Instance instance, uint32_t argc, const char* argn[], const char* argv[]) {
@@ -89,177 +88,6 @@ static struct PPP_Instance_1_1 pluginInstanceInterface = {
 	.HandleDocumentLoad = onDocumentLoad
 };
 
-static void handleCreateCommand(PP_Instance instance, struct PP_Var message) {
-	enum NumJS_Create_Argument {
-		NumJS_Create_Argument_Out,
-		NumJS_Create_Argument_DataType,
-		NumJS_Create_Argument_Shape
-	};
-
-	const struct NumJS_VariableDescriptor descriptors[] =
-	{
-		[NumJS_Create_Argument_Out] = { 
-			.type = NumJS_VariableType_Int32,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_Out]
-		},
-		[NumJS_Create_Argument_DataType] = {
-			.type = NumJS_VariableType_DataType,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_Datatype]
-		},
-		[NumJS_Create_Argument_Shape] = {
-			.type = NumJS_VariableType_Buffer,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_Shape]
-		}
-	};
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
-
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
-		goto cleanup;
-	}
-
-	error = NumJS_Release(instance, variables[0].parsedValue.asInt32);
-
-	error = NumJS_Create(instance,
-		variables[NumJS_Create_Argument_Out].parsedValue.asInt32,
-		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.size / 4,
-		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.pointer,
-		variables[NumJS_Create_Argument_DataType].parsedValue.asDatatype);
-	if (!NumJS_Message_SetStatus(responseVar, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, responseVar);
-
-	NumJS_Message_RemoveStatus(responseVar);
-cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
-}
-
-static void handleCreateFromBufferCommand(PP_Instance instance, struct PP_Var message) {
-	enum NumJS_Create_Argument {
-		NumJS_Create_Argument_Out,
-		NumJS_Create_Argument_DataType,
-		NumJS_Create_Argument_Shape,
-		NumJS_Create_Argument_Buffer
-	};
-
-	const struct NumJS_VariableDescriptor descriptors[] =
-	{
-		[NumJS_Create_Argument_Out] = { 
-			.type = NumJS_VariableType_Int32,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_Out]
-		},
-		[NumJS_Create_Argument_DataType] = {
-			.type = NumJS_VariableType_DataType,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_Datatype]
-		},
-		[NumJS_Create_Argument_Shape] = {
-			.type = NumJS_VariableType_Buffer,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_Shape]
-		},
-		[NumJS_Create_Argument_Buffer] = {
-			.type = NumJS_VariableType_Buffer,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_Buffer]
-		}
-	};
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
-
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
-		goto cleanup;
-	}
-
-	error = NumJS_CreateFromBuffer(instance,
-		variables[NumJS_Create_Argument_Out].parsedValue.asInt32,
-		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.size / 4,
-		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.pointer,
-		variables[NumJS_Create_Argument_DataType].parsedValue.asDatatype,
-		variables[NumJS_Create_Argument_Buffer].parsedValue.asBuffer.size,
-		variables[NumJS_Create_Argument_Buffer].parsedValue.asBuffer.pointer);
-	if (!NumJS_Message_SetStatus(responseVar, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, responseVar);
-
-	NumJS_Message_RemoveStatus(responseVar);
-cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
-}
-
-static void handleReleaseCommand(PP_Instance instance, struct PP_Var message) {
-	const struct NumJS_VariableDescriptor descriptors[] = 
-	{
-		{
-			.type = NumJS_VariableType_Int32,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_In]
-		}
-	};
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
-
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
-		goto cleanup;
-	}
-
-	error = NumJS_Release(instance, variables[0].parsedValue.asInt32);
-	if (!NumJS_Message_SetStatus(responseVar, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, responseVar);
-
-	NumJS_Message_RemoveStatus(responseVar);
-cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
-}
-
-static void handleGetBufferCommand(PP_Instance instance, struct PP_Var message) {
-	const struct NumJS_VariableDescriptor descriptors[] = 
-	{
-		{ 
-			.type = NumJS_VariableType_Int32,
-			.name = &NumJS_StringVariables[NumJS_StringVariable_In]
-		}
-	};
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
-
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
-		goto cleanup;
-	}
-
-	struct PP_Var bufferVar = PP_MakeUndefined();
-	error = NumJS_GetBuffer(instance, variables[0].parsedValue.asInt32, &bufferVar);
-	if (!NumJS_Message_SetStatus(responseVar, error)) {
-		goto cleanup;
-	}
-	if (dictionaryInterface->Set(responseVar, NumJS_StringVariables[NumJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
-		NUMJS_LOG_ERROR("Failed to set buffer in GET-BUFFER");
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, responseVar);
-	if (!NumJS_Message_SetStatus(responseVar, error)) {
-		goto cleanup;
-	}
-
-	NumJS_Message_RemoveStatus(responseVar);
-	dictionaryInterface->Delete(responseVar, NumJS_StringVariables[NumJS_StringVariable_Buffer]);
-cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
-	varInterface->Release(bufferVar);
-}
-
 static void handleMessage(PP_Instance instance, struct PP_Var message) {
 	struct PP_Var commandVar = PP_MakeUndefined();
 	struct PP_Var idVar = PP_MakeUndefined();
@@ -280,7 +108,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		NUMJS_LOG_ERROR("Unsupported id type: int32 expected");
 		goto cleanup;
 	}
-	if (dictionaryInterface->Set(responseVar, NumJS_StringVariables[NumJS_StringVariable_Buffer], idVar) != PP_TRUE) {
+	if (dictionaryInterface->Set(NumJS_ResponseVariable, NumJS_StringVariables[NumJS_StringVariable_Id], idVar) != PP_TRUE) {
 		NUMJS_LOG_ERROR("Failed to set reply message id");
 		goto cleanup;
 	}
@@ -302,16 +130,16 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 	const enum NumJS_Command command = NumJS_Command_Parse(commandString, commandLength);
 	switch (command) {
 		case NumJS_Command_Create:
-			handleCreateCommand(instance, message);
+			NumJS_Parse_Create(instance, message);
 			break;
 		case NumJS_Command_CreateFromBuffer:
-			handleCreateFromBufferCommand(instance, message);
+			NumJS_Parse_CreateFromBuffer(instance, message);
 			break;
 		case NumJS_Command_Release:
-			handleReleaseCommand(instance, message);
+			NumJS_Parse_Release(instance, message);
 			break;
 		case NumJS_Command_GetBuffer:
-			handleGetBufferCommand(instance, message);
+			NumJS_Parse_GetBuffer(instance, message);
 			break;
 		case NumJS_Command_CreateFromArray:
 		case NumJS_Command_SetBuffer:

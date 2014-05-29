@@ -11,6 +11,8 @@
 #include "Interfaces.h"
 #include "Strings.h"
 
+extern struct PP_Var NumJS_ResponseVariable;
+
 enum NumJS_VariableType {
 	NumJS_VariableType_Int32,
 	NumJS_VariableType_Float64,
@@ -26,7 +28,7 @@ struct NumJS_Buffer {
 
 struct NumJS_VariableDescriptor {
 	enum NumJS_VariableType type;
-	const struct PP_Var* name;
+	enum NumJS_StringVariable name;
 };
 
 union NumJS_VariableValue {
