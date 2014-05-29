@@ -12,11 +12,17 @@ enum NumJS_Error {
 	NumJS_Error_SizeOverflow,
 	/* The size of the supplied buffer does not match the size of internal buffer */
 	NumJS_Error_IncompatibleBufferSize,
+	/* The size of buffer is zero */
+	NumJS_Error_EmptyBuffer,
 	/* Datatype elements have zero size */
 	NumJS_Error_InvalidElementSize,
 	/* Datatype has invalid or unknown value */
 	NumJS_Error_InvalidDataType,
 	NumJS_Error_InvalidId,
+	/* Wrong variable type */
+	NumJS_Error_InvalidVariableType,
+	/* Missing variable */
+	NumJS_Error_MissingVariable,
 	NumJS_Error_MismatchingShape,
 	NumJS_Error_MismatchingDataType,
 	NumJS_Error_OutOfMemory

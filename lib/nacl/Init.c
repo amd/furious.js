@@ -4,6 +4,7 @@
 
 #include <ppapi/c/pp_bool.h>
 #include <ppapi/c/pp_errors.h>
+#include <ppapi/c/pp_var.h>
 #include <ppapi/c/ppp.h>
 #include <ppapi/c/ppp_messaging.h>
 #include <ppapi/c/ppp_instance.h>
@@ -12,6 +13,9 @@
 #include "DataType.h"
 #include "Interfaces.h"
 #include "Commands.h"
+#include "Message.h"
+#include "Strings.h"
+#include "Util.h"
 
 const struct PPB_Console_1_0* consoleInterface = NULL;
 const struct PPB_Var_1_1* varInterface = NULL;
@@ -20,23 +24,7 @@ const struct PPB_VarDictionary_1_0* dictionaryInterface = NULL;
 const struct PPB_VarArray_1_0* arrayInterface = NULL;
 const struct PPB_VarArrayBuffer_1_0* bufferInterface = NULL;
 
-static struct PP_Var commandStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var datatypeStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var idStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var outStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var inStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var shapeStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var arrayStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var bufferStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var dataStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var xStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var yStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var zStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var replyVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-
-static struct PP_Var statusStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var errorStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
-static struct PP_Var successStringVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
+static struct PP_Var responseVar = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 
 PP_EXPORT int32_t PPP_InitializeModule(PP_Module module, PPB_GetInterface get_browser_interface) {
 	consoleInterface = get_browser_interface(PPB_CONSOLE_INTERFACE_1_0);
@@ -64,47 +52,15 @@ PP_EXPORT int32_t PPP_InitializeModule(PP_Module module, PPB_GetInterface get_br
 		return PP_ERROR_NOINTERFACE;
 	}
 
-	commandStringVar = NUMJS_VAR_FROM_STRING_LITERAL("command");
-	datatypeStringVar = NUMJS_VAR_FROM_STRING_LITERAL("datatype");
-	idStringVar = NUMJS_VAR_FROM_STRING_LITERAL("id");
-	outStringVar = NUMJS_VAR_FROM_STRING_LITERAL("out");
-	inStringVar = NUMJS_VAR_FROM_STRING_LITERAL("in");
-	shapeStringVar = NUMJS_VAR_FROM_STRING_LITERAL("shape");
-	arrayStringVar = NUMJS_VAR_FROM_STRING_LITERAL("array");
-	bufferStringVar = NUMJS_VAR_FROM_STRING_LITERAL("buffer");
-	dataStringVar = NUMJS_VAR_FROM_STRING_LITERAL("data");
-	xStringVar = NUMJS_VAR_FROM_STRING_LITERAL("x");
-	yStringVar = NUMJS_VAR_FROM_STRING_LITERAL("y");
-	zStringVar = NUMJS_VAR_FROM_STRING_LITERAL("z");
+	NumJS_Strings_Initialize();
 
-	statusStringVar = NUMJS_VAR_FROM_STRING_LITERAL("status");
-	errorStringVar = NUMJS_VAR_FROM_STRING_LITERAL("error");
-	successStringVar = NUMJS_VAR_FROM_STRING_LITERAL("success");
-
-	replyVar = dictionaryInterface->Create();
+	responseVar = dictionaryInterface->Create();
 
 	return PP_OK;
 }
 
 PP_EXPORT void PPP_ShutdownModule(void) {
-	varInterface->Release(commandStringVar);
-	varInterface->Release(datatypeStringVar);
-	varInterface->Release(idStringVar);
-	varInterface->Release(outStringVar);
-	varInterface->Release(inStringVar);
-	varInterface->Release(shapeStringVar);
-	varInterface->Release(arrayStringVar);
-	varInterface->Release(bufferStringVar);
-	varInterface->Release(dataStringVar);
-	varInterface->Release(xStringVar);
-	varInterface->Release(yStringVar);
-	varInterface->Release(zStringVar);
-
-	varInterface->Release(statusStringVar);
-	varInterface->Release(errorStringVar);
-	varInterface->Release(successStringVar);
-
-	varInterface->Release(replyVar);
+	NumJS_Strings_Release();
 }
 
 static PP_Bool onCreateInstance(PP_Instance instance, uint32_t argc, const char* argn[], const char* argv[]) {
@@ -134,295 +90,173 @@ static struct PPP_Instance_1_1 pluginInstanceInterface = {
 };
 
 static void handleCreateCommand(PP_Instance instance, struct PP_Var message) {
-	struct PP_Var outVar = PP_MakeUndefined();
-	struct PP_Var datatypeVar = PP_MakeUndefined();
-	struct PP_Var shapeVar = PP_MakeUndefined();
-	uint32_t* shapePointer = NULL;
+	enum NumJS_Create_Argument {
+		NumJS_Create_Argument_Out,
+		NumJS_Create_Argument_DataType,
+		NumJS_Create_Argument_Shape
+	};
 
-	outVar = dictionaryInterface->Get(message, outStringVar);
-	if (outVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Out not specified in CREATE");
-		goto cleanup;
-	} else if (outVar.type != PP_VARTYPE_INT32) {
-		NUMJS_LOG_ERROR("Unsupported out type: int32 expected in CREATE");
-		goto cleanup;
-	}
-	const int32_t out = outVar.value.as_int;
-
-	datatypeVar = dictionaryInterface->Get(message, datatypeStringVar);
-	if (datatypeVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("DataType not specified in CREATE");
-		goto cleanup;
-	}
-
-	uint32_t datatypeLength = 0;
-	const char* const datatypeString = varInterface->VarToUtf8(datatypeVar, &datatypeLength);
-	if (datatypeString == NULL) {
-		NUMJS_LOG_ERROR("Unsupported type type in CREATE");
-		goto cleanup;
-	}
-
-	const enum NumJS_DataType datatype = NumJS_DataType_Parse(datatypeString, datatypeLength);
-	if (datatype == NumJS_DataType_Invalid) {
-		NUMJS_LOG_ERROR("Unsupported type value in CREATE");
-		goto cleanup;
-	}
-
-	shapeVar = dictionaryInterface->Get(message, shapeStringVar);
-	if (shapeVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Shape not specified in CREATE");
-		goto cleanup;
-	}
-
-	uint32_t shapeSize = 0;
-	if (bufferInterface->ByteLength(shapeVar, &shapeSize) != PP_TRUE) {
-		NUMJS_LOG_ERROR("Invalid shape type in CREATE");
-		goto cleanup;
-	}
-
-	if (shapeSize % 4 != 0) {
-		NUMJS_LOG_ERROR("Invalid shape size in CREATE");
-		goto cleanup;
-	}
-	const size_t shapeLength = shapeSize / 4;
-
-	if (shapeLength == 0) {
-		NUMJS_LOG_ERROR("Empty shape in CREATE");
-		goto cleanup;
-	}
-
-	shapePointer = bufferInterface->Map(shapeVar);
-	if (shapePointer == NULL) {
-		NUMJS_LOG_ERROR("Failed to map shape buffer in CREATE");
-		goto cleanup;
-	}
-
-	const enum NumJS_Error error = NumJS_Create(instance, out, shapeLength, shapePointer, datatype);
-	if (error == NumJS_Error_Ok) {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set success status in CREATE");
-			goto cleanup;
+	const struct NumJS_VariableDescriptor descriptors[] =
+	{
+		[NumJS_Create_Argument_Out] = { 
+			.type = NumJS_VariableType_Int32,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_Out]
+		},
+		[NumJS_Create_Argument_DataType] = {
+			.type = NumJS_VariableType_DataType,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_Datatype]
+		},
+		[NumJS_Create_Argument_Shape] = {
+			.type = NumJS_VariableType_Buffer,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_Shape]
 		}
-	} else {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, errorStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set error status in CREATE");
-			goto cleanup;
-		}
+	};
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
+	enum NumJS_Error error = NumJS_Error_Ok;
+
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
+	if (error != NumJS_Error_Ok) {
+		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
+		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, replyVar);
+	error = NumJS_Release(instance, variables[0].parsedValue.asInt32);
 
-	dictionaryInterface->Delete(replyVar, statusStringVar);
+	error = NumJS_Create(instance,
+		variables[NumJS_Create_Argument_Out].parsedValue.asInt32,
+		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.size / 4,
+		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.pointer,
+		variables[NumJS_Create_Argument_DataType].parsedValue.asDatatype);
+	if (!NumJS_Message_SetStatus(responseVar, error)) {
+		goto cleanup;
+	}
+
+	messagingInterface->PostMessage(instance, responseVar);
+
+	NumJS_Message_RemoveStatus(responseVar);
 cleanup:
-	if (shapePointer != NULL) {
-		bufferInterface->Unmap(shapeVar);
-	}
-
-	varInterface->Release(outVar);
-	varInterface->Release(datatypeVar);
-	varInterface->Release(shapeVar);
+	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
 }
 
 static void handleCreateFromBufferCommand(PP_Instance instance, struct PP_Var message) {
-	struct PP_Var outVar = PP_MakeUndefined();
-	struct PP_Var datatypeVar = PP_MakeUndefined();
-	struct PP_Var shapeVar = PP_MakeUndefined();
-	struct PP_Var bufferVar = PP_MakeUndefined();
-	uint32_t* shapePointer = NULL;
-	uint32_t* bufferPointer = NULL;
+	enum NumJS_Create_Argument {
+		NumJS_Create_Argument_Out,
+		NumJS_Create_Argument_DataType,
+		NumJS_Create_Argument_Shape,
+		NumJS_Create_Argument_Buffer
+	};
 
-	outVar = dictionaryInterface->Get(message, outStringVar);
-	if (outVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Out not specified in CREATE-FROM-BUFFER");
-		goto cleanup;
-	} else if (outVar.type != PP_VARTYPE_INT32) {
-		NUMJS_LOG_ERROR("Unsupported out type: int32 expected in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-	const int32_t out = outVar.value.as_int;
-
-	datatypeVar = dictionaryInterface->Get(message, datatypeStringVar);
-	if (datatypeVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("DataType not specified in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	uint32_t datatypeLength = 0;
-	const char* const datatypeString = varInterface->VarToUtf8(datatypeVar, &datatypeLength);
-	if (datatypeString == NULL) {
-		NUMJS_LOG_ERROR("Unsupported type type in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	const enum NumJS_DataType datatype = NumJS_DataType_Parse(datatypeString, datatypeLength);
-	if (datatype == NumJS_DataType_Invalid) {
-		NUMJS_LOG_ERROR("Unsupported type value in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	const uint32_t elementSize = NumJS_DataType_GetSize(datatype);
-	if (elementSize == 0) {
-		NUMJS_LOG_ERROR("Invalid data type in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	shapeVar = dictionaryInterface->Get(message, shapeStringVar);
-	if (shapeVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Shape not specified in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	uint32_t shapeSize = 0;
-	if (bufferInterface->ByteLength(shapeVar, &shapeSize) != PP_TRUE) {
-		NUMJS_LOG_ERROR("Invalid shape type in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	if (shapeSize % 4 != 0) {
-		NUMJS_LOG_ERROR("Invalid shape size in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-	const size_t shapeLength = shapeSize / 4;
-
-	if (shapeLength == 0) {
-		NUMJS_LOG_ERROR("Empty shape in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	bufferVar = dictionaryInterface->Get(message, bufferStringVar);
-	if (bufferVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Buffer not specified in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	uint32_t bufferSize = 0;
-	if (bufferInterface->ByteLength(bufferVar, &bufferSize) != PP_TRUE) {
-		NUMJS_LOG_ERROR("Invalid buffer type in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	if (bufferSize % elementSize != 0) {
-		consoleInterface->Log(instance, PP_LOGLEVEL_LOG, PP_MakeInt32(bufferSize));
-		consoleInterface->Log(instance, PP_LOGLEVEL_LOG, PP_MakeInt32(elementSize));
-		NUMJS_LOG_ERROR("Invalid buffer size in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	if (bufferSize == 0) {
-		NUMJS_LOG_ERROR("Empty buffer in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	shapePointer = bufferInterface->Map(shapeVar);
-	if (shapePointer == NULL) {
-		NUMJS_LOG_ERROR("Failed to map shape buffer in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	bufferPointer = bufferInterface->Map(bufferVar);
-	if (bufferPointer == NULL) {
-		NUMJS_LOG_ERROR("Failed to map buffer in CREATE-FROM-BUFFER");
-		goto cleanup;
-	}
-
-	const enum NumJS_Error error = NumJS_CreateFromBuffer(instance, out, shapeLength, shapePointer, datatype, bufferSize, bufferPointer);
-	if (error == NumJS_Error_Ok) {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set success status in CREATE-FROM-BUFFER");
-			goto cleanup;
+	const struct NumJS_VariableDescriptor descriptors[] =
+	{
+		[NumJS_Create_Argument_Out] = { 
+			.type = NumJS_VariableType_Int32,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_Out]
+		},
+		[NumJS_Create_Argument_DataType] = {
+			.type = NumJS_VariableType_DataType,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_Datatype]
+		},
+		[NumJS_Create_Argument_Shape] = {
+			.type = NumJS_VariableType_Buffer,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_Shape]
+		},
+		[NumJS_Create_Argument_Buffer] = {
+			.type = NumJS_VariableType_Buffer,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_Buffer]
 		}
-	} else {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, errorStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set error status in CREATE-FROM-BUFFER");
-			goto cleanup;
-		}
+	};
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
+	enum NumJS_Error error = NumJS_Error_Ok;
+
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
+	if (error != NumJS_Error_Ok) {
+		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
+		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, replyVar);
+	error = NumJS_CreateFromBuffer(instance,
+		variables[NumJS_Create_Argument_Out].parsedValue.asInt32,
+		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.size / 4,
+		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.pointer,
+		variables[NumJS_Create_Argument_DataType].parsedValue.asDatatype,
+		variables[NumJS_Create_Argument_Buffer].parsedValue.asBuffer.size,
+		variables[NumJS_Create_Argument_Buffer].parsedValue.asBuffer.pointer);
+	if (!NumJS_Message_SetStatus(responseVar, error)) {
+		goto cleanup;
+	}
 
-	dictionaryInterface->Delete(replyVar, statusStringVar);
+	messagingInterface->PostMessage(instance, responseVar);
+
+	NumJS_Message_RemoveStatus(responseVar);
 cleanup:
-	if (shapePointer != NULL) {
-		bufferInterface->Unmap(shapeVar);
-	}
-	if (bufferPointer != NULL) {
-		bufferInterface->Unmap(bufferVar);
-	}
-
-	varInterface->Release(outVar);
-	varInterface->Release(datatypeVar);
-	varInterface->Release(shapeVar);
-	varInterface->Release(bufferVar);
+	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
 }
 
 static void handleReleaseCommand(PP_Instance instance, struct PP_Var message) {
-	const struct PP_Var inVar = dictionaryInterface->Get(message, inStringVar);
-	if (inVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("In not specified in RELEASE");
-		goto cleanup;
-	} else if (inVar.type != PP_VARTYPE_INT32) {
-		NUMJS_LOG_ERROR("Unsupported in type: int32 expected in RELEASE");
+	const struct NumJS_VariableDescriptor descriptors[] = 
+	{
+		{
+			.type = NumJS_VariableType_Int32,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_In]
+		}
+	};
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
+	enum NumJS_Error error = NumJS_Error_Ok;
+
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
+	if (error != NumJS_Error_Ok) {
+		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
 		goto cleanup;
 	}
-	const int32_t in = inVar.value.as_int;
 
-	enum NumJS_Error error = NumJS_Release(instance, in);
-	if (error == NumJS_Error_Ok) {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set success status in RELEASE");
-			goto cleanup;
-		}
-	} else {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, errorStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set error status in RELEASE");
-			goto cleanup;
-		}
+	error = NumJS_Release(instance, variables[0].parsedValue.asInt32);
+	if (!NumJS_Message_SetStatus(responseVar, error)) {
+		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, replyVar);
+	messagingInterface->PostMessage(instance, responseVar);
 
-	dictionaryInterface->Delete(replyVar, statusStringVar);
+	NumJS_Message_RemoveStatus(responseVar);
 cleanup:
-	varInterface->Release(inVar);
+	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
 }
 
 static void handleGetBufferCommand(PP_Instance instance, struct PP_Var message) {
-	struct PP_Var inVar = PP_MakeUndefined();
+	const struct NumJS_VariableDescriptor descriptors[] = 
+	{
+		{ 
+			.type = NumJS_VariableType_Int32,
+			.name = &NumJS_StringVariables[NumJS_StringVariable_In]
+		}
+	};
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(descriptors)];
+	enum NumJS_Error error = NumJS_Error_Ok;
+
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(descriptors), descriptors, variables, message);
+	if (error != NumJS_Error_Ok) {
+		NUMJS_LOG_ERROR("Parse error in GET-BUFFER");
+		goto cleanup;
+	}
+
 	struct PP_Var bufferVar = PP_MakeUndefined();
-
-	inVar = dictionaryInterface->Get(message, inStringVar);
-	if (inVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("In not specified in GET-BUFFER");
-		goto cleanup;
-	} else if (inVar.type != PP_VARTYPE_INT32) {
-		NUMJS_LOG_ERROR("Unsupported in type: int32 expected in GET-BUFFER");
+	error = NumJS_GetBuffer(instance, variables[0].parsedValue.asInt32, &bufferVar);
+	if (!NumJS_Message_SetStatus(responseVar, error)) {
 		goto cleanup;
 	}
-	const int32_t in = inVar.value.as_int;
-
-	enum NumJS_Error error = NumJS_GetBuffer(instance, in, &bufferVar);
-	if (error == NumJS_Error_Ok) {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, successStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set success status in GET-BUFFER");
-			goto cleanup;
-		}
-		if (dictionaryInterface->Set(replyVar, bufferStringVar, bufferVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set buffer in GET-BUFFER");
-			goto cleanup;
-		}
-	} else {
-		if (dictionaryInterface->Set(replyVar, statusStringVar, errorStringVar) != PP_TRUE) {
-			NUMJS_LOG_ERROR("Failed to set error status in GET-BUFFER");
-			goto cleanup;
-		}
+	if (dictionaryInterface->Set(responseVar, NumJS_StringVariables[NumJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
+		NUMJS_LOG_ERROR("Failed to set buffer in GET-BUFFER");
+		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, replyVar);
+	messagingInterface->PostMessage(instance, responseVar);
+	if (!NumJS_Message_SetStatus(responseVar, error)) {
+		goto cleanup;
+	}
 
-	dictionaryInterface->Delete(replyVar, statusStringVar);
-	dictionaryInterface->Delete(replyVar, bufferStringVar);
+	NumJS_Message_RemoveStatus(responseVar);
+	dictionaryInterface->Delete(responseVar, NumJS_StringVariables[NumJS_StringVariable_Buffer]);
 cleanup:
-	varInterface->Release(inVar);
+	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
 	varInterface->Release(bufferVar);
 }
 
@@ -438,7 +272,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		goto cleanup;
 	}
 
-	idVar = dictionaryInterface->Get(message, idStringVar);
+	idVar = dictionaryInterface->Get(message, NumJS_StringVariables[NumJS_StringVariable_Id]);
 	if (idVar.type == PP_VARTYPE_UNDEFINED) {
 		NUMJS_LOG_ERROR("Id not specified");
 		goto cleanup;
@@ -446,12 +280,12 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		NUMJS_LOG_ERROR("Unsupported id type: int32 expected");
 		goto cleanup;
 	}
-	if (dictionaryInterface->Set(replyVar, idStringVar, idVar) != PP_TRUE) {
+	if (dictionaryInterface->Set(responseVar, NumJS_StringVariables[NumJS_StringVariable_Buffer], idVar) != PP_TRUE) {
 		NUMJS_LOG_ERROR("Failed to set reply message id");
 		goto cleanup;
 	}
 
-	commandVar = dictionaryInterface->Get(message, commandStringVar);
+	commandVar = dictionaryInterface->Get(message, NumJS_StringVariables[NumJS_StringVariable_Command]);
 	if (commandVar.type == PP_VARTYPE_UNDEFINED) {
 		NUMJS_LOG_ERROR("Command not specified");
 		goto cleanup;

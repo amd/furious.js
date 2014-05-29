@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define NUMJS_COUNT_OF(array) (sizeof(array) / sizeof((array)[0]))
+#define NUMJS_LENGTH_OF(stringLiteral) (NUMJS_COUNT_OF(stringLiteral) - 1)
+
 inline bool NumJS_Util_Mul32u(uint32_t a, uint32_t b, uint32_t out[restrict static 1]) {
 #if defined(__clang__) && !defined(__pnacl__)
 	return !__builtin_umul_overflow(a, b, out);

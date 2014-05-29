@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 enum NumJS_DataType {
 	NumJS_DataType_Invalid = -1,
