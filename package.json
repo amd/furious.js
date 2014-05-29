@@ -8,7 +8,7 @@
 		"email": "marat.dukhan@amd.com"
 	}],
 	"scripts": {
-		"test": "mocha --reporter dot test/*.test.js",
+		"test": "mocha --reporter dot test/*.test.js"
 	},
 	"main": "lib/numjs.js",
 	"repository": {
