@@ -1,3 +1,10 @@
+before_install:
+ - sudo apt-get update -qq
+ - sudo apt-get install -qq python ninja-build
+ - wget http://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/nacl_sdk.zip
+ - unzip nacl_sdk.zip
+ - nacl_sdk/naclsdk update pepper_canary
+ - export NACL_SDK_ROOT=$PWD/nacl_sdk
 language: node_js
 node_js:
   - "0.11"
