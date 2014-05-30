@@ -41,6 +41,7 @@
 		"grunt-contrib-yuidoc": "^0.5.2",
 		"grunt-mocha-test": "^0.10.2",
 		"grunt-minifyify": "https://github.com/Work4Labs/grunt-minifyify/tarball/master",
+		"grunt-shell": "^0.7.0",
 		"yuidoc-bootstrap-theme": "^1.0.2",
 		"yuidocjs": "^0.3.50",
 		"minifyify": "^3.0.6",

@@ -49,13 +49,23 @@ module.exports = function(grunt) {
 				}
 			}
 		},
+
+		shell: {
+			configure: {
+				command: "python configure.py"
+			},
+			buildPNaCl: {
+				command: "ninja"
+			}
+		}
 	});
 
 	grunt.loadNpmTasks("grunt-mocha-test");
 	grunt.loadNpmTasks("grunt-browserify");
 	grunt.loadNpmTasks("grunt-minifyify");
 	grunt.loadNpmTasks('grunt-contrib-yuidoc');
+	grunt.loadNpmTasks('grunt-shell');
 
-	grunt.registerTask("default", ["mochaTest", "browserify", "minifyify", "yuidoc"]);
+	grunt.registerTask("default", ["mochaTest", "browserify", "minifyify", "yuidoc", "shell:configure", "shell:buildPNaCl"]);
 	grunt.registerTask("test", ["mochaTest"]);
 };
