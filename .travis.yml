@@ -1,11 +1,13 @@
 before_install:
  - sudo apt-get update -qq
  - sudo apt-get install -qq python libc6:i386
- - git clone git://github.com/martine/ninja.git && cd ninja
+ - git clone git://github.com/martine/ninja.git
+ - pushd ninja
  - git checkout release
  - python bootstrap.py
  - export PATH=$PWD:$PATH
  - export PYTHONPATH=$PWD/misc
+ - popd
  - wget http://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/nacl_sdk.zip
  - unzip nacl_sdk.zip
  - nacl_sdk/naclsdk update pepper_canary
