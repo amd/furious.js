@@ -1,6 +1,6 @@
 before_install:
  - sudo apt-get update -qq
- - sudo apt-get install -qq python libc6:i386
+ - sudo apt-get install -qq python libc6:i386 npm
  - git clone git://github.com/martine/ninja.git /tmp/ninja
  - pushd /tmp/ninja
  - git checkout release
