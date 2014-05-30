@@ -34,13 +34,28 @@ module.exports = function(grunt) {
 					mapFile: "numjs.min.map"
 				}
 			}
-		}
+		},
+
+		yuidoc: {
+			numjs: {
+				name: '<%= pkg.name %>',
+				description: '<%= pkg.description %>',
+				version: '<%= pkg.version %>',
+				options: {
+					paths: 'lib',
+					outdir: 'doc',
+					themedir: './node_modules/yuidoc-bootstrap-theme',
+					helpers: ["./node_modules/yuidoc-bootstrap-theme/helpers/helpers.js"]
+				}
+			}
+		},
 	});
 
 	grunt.loadNpmTasks("grunt-mocha-test");
 	grunt.loadNpmTasks("grunt-browserify");
 	grunt.loadNpmTasks("grunt-minifyify");
+	grunt.loadNpmTasks('grunt-contrib-yuidoc');
 
-	grunt.registerTask("default", ["mochaTest", "browserify", "minifyify"]);
+	grunt.registerTask("default", ["mochaTest", "browserify", "minifyify", "yuidoc"]);
 	grunt.registerTask("test", ["mochaTest"]);
 };
