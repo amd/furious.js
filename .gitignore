@@ -8,6 +8,9 @@
 *.min.js
 *.map
 
+# Generated JavaScript in the top-level directory
+/*.js
+
 # Object files
 *.o
 *.bc
