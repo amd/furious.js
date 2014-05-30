@@ -33,13 +33,15 @@
 		"mathematics",
 		"statistics"
 	],
-	"dependencies": {
-		"chai": "~1.9.0",
-		"mocha": "*",
-		"browserify": "~4.1.5",
-		"minifyify": "~3.0.6"
-	},
+	"dependencies": {},
 	"devDependencies": {
+		"browserify": "^4.1.6",
+		"chai": "^1.9.1",
+		"grunt-browserify": "^2.1.0",
+		"grunt-mocha-test": "^0.10.2",
+		"grunt-minifyify": "https://github.com/Work4Labs/grunt-minifyify/tarball/master",
+		"minifyify": "^3.0.6",
+		"mocha": "^1.20.0"
 	},
 	"testling": {
 		"files": "test/*.js",
