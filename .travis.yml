@@ -12,8 +12,10 @@ before_install:
  - unzip /tmp/nacl_sdk.zip -d /tmp/
  - /tmp/nacl_sdk/naclsdk update pepper_canary
  - export NACL_SDK_ROOT=/tmp/nacl_sdk
+ - pushd $HOME
  - sudo npm update
  - sudo npm install -g grunt-cli
+ - popd
 before_script:
  - grunt
 language: node_js
