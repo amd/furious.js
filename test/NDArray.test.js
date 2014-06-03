@@ -432,10 +432,10 @@ describe('empty', function(){
 			expect(function (){num.empty([2, 5, 1])}).to.not.throw(Error);
 		})
 		it('No error with explicit F64 data type', function(){
-			expect(function (){num.empty([2, 5, 1], num.DataType('f64'))}).to.not.throw(Error);
+			expect(function (){num.empty([2, 5, 1], numjs.DataType('f64'))}).to.not.throw(Error);
 		})
 		it('No error with F32 data type', function(){
-			expect(function (){num.empty([2, 5, 1], num.DataType('f32'))}).to.not.throw(Error);
+			expect(function (){num.empty([2, 5, 1], numjs.DataType('f32'))}).to.not.throw(Error);
 		})
 	})
 })
