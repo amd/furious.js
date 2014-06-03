@@ -13,15 +13,25 @@ module.exports = function(grunt) {
 		},
 
 		browserify: {
-			options: {
-				bundleOptions : {
-					debug: true,
-					standalone: "numjs"
-				}
-			},
 			numjs: {
+				options: {
+					bundleOptions : {
+						debug: true,
+						standalone: "numjs"
+					}
+				},
 				files: {
 					"numjs.js": ["lib/numjs.js"]
+				}
+			},
+			test: {
+				options: {
+					bundleOptions : {
+						debug: true
+					}
+				},
+				files: {
+					"test.js": ["test/*.test.js"]
 				}
 			}
 		},
