@@ -37,59 +37,6 @@ describe('NDArray', function(){
 			})
 		})
 	})
-	describe('set', function(){
-		numjs.connect(function(num) {
-			it('No error with 1D array', function(){
-				var x = num.empty(2);
-				expect(function (){x.set([0], 1)}).to.not.throw(Error);
-				expect(function (){x.set([1], -1)}).to.not.throw(Error);
-			})
-			it('No error with multi-dimensional array', function(){
-				var x = num.empty([2,2,2]);
-				expect(function (){x.set([0, 0, 0], 1)}).to.not.throw(Error);
-				expect(function (){x.set([0, 0, 1], 2)}).to.not.throw(Error);
-				expect(function (){x.set([0, 1, 0], 3)}).to.not.throw(Error);
-				expect(function (){x.set([0, 1, 1], 4)}).to.not.throw(Error);
-				expect(function (){x.set([1, 0, 0], 5)}).to.not.throw(Error);
-				expect(function (){x.set([1, 0, 1], 6)}).to.not.throw(Error);
-				expect(function (){x.set([1, 1, 0], 7)}).to.not.throw(Error);
-				expect(function (){x.set([1, 1, 1], 8)}).to.not.throw(Error);
-			})
-		})
-	})
-	describe('get', function(){
-		numjs.connect(function(num) {
-			it('Can be used with a single index', function(){
-				var x = num.empty(2);
-				x.set([0], 42);
-				x.set([1], 10);
-				expect(x.get(1)).to.equal(10);
-			})
-			it('Can be used with a multiple indices', function(){
-				var x = num.empty([2,2,2]);
-				x.set([0, 0, 0], 1);
-				x.set([0, 0, 1], 2);
-				x.set([0, 1, 0], 3);
-				x.set([0, 1, 1], 4);
-				x.set([1, 0, 0], 5);
-				x.set([1, 0, 1], 6);
-				x.set([1, 1, 0], 7);
-				x.set([1, 1, 1], 8);
-			})
-			it('Can be used with an array of indices', function(){
-				var x = num.empty([2,2,2]);
-				x.set([0, 0, 0], 1);
-				x.set([0, 0, 1], 2);
-				x.set([0, 1, 0], 3);
-				x.set([0, 1, 1], 4);
-				x.set([1, 0, 0], 5);
-				x.set([1, 0, 1], 6);
-				x.set([1, 1, 0], 7);
-				x.set([1, 1, 1], 8);
-				expect(x.get([1, 1, 0])).to.equal(7);
-			})
-		})
-	})
 	describe('toArray', function(){
 		numjs.connect(function(num) {
 			it('Works with 1-dimensional array', function(done){
@@ -521,21 +468,27 @@ describe('linspace', function(){
 		it('Has the specified number of samples', function(){
 			expect((num.linspace(0, 1, 243)).length).to.equal(243);
 		})
-		it('Has expected values', function(){
+		it('Has expected values', function(done){
 			var start = 50;
 			var stop = 99;
 			var x = num.linspace(start, stop);
-			for (var i = 0; i < x.length; i++) {
-				expect(x.get(i)).to.equal(start+i);
-			}
+			x.toArray(function(result) {
+				for (var i = 0; i < result.length; i++) {
+					expect(result[i]).to.equal(start+i);
+				}
+				done();
+			});
 		})
 		describe('with includeStop === false', function(){
 			it('Has the specified number of samples', function(){
 				expect((num.linspace(0, 1, 243, false)).length).to.equal(243);
 			})
-			it('Does not contain the right endpoint', function(){
+			it('Does not contain the right endpoint', function(done){
 				var x = num.linspace(-1, 1, 1000, false);
-				expect(x.get(x.length - 1)).to.not.equal(1);
+				x.toArray(function(result) {
+					expect(result[result.length - 1]).to.not.equal(1);
+					done();
+				});
 			})
 		})
 	})
@@ -554,23 +507,27 @@ describe('abs', function() {
 })
 describe('exp', function() {
 	numjs.connect(function(num) {
-		it('Correct result for 1-dimensional newly created output array', function(){
+		it('Correct result for 1-dimensional newly created output array', function(done){
 			var x = num.array([1, -1, 0]);
-			var y = num.exp(x);
-			expect(y.get(0)).to.be.closeTo(Math.exp(1), Math.exp(1) * 2.2204460492503130808472633361816E-16 * 3);
-			expect(y.get(1)).to.be.closeTo(Math.exp(-1), Math.exp(-1) * 2.2204460492503130808472633361816E-16 * 3);
-			expect(y.get(2)).to.equal(1);
+			num.exp(x).toArray(function(result) {
+				expect(result[0]).to.be.closeTo(Math.exp(1), Math.exp(1) * 2.2204460492503130808472633361816E-16 * 3);
+				expect(result[1]).to.be.closeTo(Math.exp(-1), Math.exp(-1) * 2.2204460492503130808472633361816E-16 * 3);
+				expect(result[2]).to.equal(1);
+				done();
+			});
 		})
 	})
 })
 describe('log', function() {
 	numjs.connect(function(num) {
-		it('Correct result for 1-dimensional newly created output array', function(){
+		it('Correct result for 1-dimensional newly created output array', function(done){
 			var x = num.array([1, 3, 10]);
-			var y = num.log(x);
-			expect(y.get(0)).to.equal(0);
-			expect(y.get(1)).to.be.closeTo(Math.log(3), Math.log(3) * 2.2204460492503130808472633361816E-16 * 3);
-			expect(y.get(2)).to.be.closeTo(Math.log(10), Math.log(10) * 2.2204460492503130808472633361816E-16 * 3);
+			num.log(x).toArray(function(result) {
+				expect(result[0]).to.equal(0);
+				expect(result[1]).to.be.closeTo(Math.log(3), Math.log(3) * 2.2204460492503130808472633361816E-16 * 3);
+				expect(result[2]).to.be.closeTo(Math.log(10), Math.log(10) * 2.2204460492503130808472633361816E-16 * 3);
+				done();
+			});
 		})
 	})
 })
