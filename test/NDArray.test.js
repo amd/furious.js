@@ -493,6 +493,18 @@ describe('linspace', function(){
 		})
 	})
 })
+describe('neg', function() {
+	numjs.connect(function(num) {
+		it('Correct result for 2-dimensional array', function(done){
+			var x = num.array([1, -7.5, 0, -15]);
+			var y = num.neg(x);
+			y.toArray(function(result){
+				expect(result).to.deep.equal([-1, 7.5, -0, 15]);
+				done();
+			});
+		})
+	})
+})
 describe('abs', function() {
 	numjs.connect(function(num) {
 		it('Correct result for 2-dimensional array', function(done){
@@ -526,6 +538,36 @@ describe('log', function() {
 				expect(result[0]).to.equal(0);
 				expect(result[1]).to.be.closeTo(Math.log(3), Math.log(3) * 2.2204460492503130808472633361816E-16 * 3);
 				expect(result[2]).to.be.closeTo(Math.log(10), Math.log(10) * 2.2204460492503130808472633361816E-16 * 3);
+				done();
+			});
+		})
+	})
+})
+describe('sqrt', function() {
+	numjs.connect(function(num) {
+		it('Correct result for 1-dimensional newly created output array', function(done){
+			var x = num.array([0, 0.25, 1, 9, 10]);
+			num.sqrt(x).toArray(function(result) {
+				expect(result[0]).to.equal(0);
+				expect(result[1]).to.equal(0.5);
+				expect(result[2]).to.equal(1);
+				expect(result[3]).to.equal(3);
+				expect(result[4]).to.be.closeTo(Math.sqrt(10), Math.sqrt(10) * 2.2204460492503130808472633361816E-16 * 3);
+				done();
+			});
+		})
+	})
+})
+describe('square', function() {
+	numjs.connect(function(num) {
+		it('Correct result for 1-dimensional newly created output array', function(done){
+			var x = num.array([-2, 0, 0.5, 1, 3]);
+			num.square(x).toArray(function(result) {
+				expect(result[0]).to.equal(4);
+				expect(result[1]).to.equal(0);
+				expect(result[2]).to.equal(0.25);
+				expect(result[3]).to.equal(1);
+				expect(result[4]).to.equal(9);
 				done();
 			});
 		})
