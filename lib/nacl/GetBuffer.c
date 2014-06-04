@@ -32,7 +32,7 @@ void NumJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
 
 	struct PP_Var bufferVar = PP_MakeUndefined();
 	error = NumJS_Execute_GetBuffer(instance, variables[0].parsedValue.asInt32, &bufferVar);
-	if (!NumJS_Message_SetStatus(NumJS_ResponseVariable, error)) {
+	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 	if (dictionaryInterface->Set(NumJS_ResponseVariable, NumJS_StringVariables[NumJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
@@ -41,7 +41,7 @@ void NumJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
 	}
 
 	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
-	if (!NumJS_Message_SetStatus(NumJS_ResponseVariable, error)) {
+	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 

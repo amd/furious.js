@@ -31,7 +31,7 @@ void NumJS_Parse_Release(PP_Instance instance, struct PP_Var message) {
 	}
 
 	error = NumJS_Execute_Release(instance, variables[0].parsedValue.asInt32);
-	if (!NumJS_Message_SetStatus(NumJS_ResponseVariable, error)) {
+	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 

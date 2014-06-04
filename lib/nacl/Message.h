@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include <ppapi/c/pp_var.h>
+#include <ppapi/c/pp_instance.h>
 
 #include "Error.h"
 #include "DataType.h"
@@ -47,7 +48,7 @@ struct NumJS_Variable {
 enum NumJS_Error NumJS_Message_Parse(uint32_t variablesCount, const struct NumJS_VariableDescriptor descriptors[static variablesCount], struct NumJS_Variable variables[static variablesCount], struct PP_Var request);
 void NumJS_Message_FreeVariables(uint32_t variablesCount, struct NumJS_Variable variables[static variablesCount]);
 
-bool NumJS_Message_SetStatus(struct PP_Var response, enum NumJS_Error error);
+bool NumJS_Message_SetStatus(PP_Instance instance, struct PP_Var response, enum NumJS_Error error);
 inline void NumJS_Message_RemoveStatus(struct PP_Var response) {
 	dictionaryInterface->Delete(response, NumJS_StringVariables[NumJS_StringVariable_Status]);
 }

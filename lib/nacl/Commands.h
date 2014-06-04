@@ -80,6 +80,10 @@ void NumJS_Parse_Add(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_Sub(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_Mul(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_Div(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_AddC(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_SubC(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_MulC(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_DivC(PP_Instance instance, struct PP_Var message);
 
 enum NumJS_Error NumJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType);
 enum NumJS_Error NumJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType, uint32_t bufferSize, void* buffer);

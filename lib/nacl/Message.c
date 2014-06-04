@@ -108,13 +108,13 @@ void NumJS_Message_FreeVariables(uint32_t variablesCount, struct NumJS_Variable 
 	}
 }
 
-bool NumJS_Message_SetStatus(struct PP_Var responseVar, enum NumJS_Error error) {
+bool NumJS_Message_SetStatus(PP_Instance instance, struct PP_Var responseVar, enum NumJS_Error error) {
 	if (error == NumJS_Error_Ok) {
 		if (dictionaryInterface->Set(responseVar,
 			NumJS_StringVariables[NumJS_StringVariable_Status],
 			NumJS_StringVariables[NumJS_StringVariable_Success]) != PP_TRUE)
 		{
-			//~ NUMJS_LOG_ERROR("Failed to set success status");
+			NUMJS_LOG_ERROR("Failed to set success status");
 			return false;
 		}
 	} else {
@@ -122,7 +122,7 @@ bool NumJS_Message_SetStatus(struct PP_Var responseVar, enum NumJS_Error error) 
 			NumJS_StringVariables[NumJS_StringVariable_Status],
 			NumJS_StringVariables[NumJS_StringVariable_Error]) != PP_TRUE)
 		{
-			//~ NUMJS_LOG_ERROR("Failed to set error status");
+			NUMJS_LOG_ERROR("Failed to set error status");
 			return false;
 		}
 	}

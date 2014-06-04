@@ -50,7 +50,7 @@ void NumJS_Parse_Create(PP_Instance instance, struct PP_Var message) {
 		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.size / 4,
 		variables[NumJS_Create_Argument_Shape].parsedValue.asBuffer.pointer,
 		variables[NumJS_Create_Argument_DataType].parsedValue.asDatatype);
-	if (!NumJS_Message_SetStatus(NumJS_ResponseVariable, error)) {
+	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 
@@ -105,7 +105,7 @@ void NumJS_Parse_CreateFromBuffer(PP_Instance instance, struct PP_Var message) {
 		variables[NumJS_CreateFromBuffer_Argument_DataType].parsedValue.asDatatype,
 		variables[NumJS_CreateFromBuffer_Argument_Buffer].parsedValue.asBuffer.size,
 		variables[NumJS_CreateFromBuffer_Argument_Buffer].parsedValue.asBuffer.pointer);
-	if (!NumJS_Message_SetStatus(NumJS_ResponseVariable, error)) {
+	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 
