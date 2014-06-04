@@ -43,7 +43,31 @@ enum NumJS_Command {
 	/* In-place divide: x[i] <- x[i] / y[i] */
 	NumJS_Command_IDiv,
 	/* In-place reverse divide: x[i] = y[i] / x[i] */
-	NumJS_Command_IRDiv
+	NumJS_Command_IRDiv,
+	/* Add constant: z[i] <- x[i] + y */
+	NumJS_Command_AddC,
+	/* Subtract constant: z[i] <- x[i] - y */
+	NumJS_Command_SubC,
+	/* Reverse subtract constant: z[i] <- x - y[i] */
+	NumJS_Command_RSubC,
+	/* Multiply by constant: z[i] <- x[i] * y */
+	NumJS_Command_MulC,
+	/* Divide by constant: z[i] <- x[i] / y */
+	NumJS_Command_DivC,
+	/* Reverse divide by constant: z[i] <- x / y[i] */
+	NumJS_Command_RDivC,
+	/* In-place add constant: x[i] <- x[i] + y */
+	NumJS_Command_IAddC,
+	/* In-place subtract constant: x[i] <- x[i] - y */
+	NumJS_Command_ISubC,
+	/* In-place reverse subtract constant: y[i] <- x - y[i] */
+	NumJS_Command_IRSubC,
+	/* In-place multuply by constant: x[i] <- x[i] * y */
+	NumJS_Command_IMulC,
+	/* In-place divide by constant: x[i] <- x[i] / y */
+	NumJS_Command_IDivC,
+	/* In-place reverse divide by constant: y[i] = x / y[i] */
+	NumJS_Command_IRDivC
 };
 
 enum NumJS_Command NumJS_Command_Parse(const char* string, uint32_t size);

@@ -163,6 +163,18 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case NumJS_Command_IMul:
 		case NumJS_Command_IDiv:
 		case NumJS_Command_IRDiv:
+		case NumJS_Command_AddC:
+		case NumJS_Command_SubC:
+		case NumJS_Command_RSubC:
+		case NumJS_Command_MulC:
+		case NumJS_Command_DivC:
+		case NumJS_Command_RDivC:
+		case NumJS_Command_IAddC:
+		case NumJS_Command_ISubC:
+		case NumJS_Command_IRSubC:
+		case NumJS_Command_IMulC:
+		case NumJS_Command_IDivC:
+		case NumJS_Command_IRDivC:
 		case NumJS_Command_Invalid:
 		default:
 			NUMJS_LOG_ERROR("Unsupported command");
