@@ -66,8 +66,32 @@ enum NumJS_Command {
 	NumJS_Command_IMulC,
 	/* In-place divide by constant: x[i] <- x[i] / y */
 	NumJS_Command_IDivC,
-	/* In-place reverse divide by constant: y[i] = x / y[i] */
-	NumJS_Command_IRDivC
+	/* In-place reverse divide by constant: y[i] <- x / y[i] */
+	NumJS_Command_IRDivC,
+	/* Negation: y[i] <- -x[i] */
+	NumJS_Command_Neg,
+	/* Absolute value: y[i] <- abs(x[i]) */
+	NumJS_Command_Abs,
+	/* Exponentiation: y[i] <- exp(x[i]) */
+	NumJS_Command_Exp,
+	/* Logarithm: y[i] <- log(x[i]) */
+	NumJS_Command_Log,
+	/* Square root: y[i] <- sqrt(x[i]) */
+	NumJS_Command_Sqrt,
+	/* Square: y[i] <- x[i] * x[i] */
+	NumJS_Command_Square,
+	/* In-place negation: x[i] <- -x[i] */
+	NumJS_Command_INeg,
+	/* In-place absolute value: x[i] <- abs(x[i]) */
+	NumJS_Command_IAbs,
+	/* In-place exponentiation: x[i] <- exp(x[i]) */
+	NumJS_Command_IExp,
+	/* In-place logarithm: x[i] <- log(x[i]) */
+	NumJS_Command_ILog,
+	/* In-place square root: x[i] <- sqrt(x[i]) */
+	NumJS_Command_ISqrt,
+	/* In-place square: x[i] <- x[i] * x[i] */
+	NumJS_Command_ISquare
 };
 
 enum NumJS_Command NumJS_Command_Parse(const char* string, uint32_t size);
@@ -84,6 +108,12 @@ void NumJS_Parse_AddC(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_SubC(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_MulC(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_DivC(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Neg(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Abs(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Exp(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Log(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Sqrt(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Square(PP_Instance instance, struct PP_Var message);
 
 enum NumJS_Error NumJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType);
 enum NumJS_Error NumJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType, uint32_t bufferSize, void* buffer);

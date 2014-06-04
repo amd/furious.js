@@ -165,6 +165,24 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case NumJS_Command_DivC:
 			NumJS_Parse_DivC(instance, message);
 			break;
+		case NumJS_Command_Neg:
+			NumJS_Parse_Neg(instance, message);
+			break;
+		case NumJS_Command_Abs:
+			NumJS_Parse_Abs(instance, message);
+			break;
+		case NumJS_Command_Exp:
+			NumJS_Parse_Exp(instance, message);
+			break;
+		case NumJS_Command_Log:
+			NumJS_Parse_Log(instance, message);
+			break;
+		case NumJS_Command_Sqrt:
+			NumJS_Parse_Sqrt(instance, message);
+			break;
+		case NumJS_Command_Square:
+			NumJS_Parse_Square(instance, message);
+			break;
 		case NumJS_Command_CreateFromArray:
 		case NumJS_Command_SetBuffer:
 		case NumJS_Command_GetArray:
@@ -183,6 +201,12 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case NumJS_Command_IMulC:
 		case NumJS_Command_IDivC:
 		case NumJS_Command_IRDivC:
+		case NumJS_Command_INeg:
+		case NumJS_Command_IAbs:
+		case NumJS_Command_IExp:
+		case NumJS_Command_ILog:
+		case NumJS_Command_ISqrt:
+		case NumJS_Command_ISquare:
 		case NumJS_Command_Invalid:
 		default:
 			NUMJS_LOG_ERROR("Unsupported command");

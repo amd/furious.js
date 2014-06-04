@@ -61,6 +61,30 @@ enum NumJS_Command NumJS_Command_Parse(const char* commandString, uint32_t comma
 			command = NumJS_Command_IDivC;
 		} else if (strncmp(commandString, "irdivc", commandLength) == 0) {
 			command = NumJS_Command_IRDivC;
+		} else if (strncmp(commandString, "neg", commandLength) == 0) {
+			command = NumJS_Command_Neg;
+		} else if (strncmp(commandString, "abs", commandLength) == 0) {
+			command = NumJS_Command_Abs;
+		} else if (strncmp(commandString, "exp", commandLength) == 0) {
+			command = NumJS_Command_Exp;
+		} else if (strncmp(commandString, "log", commandLength) == 0) {
+			command = NumJS_Command_Log;
+		} else if (strncmp(commandString, "sqrt", commandLength) == 0) {
+			command = NumJS_Command_Sqrt;
+		} else if (strncmp(commandString, "square", commandLength) == 0) {
+			command = NumJS_Command_Square;
+		} else if (strncmp(commandString, "ineg", commandLength) == 0) {
+			command = NumJS_Command_INeg;
+		} else if (strncmp(commandString, "iabs", commandLength) == 0) {
+			command = NumJS_Command_IAbs;
+		} else if (strncmp(commandString, "iexp", commandLength) == 0) {
+			command = NumJS_Command_IExp;
+		} else if (strncmp(commandString, "ilog", commandLength) == 0) {
+			command = NumJS_Command_ILog;
+		} else if (strncmp(commandString, "isqrt", commandLength) == 0) {
+			command = NumJS_Command_ISqrt;
+		} else if (strncmp(commandString, "isquare", commandLength) == 0) {
+			command = NumJS_Command_ISquare;
 		}
 	}
 	return command;
