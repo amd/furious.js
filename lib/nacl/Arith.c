@@ -12,242 +12,242 @@
 #include "IdMap.h"
 #include "Util.h"
 
-typedef void (*ArithBinOpComputeFunction)(const void*, const void*, void*, uint32_t);
-static void computeAddF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void computeAddF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void computeSubF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void computeSubF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void computeMulF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void computeMulF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void computeDivF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void computeDivF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+typedef void (*BinaryOpFunction)(const void*, const void*, void*, uint32_t);
+static void addF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+static void addF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+static void subF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+static void subF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+static void mulF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+static void mulF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+static void divF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+static void divF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
 
-typedef void (*ArithBinOpConstComputeFunction)(const void*, double, void*, uint32_t);
-static void computeAddConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void computeAddConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void computeSubConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void computeSubConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void computeMulConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void computeMulConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void computeDivConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void computeDivConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
+typedef void (*BinaryConstOpFunction)(const void*, double, void*, uint32_t);
+static void addConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
+static void addConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
+static void subConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
+static void subConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
+static void mulConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
+static void mulConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
+static void divConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
+static void divConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
 
-typedef void (*ArithUnOpComputeFunction)(const void*, void*, uint32_t);
-static void computeNegF32(const void* dataIn, void* dataOut, uint32_t length);
-static void computeNegF64(const void* dataIn, void* dataOut, uint32_t length);
-static void computeAbsF32(const void* dataIn, void* dataOut, uint32_t length);
-static void computeAbsF64(const void* dataIn, void* dataOut, uint32_t length);
-static void computeExpF32(const void* dataIn, void* dataOut, uint32_t length);
-static void computeExpF64(const void* dataIn, void* dataOut, uint32_t length);
-static void computeLogF32(const void* dataIn, void* dataOut, uint32_t length);
-static void computeLogF64(const void* dataIn, void* dataOut, uint32_t length);
-static void computeSqrtF32(const void* dataIn, void* dataOut, uint32_t length);
-static void computeSqrtF64(const void* dataIn, void* dataOut, uint32_t length);
-static void computeSquareF32(const void* dataIn, void* dataOut, uint32_t length);
-static void computeSquareF64(const void* dataIn, void* dataOut, uint32_t length);
+typedef void (*UnaryOpFunction)(const void*, void*, uint32_t);
+static void negF32(const void* dataIn, void* dataOut, uint32_t length);
+static void negF64(const void* dataIn, void* dataOut, uint32_t length);
+static void absF32(const void* dataIn, void* dataOut, uint32_t length);
+static void absF64(const void* dataIn, void* dataOut, uint32_t length);
+static void expF32(const void* dataIn, void* dataOut, uint32_t length);
+static void expF64(const void* dataIn, void* dataOut, uint32_t length);
+static void logF32(const void* dataIn, void* dataOut, uint32_t length);
+static void logF64(const void* dataIn, void* dataOut, uint32_t length);
+static void sqrtF32(const void* dataIn, void* dataOut, uint32_t length);
+static void sqrtF64(const void* dataIn, void* dataOut, uint32_t length);
+static void squareF32(const void* dataIn, void* dataOut, uint32_t length);
+static void squareF64(const void* dataIn, void* dataOut, uint32_t length);
 
-static const ArithBinOpComputeFunction addComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeAddF64,
-	[NumJS_DataType_F32] = computeAddF32
+static const BinaryOpFunction addFunctions[] = {
+	[NumJS_DataType_F64] = addF64,
+	[NumJS_DataType_F32] = addF32
 };
 
-static const ArithBinOpComputeFunction subComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeSubF64,
-	[NumJS_DataType_F32] = computeSubF32
+static const BinaryOpFunction subFunctions[] = {
+	[NumJS_DataType_F64] = subF64,
+	[NumJS_DataType_F32] = subF32
 };
 
-static const ArithBinOpComputeFunction mulComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeMulF64,
-	[NumJS_DataType_F32] = computeMulF32
+static const BinaryOpFunction mulFunctions[] = {
+	[NumJS_DataType_F64] = mulF64,
+	[NumJS_DataType_F32] = mulF32
 };
 
-static const ArithBinOpComputeFunction divComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeDivF64,
-	[NumJS_DataType_F32] = computeDivF32
+static const BinaryOpFunction divFunctions[] = {
+	[NumJS_DataType_F64] = divF64,
+	[NumJS_DataType_F32] = divF32
 };
 
-static const ArithBinOpConstComputeFunction addConstComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeAddConstF64,
-	[NumJS_DataType_F32] = computeAddConstF32
+static const BinaryConstOpFunction addConstFunctions[] = {
+	[NumJS_DataType_F64] = addConstF64,
+	[NumJS_DataType_F32] = addConstF32
 };
 
-static const ArithBinOpConstComputeFunction subConstComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeSubConstF64,
-	[NumJS_DataType_F32] = computeSubConstF32
+static const BinaryConstOpFunction subConstFunctions[] = {
+	[NumJS_DataType_F64] = subConstF64,
+	[NumJS_DataType_F32] = subConstF32
 };
 
-static const ArithBinOpConstComputeFunction mulConstComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeMulConstF64,
-	[NumJS_DataType_F32] = computeMulConstF32
+static const BinaryConstOpFunction mulConstFunctions[] = {
+	[NumJS_DataType_F64] = mulConstF64,
+	[NumJS_DataType_F32] = mulConstF32
 };
 
-static const ArithBinOpConstComputeFunction divConstComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeDivConstF64,
-	[NumJS_DataType_F32] = computeDivConstF32
+static const BinaryConstOpFunction divConstFunctions[] = {
+	[NumJS_DataType_F64] = divConstF64,
+	[NumJS_DataType_F32] = divConstF32
 };
 
-static const ArithUnOpComputeFunction negComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeNegF64,
-	[NumJS_DataType_F32] = computeNegF32
+static const UnaryOpFunction negFunctions[] = {
+	[NumJS_DataType_F64] = negF64,
+	[NumJS_DataType_F32] = negF32
 };
 
-static const ArithUnOpComputeFunction absComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeAbsF64,
-	[NumJS_DataType_F32] = computeAbsF32
+static const UnaryOpFunction absFunctions[] = {
+	[NumJS_DataType_F64] = absF64,
+	[NumJS_DataType_F32] = absF32
 };
 
-static const ArithUnOpComputeFunction expComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeExpF64,
-	[NumJS_DataType_F32] = computeExpF32
+static const UnaryOpFunction expFunctions[] = {
+	[NumJS_DataType_F64] = expF64,
+	[NumJS_DataType_F32] = expF32
 };
 
-static const ArithUnOpComputeFunction logComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeLogF64,
-	[NumJS_DataType_F32] = computeLogF32
+static const UnaryOpFunction logFunctions[] = {
+	[NumJS_DataType_F64] = logF64,
+	[NumJS_DataType_F32] = logF32
 };
 
-static const ArithUnOpComputeFunction sqrtComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeSqrtF64,
-	[NumJS_DataType_F32] = computeSqrtF32
+static const UnaryOpFunction sqrtFunctions[] = {
+	[NumJS_DataType_F64] = sqrtF64,
+	[NumJS_DataType_F32] = sqrtF32
 };
 
-static const ArithUnOpComputeFunction squareComputeFunctions[] = {
-	[NumJS_DataType_F64] = computeSquareF64,
-	[NumJS_DataType_F32] = computeSquareF32
+static const UnaryOpFunction squareFunctions[] = {
+	[NumJS_DataType_F64] = squareF64,
+	[NumJS_DataType_F32] = squareF32
 };
 
-static void parseArithBinOp(PP_Instance instance, struct PP_Var message, const ArithBinOpComputeFunction computeFunctions[static 1]);
-static void parseArithBinOpConst(PP_Instance instance, struct PP_Var message, const ArithBinOpConstComputeFunction computeFunctions[static 1]);
-static void parseArithUnOp(PP_Instance instance, struct PP_Var message, const ArithUnOpComputeFunction computeFunctions[static 1]);
-static enum NumJS_Error executeArithBinOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const ArithBinOpComputeFunction computeFunctions[static 1]);
-static enum NumJS_Error executeArithBinOpConst(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const ArithBinOpConstComputeFunction computeFunctions[static 1]);
-static enum NumJS_Error executeArithUnOp(PP_Instance instance, int32_t idA, int32_t idOut, const ArithUnOpComputeFunction computeFunctions[static 1]);
+static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]);
+static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]);
+static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]);
+static enum NumJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]);
+static enum NumJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]);
+static enum NumJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]);
 
 void NumJS_Parse_Add(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOp(instance, message, addComputeFunctions);
+	parseBinaryOp(instance, message, addFunctions);
 }
 
 void NumJS_Parse_Sub(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOp(instance, message, subComputeFunctions);
+	parseBinaryOp(instance, message, subFunctions);
 }
 
 void NumJS_Parse_Mul(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOp(instance, message, mulComputeFunctions);
+	parseBinaryOp(instance, message, mulFunctions);
 }
 
 void NumJS_Parse_Div(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOp(instance, message, divComputeFunctions);
+	parseBinaryOp(instance, message, divFunctions);
 }
 
 void NumJS_Parse_AddC(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOpConst(instance, message, addConstComputeFunctions);
+	parseBinaryConstOp(instance, message, addConstFunctions);
 }
 
 void NumJS_Parse_SubC(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOpConst(instance, message, subConstComputeFunctions);
+	parseBinaryConstOp(instance, message, subConstFunctions);
 }
 
 void NumJS_Parse_MulC(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOpConst(instance, message, mulConstComputeFunctions);
+	parseBinaryConstOp(instance, message, mulConstFunctions);
 }
 
 void NumJS_Parse_DivC(PP_Instance instance, struct PP_Var message) {
-	parseArithBinOpConst(instance, message, divConstComputeFunctions);
+	parseBinaryConstOp(instance, message, divConstFunctions);
 }
 
 void NumJS_Parse_Neg(PP_Instance instance, struct PP_Var message) {
-	parseArithUnOp(instance, message, negComputeFunctions);
+	parseUnaryOp(instance, message, negFunctions);
 }
 
 void NumJS_Parse_Abs(PP_Instance instance, struct PP_Var message) {
-	parseArithUnOp(instance, message, absComputeFunctions);
+	parseUnaryOp(instance, message, absFunctions);
 }
 
 void NumJS_Parse_Exp(PP_Instance instance, struct PP_Var message) {
-	parseArithUnOp(instance, message, expComputeFunctions);
+	parseUnaryOp(instance, message, expFunctions);
 }
 
 void NumJS_Parse_Log(PP_Instance instance, struct PP_Var message) {
-	parseArithUnOp(instance, message, logComputeFunctions);
+	parseUnaryOp(instance, message, logFunctions);
 }
 
 void NumJS_Parse_Sqrt(PP_Instance instance, struct PP_Var message) {
-	parseArithUnOp(instance, message, sqrtComputeFunctions);
+	parseUnaryOp(instance, message, sqrtFunctions);
 }
 
 void NumJS_Parse_Square(PP_Instance instance, struct PP_Var message) {
-	parseArithUnOp(instance, message, squareComputeFunctions);
+	parseUnaryOp(instance, message, squareFunctions);
 }
 
-enum NumJS_ArithBinOp_Argument {
-	NumJS_ArithBinOp_Argument_A,
-	NumJS_ArithBinOp_Argument_B,
-	NumJS_ArithBinOp_Argument_Out,
+enum BinaryOp_Argument {
+	BinaryOp_Argument_A,
+	BinaryOp_Argument_B,
+	BinaryOp_Argument_Out,
 };
 
-enum NumJS_ArithUnOp_Argument {
-	NumJS_ArithUnOp_Argument_A,
-	NumJS_ArithUnOp_Argument_Out,
+enum UnaryOp_Argument {
+	UnaryOp_Argument_A,
+	UnaryOp_Argument_Out,
 };
 
-static const struct NumJS_VariableDescriptor binOpArithDescriptors[] =
+static const struct NumJS_VariableDescriptor binaryOpDescriptors[] =
 {
-	[NumJS_ArithBinOp_Argument_A] = { 
+	[BinaryOp_Argument_A] = { 
 		.type = NumJS_VariableType_Int32,
 		.name = NumJS_StringVariable_A
 	},
-	[NumJS_ArithBinOp_Argument_B] = {
+	[BinaryOp_Argument_B] = {
 		.type = NumJS_VariableType_Int32,
 		.name = NumJS_StringVariable_B
 	},
-	[NumJS_ArithBinOp_Argument_Out] = {
+	[BinaryOp_Argument_Out] = {
 		.type = NumJS_VariableType_Int32,
 		.name = NumJS_StringVariable_Out
 	}
 };
 
-static const struct NumJS_VariableDescriptor binOpConstArithDescriptors[] =
+static const struct NumJS_VariableDescriptor binaryConstOpDescriptors[] =
 {
-	[NumJS_ArithBinOp_Argument_A] = { 
+	[BinaryOp_Argument_A] = { 
 		.type = NumJS_VariableType_Int32,
 		.name = NumJS_StringVariable_A
 	},
-	[NumJS_ArithBinOp_Argument_B] = {
+	[BinaryOp_Argument_B] = {
 		.type = NumJS_VariableType_Float64,
 		.name = NumJS_StringVariable_B
 	},
-	[NumJS_ArithBinOp_Argument_Out] = {
+	[BinaryOp_Argument_Out] = {
 		.type = NumJS_VariableType_Int32,
 		.name = NumJS_StringVariable_Out
 	}
 };
 
-static const struct NumJS_VariableDescriptor unOpArithDescriptors[] =
+static const struct NumJS_VariableDescriptor unaryOpDescriptors[] =
 {
-	[NumJS_ArithUnOp_Argument_A] = { 
+	[UnaryOp_Argument_A] = { 
 		.type = NumJS_VariableType_Int32,
 		.name = NumJS_StringVariable_A
 	},
-	[NumJS_ArithUnOp_Argument_Out] = {
+	[UnaryOp_Argument_Out] = {
 		.type = NumJS_VariableType_Int32,
 		.name = NumJS_StringVariable_Out
 	}
 };
 
-static void parseArithBinOp(PP_Instance instance, struct PP_Var message, const ArithBinOpComputeFunction computeFunctions[static 1]) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(binOpArithDescriptors)];
+static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]) {
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(binaryOpDescriptors)];
 	enum NumJS_Error error = NumJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(binOpArithDescriptors), binOpArithDescriptors, variables, message);
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(binaryOpDescriptors), binaryOpDescriptors, variables, message);
 	if (error != NumJS_Error_Ok) {
 		NUMJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
-	error = executeArithBinOp(instance,
-		variables[NumJS_ArithBinOp_Argument_A].parsedValue.asInt32,
-		variables[NumJS_ArithBinOp_Argument_B].parsedValue.asInt32,
-		variables[NumJS_ArithBinOp_Argument_Out].parsedValue.asInt32,
+	error = executeBinaryOp(instance,
+		variables[BinaryOp_Argument_A].parsedValue.asInt32,
+		variables[BinaryOp_Argument_B].parsedValue.asInt32,
+		variables[BinaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
 	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
@@ -260,20 +260,20 @@ cleanup:
 	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
 }
 
-static void parseArithBinOpConst(PP_Instance instance, struct PP_Var message, const ArithBinOpConstComputeFunction computeFunctions[static 1]) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(binOpConstArithDescriptors)];
+static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]) {
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(binaryConstOpDescriptors)];
 	enum NumJS_Error error = NumJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(binOpConstArithDescriptors), binOpConstArithDescriptors, variables, message);
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(binaryConstOpDescriptors), binaryConstOpDescriptors, variables, message);
 	if (error != NumJS_Error_Ok) {
 		NUMJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
-	error = executeArithBinOpConst(instance,
-		variables[NumJS_ArithBinOp_Argument_A].parsedValue.asInt32,
-		variables[NumJS_ArithBinOp_Argument_B].parsedValue.asFloat64,
-		variables[NumJS_ArithBinOp_Argument_Out].parsedValue.asInt32,
+	error = executeBinaryConstOp(instance,
+		variables[BinaryOp_Argument_A].parsedValue.asInt32,
+		variables[BinaryOp_Argument_B].parsedValue.asFloat64,
+		variables[BinaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
 	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
@@ -286,19 +286,19 @@ cleanup:
 	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
 }
 
-static void parseArithUnOp(PP_Instance instance, struct PP_Var message, const ArithUnOpComputeFunction computeFunctions[static 1]) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(unOpArithDescriptors)];
+static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]) {
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(unaryOpDescriptors)];
 	enum NumJS_Error error = NumJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(unOpArithDescriptors), unOpArithDescriptors, variables, message);
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
 	if (error != NumJS_Error_Ok) {
 		NUMJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
-	error = executeArithUnOp(instance,
-		variables[NumJS_ArithUnOp_Argument_A].parsedValue.asInt32,
-		variables[NumJS_ArithUnOp_Argument_Out].parsedValue.asInt32,
+	error = executeUnaryOp(instance,
+		variables[UnaryOp_Argument_A].parsedValue.asInt32,
+		variables[UnaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
 	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
 		goto cleanup;
@@ -311,7 +311,7 @@ cleanup:
 	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
 }
 
-static enum NumJS_Error executeArithBinOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const ArithBinOpComputeFunction computeFunctions[static 1]) {
+static enum NumJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]) {
 	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return NumJS_Error_InvalidId;
@@ -327,7 +327,7 @@ static enum NumJS_Error executeArithBinOp(PP_Instance instance, int32_t idA, int
 		return NumJS_Error_MismatchingDataType;
 	}
 
-	ArithBinOpComputeFunction computeFunction;
+	BinaryOpFunction computeFunction;
 	switch (dataType) {
 		case NumJS_DataType_F64:
 		case NumJS_DataType_F32:
@@ -372,7 +372,7 @@ static enum NumJS_Error executeArithBinOp(PP_Instance instance, int32_t idA, int
 	return NumJS_Error_Ok;
 }
 
-static enum NumJS_Error executeArithBinOpConst(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const ArithBinOpConstComputeFunction computeFunctions[static 1]) {
+static enum NumJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]) {
 	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return NumJS_Error_InvalidId;
@@ -380,7 +380,7 @@ static enum NumJS_Error executeArithBinOpConst(PP_Instance instance, int32_t idA
 
 	const enum NumJS_DataType dataType = arrayA->dataType;
 
-	ArithBinOpConstComputeFunction computeFunction;
+	BinaryConstOpFunction computeFunction;
 	switch (dataType) {
 		case NumJS_DataType_F64:
 		case NumJS_DataType_F32:
@@ -409,7 +409,7 @@ static enum NumJS_Error executeArithBinOpConst(PP_Instance instance, int32_t idA
 	return NumJS_Error_Ok;
 }
 
-static enum NumJS_Error executeArithUnOp(PP_Instance instance, int32_t idA, int32_t idOut, const ArithUnOpComputeFunction computeFunctions[static 1]) {
+static enum NumJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]) {
 	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return NumJS_Error_InvalidId;
@@ -417,7 +417,7 @@ static enum NumJS_Error executeArithUnOp(PP_Instance instance, int32_t idA, int3
 
 	const enum NumJS_DataType dataType = arrayA->dataType;
 
-	ArithUnOpComputeFunction computeFunction;
+	UnaryOpFunction computeFunction;
 	switch (dataType) {
 		case NumJS_DataType_F64:
 		case NumJS_DataType_F32:
@@ -446,7 +446,7 @@ static enum NumJS_Error executeArithUnOp(PP_Instance instance, int32_t idA, int3
 	return NumJS_Error_Ok;
 }
 
-static void computeAddF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void addF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float* dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -455,7 +455,7 @@ static void computeAddF32(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeAddF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void addF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	const double* dataB_F64 = dataB;
 	double* dataOut_F64 = dataOut;
@@ -464,7 +464,7 @@ static void computeAddF64(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeSubF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void subF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float* dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -473,7 +473,7 @@ static void computeSubF32(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeSubF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void subF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	const double* dataB_F64 = dataB;
 	double* dataOut_F64 = dataOut;
@@ -482,7 +482,7 @@ static void computeSubF64(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeMulF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void mulF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float* dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -491,7 +491,7 @@ static void computeMulF32(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeMulF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void mulF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	const double* dataB_F64 = dataB;
 	double* dataOut_F64 = dataOut;
@@ -500,7 +500,7 @@ static void computeMulF64(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeDivF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void divF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float* dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -509,7 +509,7 @@ static void computeDivF32(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeDivF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
+static void divF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	const double* dataB_F64 = dataB;
 	double* dataOut_F64 = dataOut;
@@ -518,7 +518,7 @@ static void computeDivF64(const void* dataA, const void* dataB, void* dataOut, u
 	}
 }
 
-static void computeAddConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void addConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -527,7 +527,7 @@ static void computeAddConstF32(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeAddConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void addConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -535,7 +535,7 @@ static void computeAddConstF64(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeSubConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void subConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -544,7 +544,7 @@ static void computeSubConstF32(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeSubConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void subConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -552,7 +552,7 @@ static void computeSubConstF64(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeMulConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void mulConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -561,7 +561,7 @@ static void computeMulConstF32(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeMulConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void mulConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -569,7 +569,7 @@ static void computeMulConstF64(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeDivConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void divConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const float* dataA_F32 = dataA;
 	const float dataB_F32 = dataB;
 	float* dataOut_F32 = dataOut;
@@ -578,7 +578,7 @@ static void computeDivConstF32(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeDivConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void divConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
 	const double* dataA_F64 = dataA;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -586,7 +586,7 @@ static void computeDivConstF64(const void* dataA, double dataB, void* dataOut, u
 	}
 }
 
-static void computeNegF32(const void* dataIn, void* dataOut, uint32_t length) {
+static void negF32(const void* dataIn, void* dataOut, uint32_t length) {
 	const float* dataIn_F32 = dataIn;
 	float* dataOut_F32 = dataOut;
 	while (length--) {
@@ -594,7 +594,7 @@ static void computeNegF32(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeNegF64(const void* dataIn, void* dataOut, uint32_t length) {
+static void negF64(const void* dataIn, void* dataOut, uint32_t length) {
 	const double* dataIn_F64 = dataIn;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -602,7 +602,7 @@ static void computeNegF64(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeAbsF32(const void* dataIn, void* dataOut, uint32_t length) {
+static void absF32(const void* dataIn, void* dataOut, uint32_t length) {
 	const float* dataIn_F32 = dataIn;
 	float* dataOut_F32 = dataOut;
 	while (length--) {
@@ -610,7 +610,7 @@ static void computeAbsF32(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeAbsF64(const void* dataIn, void* dataOut, uint32_t length) {
+static void absF64(const void* dataIn, void* dataOut, uint32_t length) {
 	const double* dataIn_F64 = dataIn;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -618,7 +618,7 @@ static void computeAbsF64(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeExpF32(const void* dataIn, void* dataOut, uint32_t length) {
+static void expF32(const void* dataIn, void* dataOut, uint32_t length) {
 	const float* dataIn_F32 = dataIn;
 	float* dataOut_F32 = dataOut;
 	while (length--) {
@@ -626,7 +626,7 @@ static void computeExpF32(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeExpF64(const void* dataIn, void* dataOut, uint32_t length) {
+static void expF64(const void* dataIn, void* dataOut, uint32_t length) {
 	const double* dataIn_F64 = dataIn;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -634,7 +634,7 @@ static void computeExpF64(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeLogF32(const void* dataIn, void* dataOut, uint32_t length) {
+static void logF32(const void* dataIn, void* dataOut, uint32_t length) {
 	const float* dataIn_F32 = dataIn;
 	float* dataOut_F32 = dataOut;
 	while (length--) {
@@ -642,7 +642,7 @@ static void computeLogF32(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeLogF64(const void* dataIn, void* dataOut, uint32_t length) {
+static void logF64(const void* dataIn, void* dataOut, uint32_t length) {
 	const double* dataIn_F64 = dataIn;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -650,7 +650,7 @@ static void computeLogF64(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeSqrtF32(const void* dataIn, void* dataOut, uint32_t length) {
+static void sqrtF32(const void* dataIn, void* dataOut, uint32_t length) {
 	const float* dataIn_F32 = dataIn;
 	float* dataOut_F32 = dataOut;
 	while (length--) {
@@ -658,7 +658,7 @@ static void computeSqrtF32(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeSqrtF64(const void* dataIn, void* dataOut, uint32_t length) {
+static void sqrtF64(const void* dataIn, void* dataOut, uint32_t length) {
 	const double* dataIn_F64 = dataIn;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
@@ -666,7 +666,7 @@ static void computeSqrtF64(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
-static void computeSquareF32(const void* dataIn, void* dataOut, uint32_t length) {
+static void squareF32(const void* dataIn, void* dataOut, uint32_t length) {
 	const float* dataIn_F32 = dataIn;
 	float* dataOut_F32 = dataOut;
 	while (length--) {
@@ -675,7 +675,7 @@ static void computeSquareF32(const void* dataIn, void* dataOut, uint32_t length)
 	}
 }
 
-static void computeSquareF64(const void* dataIn, void* dataOut, uint32_t length) {
+static void squareF64(const void* dataIn, void* dataOut, uint32_t length) {
 	const double* dataIn_F64 = dataIn;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
