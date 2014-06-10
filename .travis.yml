@@ -11,7 +11,7 @@ before_install:
  - wget http://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/nacl_sdk.zip -O /tmp/nacl_sdk.zip
  - unzip /tmp/nacl_sdk.zip -d /tmp/
  - /tmp/nacl_sdk/naclsdk update pepper_canary
- - export NACL_SDK_ROOT=/tmp/nacl_sdk
+ - export NACL_SDK_ROOT=/tmp/nacl_sdk/pepper_canary
  - npm install -g grunt-cli
 before_script:
  - grunt
