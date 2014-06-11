@@ -235,13 +235,19 @@ describe('NDArray', function(){
 	describe('min', function(){
 		describe('All elements', function(){
 			numjs.connect(function(num) {
-				it('Correct result for 1-dimensional arrays', function(){
+				it('Correct result for 1-dimensional arrays', function(done){
 					var x = num.array([1, 4, 9]);
-					expect(x.min()).to.equal(1);
+					x.min().toArray(function(result) {
+						expect(result[0]).to.equal(1);
+						done();
+					});
 				})
-				it('Correct result for 2-dimensional arrays', function(){
+				it('Correct result for 2-dimensional arrays', function(done){
 					var x = num.array([[-2, 4], [-8, 16]]);
-					expect(x.min()).to.equal(-8);
+					x.min().toArray(function(result) {
+						expect(result[0]).to.equal(-8);
+						done();
+					});
 				})
 			})
 		})
@@ -254,8 +260,8 @@ describe('NDArray', function(){
 					expect(x.min(2).shape).to.deep.equal([2, 3]);
 				})
 				it('Correct result for 3-dimensional arrays, axis 0', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).min(0);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.min(0).toArray(function(result){
 						expect(result).to.deep.equal([[ 1,  2,  3,  4],
 						                              [ 5,  6,  7,  8],
 						                              [ 9, 10, 11, 12]]);
@@ -263,16 +269,16 @@ describe('NDArray', function(){
 					});
 				})
 				it('Correct result for 3-dimensional arrays, axis 1', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).min(1);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.min(1).toArray(function(result){
 						expect(result).to.deep.equal([[  1,  2,  3,  4],
 						                              [ 13, 14, 15, 16]]);
 						done();
 					});
 				})
 				it('Correct result for 3-dimensional arrays, axis 2', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).min(2);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.min(2).toArray(function(result){
 						expect(result).to.deep.equal([[  1,  5,  9],
 						                              [ 13, 17, 21]]);
 						done();
@@ -284,13 +290,19 @@ describe('NDArray', function(){
 	describe('max', function(){
 		describe('All elements', function(){
 			numjs.connect(function(num) {
-				it('Correct result for 1-dimensional arrays', function(){
+				it('Correct result for 1-dimensional arrays', function(done){
 					var x = num.array([1, 4, 9]);
-					expect(x.max()).to.equal(9);
+					x.max().toArray(function(result) {
+						expect(result[0]).to.equal(9);
+						done();
+					});
 				})
-				it('Correct result for 2-dimensional arrays', function(){
+				it('Correct result for 2-dimensional arrays', function(done){
 					var x = num.array([[-2, 4], [-8, 16]]);
-					expect(x.max()).to.equal(16);
+					x.max().toArray(function(result) {
+						expect(result[0]).to.equal(16);
+						done();
+					});
 				})
 			})
 		})
@@ -303,8 +315,8 @@ describe('NDArray', function(){
 					expect(x.max(2).shape).to.deep.equal([2, 3]);
 				})
 				it('Correct result for 3-dimensional arrays, axis 0', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).max(0);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.max(0).toArray(function(result){
 						expect(result).to.deep.equal([[ 13, 14, 15, 16],
 						                              [ 17, 18, 19, 20],
 						                              [ 21, 22, 23, 24]]);
@@ -312,16 +324,16 @@ describe('NDArray', function(){
 					});
 				})
 				it('Correct result for 3-dimensional arrays, axis 1', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).max(1);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.max(1).toArray(function(result){
 						expect(result).to.deep.equal([[  9, 10, 11, 12],
 						                              [ 21, 22, 23, 24]]);
 						done();
 					});
 				})
 				it('Correct result for 3-dimensional arrays, axis 2', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).max(2);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.max(2).toArray(function(result){
 						expect(result).to.deep.equal([[  4,  8, 12],
 						                              [ 16, 20, 24]]);
 						done();
@@ -333,13 +345,19 @@ describe('NDArray', function(){
 	describe('sum', function(){
 		describe('All elements', function(){
 			numjs.connect(function(num) {
-				it('Correct result for 1-dimensional arrays', function(){
+				it('Correct result for 1-dimensional arrays', function(done){
 					var x = num.array([1, 4, 9]);
-					expect(x.sum()).to.equal(14);
+					x.sum().toArray(function (result) {
+						expect(result[0]).to.equal(14);
+						done();
+					});
 				})
-				it('Correct result for 2-dimensional arrays', function(){
+				it('Correct result for 2-dimensional arrays', function(done){
 					var x = num.array([[-2, 4], [-8, 16]]);
-					expect(x.sum()).to.equal(10);
+					x.sum().toArray(function (result) {
+						expect(result[0]).to.equal(10);
+						done();
+					});
 				})
 			})
 		})
@@ -352,8 +370,8 @@ describe('NDArray', function(){
 					expect(x.sum(2).shape).to.deep.equal([2, 3]);
 				})
 				it('Correct result for 3-dimensional arrays, axis 0', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).sum(0);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.sum(0).toArray(function(result){
 						expect(result).to.deep.equal([[ 14, 16, 18, 20],
 						                              [ 22, 24, 26, 28],
 						                              [ 30, 32, 34, 36]]);
@@ -361,16 +379,16 @@ describe('NDArray', function(){
 					});
 				})
 				it('Correct result for 3-dimensional arrays, axis 1', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).sum(1);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.sum(1).toArray(function(result){
 						expect(result).to.deep.equal([[ 15,  18,  21,  24],
 						                              [ 51,  54,  57,  60]]);
 						done();
 					});
 				})
 				it('Correct result for 3-dimensional arrays, axis 2', function(done){
-					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]).sum(2);
-					x.toArray(function(result){
+					var x = num.linspace(1, 24, 24).reshape([2, 3, 4]);
+					x.sum(2).toArray(function(result){
 						expect(result).to.deep.equal([[ 10,  26,  42],
 						                              [ 58,  74,  90]]);
 						done();
