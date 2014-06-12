@@ -85,6 +85,12 @@ enum NumJS_Command NumJS_Command_Parse(const char* commandString, uint32_t comma
 			command = NumJS_Command_ISqrt;
 		} else if (strncmp(commandString, "isquare", commandLength) == 0) {
 			command = NumJS_Command_ISquare;
+		} else if (strncmp(commandString, "min", commandLength) == 0) {
+			command = NumJS_Command_Min;
+		} else if (strncmp(commandString, "max", commandLength) == 0) {
+			command = NumJS_Command_Max;
+		} else if (strncmp(commandString, "sum", commandLength) == 0) {
+			command = NumJS_Command_Sum;
 		}
 	}
 	return command;

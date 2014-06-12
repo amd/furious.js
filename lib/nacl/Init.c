@@ -183,6 +183,15 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case NumJS_Command_Square:
 			NumJS_Parse_Square(instance, message);
 			break;
+		case NumJS_Command_Min:
+			NumJS_Parse_Min(instance, message);
+			break;
+		case NumJS_Command_Max:
+			NumJS_Parse_Max(instance, message);
+			break;
+		case NumJS_Command_Sum:
+			NumJS_Parse_Sum(instance, message);
+			break;
 		case NumJS_Command_CreateFromArray:
 		case NumJS_Command_SetBuffer:
 		case NumJS_Command_GetArray:

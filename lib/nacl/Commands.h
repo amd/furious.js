@@ -91,7 +91,13 @@ enum NumJS_Command {
 	/* In-place square root: x[i] <- sqrt(x[i]) */
 	NumJS_Command_ISqrt,
 	/* In-place square: x[i] <- x[i] * x[i] */
-	NumJS_Command_ISquare
+	NumJS_Command_ISquare,
+	/* All-array minimum */
+	NumJS_Command_Min,
+	/* All-array maximum */
+	NumJS_Command_Max,
+	/* All-array sum */
+	NumJS_Command_Sum,
 };
 
 enum NumJS_Command NumJS_Command_Parse(const char* string, uint32_t size);
@@ -114,6 +120,9 @@ void NumJS_Parse_Exp(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_Log(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_Sqrt(PP_Instance instance, struct PP_Var message);
 void NumJS_Parse_Square(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Min(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Max(PP_Instance instance, struct PP_Var message);
+void NumJS_Parse_Sum(PP_Instance instance, struct PP_Var message);
 
 enum NumJS_Error NumJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType);
 enum NumJS_Error NumJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum NumJS_DataType dataType, uint32_t bufferSize, void* buffer);

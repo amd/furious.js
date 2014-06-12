@@ -46,6 +46,14 @@ static void sqrtF64(const void* dataIn, void* dataOut, uint32_t length);
 static void squareF32(const void* dataIn, void* dataOut, uint32_t length);
 static void squareF64(const void* dataIn, void* dataOut, uint32_t length);
 
+typedef void (*ReduceOpFunction)(const void*, void*, size_t);
+static void minF32(const void* dataIn, void* dataOut, size_t length);
+static void minF64(const void* dataIn, void* dataOut, size_t length);
+static void maxF32(const void* dataIn, void* dataOut, size_t length);
+static void maxF64(const void* dataIn, void* dataOut, size_t length);
+static void sumF32(const void* dataIn, void* dataOut, size_t length);
+static void sumF64(const void* dataIn, void* dataOut, size_t length);
+
 static const BinaryOpFunction addFunctions[] = {
 	[NumJS_DataType_F64] = addF64,
 	[NumJS_DataType_F32] = addF32
@@ -116,12 +124,29 @@ static const UnaryOpFunction squareFunctions[] = {
 	[NumJS_DataType_F32] = squareF32
 };
 
+static const ReduceOpFunction minFunctions[] = {
+	[NumJS_DataType_F64] = minF64,
+	[NumJS_DataType_F32] = minF32
+};
+
+static const ReduceOpFunction maxFunctions[] = {
+	[NumJS_DataType_F64] = maxF64,
+	[NumJS_DataType_F32] = maxF32
+};
+
+static const ReduceOpFunction sumFunctions[] = {
+	[NumJS_DataType_F64] = sumF64,
+	[NumJS_DataType_F32] = sumF32
+};
+
 static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]);
 static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]);
 static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]);
+static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]);
 static enum NumJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]);
 static enum NumJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]);
 static enum NumJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]);
+static enum NumJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]);
 
 void NumJS_Parse_Add(PP_Instance instance, struct PP_Var message) {
 	parseBinaryOp(instance, message, addFunctions);
@@ -179,6 +204,18 @@ void NumJS_Parse_Square(PP_Instance instance, struct PP_Var message) {
 	parseUnaryOp(instance, message, squareFunctions);
 }
 
+void NumJS_Parse_Min(PP_Instance instance, struct PP_Var message) {
+	parseReduceOp(instance, message, minFunctions);
+}
+
+void NumJS_Parse_Max(PP_Instance instance, struct PP_Var message) {
+	parseReduceOp(instance, message, maxFunctions);
+}
+
+void NumJS_Parse_Sum(PP_Instance instance, struct PP_Var message) {
+	parseReduceOp(instance, message, sumFunctions);
+}
+
 enum BinaryOp_Argument {
 	BinaryOp_Argument_A,
 	BinaryOp_Argument_B,
@@ -223,6 +260,18 @@ static const struct NumJS_VariableDescriptor binaryConstOpDescriptors[] =
 };
 
 static const struct NumJS_VariableDescriptor unaryOpDescriptors[] =
+{
+	[UnaryOp_Argument_A] = { 
+		.type = NumJS_VariableType_Int32,
+		.name = NumJS_StringVariable_A
+	},
+	[UnaryOp_Argument_Out] = {
+		.type = NumJS_VariableType_Int32,
+		.name = NumJS_StringVariable_Out
+	}
+};
+
+static const struct NumJS_VariableDescriptor reduceOpDescriptors[] =
 {
 	[UnaryOp_Argument_A] = { 
 		.type = NumJS_VariableType_Int32,
@@ -297,6 +346,31 @@ static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const Unar
 	}
 
 	error = executeUnaryOp(instance,
+		variables[UnaryOp_Argument_A].parsedValue.asInt32,
+		variables[UnaryOp_Argument_Out].parsedValue.asInt32,
+		computeFunctions);
+	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+		goto cleanup;
+	}
+
+	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
+
+	NumJS_Message_RemoveStatus(NumJS_ResponseVariable);
+cleanup:
+	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
+}
+
+static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]) {
+	struct NumJS_Variable variables[NUMJS_COUNT_OF(unaryOpDescriptors)];
+	enum NumJS_Error error = NumJS_Error_Ok;
+
+	error = NumJS_Message_Parse(NUMJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
+	if (error != NumJS_Error_Ok) {
+		NUMJS_LOG_ERROR("Parse error");
+		goto cleanup;
+	}
+
+	error = executeReduceOp(instance,
 		variables[UnaryOp_Argument_A].parsedValue.asInt32,
 		variables[UnaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
@@ -441,6 +515,41 @@ static enum NumJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_
 
 	void* dataOut = NumJS_NDArray_GetData(arrayOut);
 	computeFunction(dataA, dataOut, length);
+
+	NumJS_AllocateId(instance, idOut, arrayOut);
+	return NumJS_Error_Ok;
+}
+
+static enum NumJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]) {
+	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
+	if (arrayA == NULL) {
+		return NumJS_Error_InvalidId;
+	}
+
+	const enum NumJS_DataType dataType = arrayA->dataType;
+
+	UnaryOpFunction computeFunction;
+	switch (dataType) {
+		case NumJS_DataType_F64:
+		case NumJS_DataType_F32:
+			computeFunction = computeFunctions[dataType];
+			break;
+		case NumJS_DataType_Invalid:
+		default:
+			return NumJS_Error_InvalidDataType;
+	}
+
+	const void* dataIn = NumJS_NDArray_GetData(arrayA);
+	const size_t lengthIn = arrayA->length;
+
+	uint32_t outShape[1] = { 1 };
+	struct NDArray* arrayOut = NumJS_NDArray_Create(NUMJS_COUNT_OF(outShape), 1, outShape, dataType);
+	if (arrayOut == NULL) {
+		return NumJS_Error_OutOfMemory;
+	}
+
+	void* dataOut = NumJS_NDArray_GetData(arrayOut);
+	computeFunction(dataIn, dataOut, lengthIn);
 
 	NumJS_AllocateId(instance, idOut, arrayOut);
 	return NumJS_Error_Ok;
@@ -684,3 +793,83 @@ static void squareF64(const void* dataIn, void* dataOut, uint32_t length) {
 	}
 }
 
+
+static void minF32(const void* dataIn, void* dataOut, uint32_t length) {
+	const float* dataIn_F32 = dataIn;
+	float* dataOut_F32 = dataOut;
+	if (length == 0) {
+		*dataOut_F32 = __builtin_nanf("");
+	} else {
+		float min = *dataIn_F32++;
+		while (--length) {
+			const float val = *dataIn_F32++;
+			min = min < val ? min : val;
+		}
+		*dataOut_F32 = min;
+	}
+}
+
+static void minF64(const void* dataIn, void* dataOut, uint32_t length) {
+	const double* dataIn_F64 = dataIn;
+	double* dataOut_F64 = dataOut;
+	if (length == 0) {
+		*dataOut_F64 = __builtin_nan("");
+	} else {
+		double min = *dataIn_F64++;
+		while (--length) {
+			const double val = *dataIn_F64++;
+			min = min < val ? min : val;
+		}
+		*dataOut_F64 = min;
+	}
+}
+
+static void maxF32(const void* dataIn, void* dataOut, uint32_t length) {
+	const float* dataIn_F32 = dataIn;
+	float* dataOut_F32 = dataOut;
+	if (length == 0) {
+		*dataOut_F32 = __builtin_nanf("");
+	} else {
+		float max = *dataIn_F32++;
+		while (--length) {
+			const float val = *dataIn_F32++;
+			max = max < val ? val : max;
+		}
+		*dataOut_F32 = max;
+	}
+}
+
+static void maxF64(const void* dataIn, void* dataOut, uint32_t length) {
+	const double* dataIn_F64 = dataIn;
+	double* dataOut_F64 = dataOut;
+	if (length == 0) {
+		*dataOut_F64 = __builtin_nan("");
+	} else {
+		double max = *dataIn_F64++;
+		while (--length) {
+			const double val = *dataIn_F64++;
+			max = max < val ? val : max;
+		}
+		*dataOut_F64 = max;
+	}
+}
+
+static void sumF32(const void* dataIn, void* dataOut, uint32_t length) {
+	const float* dataIn_F32 = dataIn;
+	float* dataOut_F32 = dataOut;
+	float s = 0.0f;
+	while (length--) {
+		s += *dataIn_F32++;
+	}
+	*dataOut_F32 = s;
+}
+
+static void sumF64(const void* dataIn, void* dataOut, uint32_t length) {
+	const double* dataIn_F64 = dataIn;
+	double* dataOut_F64 = dataOut;
+	double s = 0.0;
+	while (length--) {
+		s += *dataIn_F64++;
+	}
+	*dataOut_F64 = s;
+}
