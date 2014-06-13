@@ -3,30 +3,30 @@
 #include <stdbool.h>
 #include <ppapi/c/pp_var.h>
 
-enum NumJS_StringVariable {
-	NumJS_StringVariable_Command,
-	NumJS_StringVariable_Datatype,
-	NumJS_StringVariable_Id,
-	NumJS_StringVariable_Out,
-	NumJS_StringVariable_In,
-	NumJS_StringVariable_Shape,
-	NumJS_StringVariable_Array,
-	NumJS_StringVariable_Buffer,
-	NumJS_StringVariable_Data,
-	NumJS_StringVariable_A,
-	NumJS_StringVariable_B,
-	NumJS_StringVariable_X,
-	NumJS_StringVariable_Y,
-	NumJS_StringVariable_Z,
+enum FJS_StringVariable {
+	FJS_StringVariable_Command,
+	FJS_StringVariable_Datatype,
+	FJS_StringVariable_Id,
+	FJS_StringVariable_Out,
+	FJS_StringVariable_In,
+	FJS_StringVariable_Shape,
+	FJS_StringVariable_Array,
+	FJS_StringVariable_Buffer,
+	FJS_StringVariable_Data,
+	FJS_StringVariable_A,
+	FJS_StringVariable_B,
+	FJS_StringVariable_X,
+	FJS_StringVariable_Y,
+	FJS_StringVariable_Z,
 
-	NumJS_StringVariable_Status,
-	NumJS_StringVariable_Error,
-	NumJS_StringVariable_Success,
+	FJS_StringVariable_Status,
+	FJS_StringVariable_Error,
+	FJS_StringVariable_Success,
 
-	NumJS_StringVariable_NumberOfEntries,
+	FJS_StringVariable_NumberOfEntries,
 };
 
-extern struct PP_Var NumJS_StringVariables[NumJS_StringVariable_NumberOfEntries];
+extern struct PP_Var FJS_StringVariables[FJS_StringVariable_NumberOfEntries];
 
-void NumJS_Strings_Initialize();
-void NumJS_Strings_Release();
+void FJS_Strings_Initialize();
+void FJS_Strings_Release();

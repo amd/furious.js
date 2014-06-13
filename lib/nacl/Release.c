@@ -12,43 +12,43 @@
 #include "Util.h"
 
 
-static const struct NumJS_VariableDescriptor releaseDescriptors[] = 
+static const struct FJS_VariableDescriptor releaseDescriptors[] = 
 {
 	{
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_In
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_In
 	}
 };
 
-void NumJS_Parse_Release(PP_Instance instance, struct PP_Var message) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(releaseDescriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
+void FJS_Parse_Release(PP_Instance instance, struct PP_Var message) {
+	struct FJS_Variable variables[FJS_COUNT_OF(releaseDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(releaseDescriptors), releaseDescriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error");
+	error = FJS_Message_Parse(FJS_COUNT_OF(releaseDescriptors), releaseDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
-	error = NumJS_Execute_Release(instance, variables[0].parsedValue.asInt32);
-	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+	error = FJS_Execute_Release(instance, variables[0].parsedValue.asInt32);
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
 
-	NumJS_Message_RemoveStatus(NumJS_ResponseVariable);
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
 cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
-enum NumJS_Error NumJS_Execute_Release(PP_Instance instance, int32_t idIn) {
-	struct NDArray* array = NumJS_GetPointerFromId(instance, idIn);
+enum FJS_Error FJS_Execute_Release(PP_Instance instance, int32_t idIn) {
+	struct NDArray* array = FJS_GetPointerFromId(instance, idIn);
 	if (array == NULL) {
-		return NumJS_Error_InvalidId;
+		return FJS_Error_InvalidId;
 	} else {
-		NumJS_NDArray_Delete(array);
-		return NumJS_Error_Ok;
+		FJS_NDArray_Delete(array);
+		return FJS_Error_Ok;
 	}
 }
 

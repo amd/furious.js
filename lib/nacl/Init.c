@@ -50,20 +50,20 @@ PP_EXPORT int32_t PPP_InitializeModule(PP_Module module, PPB_GetInterface get_br
 		return PP_ERROR_NOINTERFACE;
 	}
 
-	NumJS_Strings_Initialize();
+	FJS_Strings_Initialize();
 
-	NumJS_ResponseVariable = dictionaryInterface->Create();
+	FJS_ResponseVariable = dictionaryInterface->Create();
 
 	return PP_OK;
 }
 
 PP_EXPORT void PPP_ShutdownModule(void) {
-	NumJS_Strings_Release();
-	varInterface->Release(NumJS_ResponseVariable);
+	FJS_Strings_Release();
+	varInterface->Release(FJS_ResponseVariable);
 }
 
 static PP_Bool onCreateInstance(PP_Instance instance, uint32_t argc, const char* argn[], const char* argv[]) {
-	NUMJS_LOG_INFO("PNaCl INIT");
+	FJS_LOG_INFO("PNaCl INIT");
 	return PP_TRUE;
 }
 
@@ -93,29 +93,29 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 	struct PP_Var idVar = PP_MakeUndefined();
 
 	if (message.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Message not specified");
+		FJS_LOG_ERROR("Message not specified");
 		goto cleanup;
 	} else if (message.type != PP_VARTYPE_DICTIONARY) {
-		NUMJS_LOG_ERROR("Unsupported message type: dictionary expected");
+		FJS_LOG_ERROR("Unsupported message type: dictionary expected");
 		goto cleanup;
 	}
 
-	idVar = dictionaryInterface->Get(message, NumJS_StringVariables[NumJS_StringVariable_Id]);
+	idVar = dictionaryInterface->Get(message, FJS_StringVariables[FJS_StringVariable_Id]);
 	if (idVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Id not specified");
+		FJS_LOG_ERROR("Id not specified");
 		goto cleanup;
 	} else if (idVar.type != PP_VARTYPE_INT32) {
-		NUMJS_LOG_ERROR("Unsupported id type: int32 expected");
+		FJS_LOG_ERROR("Unsupported id type: int32 expected");
 		goto cleanup;
 	}
-	if (dictionaryInterface->Set(NumJS_ResponseVariable, NumJS_StringVariables[NumJS_StringVariable_Id], idVar) != PP_TRUE) {
-		NUMJS_LOG_ERROR("Failed to set reply message id");
+	if (dictionaryInterface->Set(FJS_ResponseVariable, FJS_StringVariables[FJS_StringVariable_Id], idVar) != PP_TRUE) {
+		FJS_LOG_ERROR("Failed to set reply message id");
 		goto cleanup;
 	}
 
-	commandVar = dictionaryInterface->Get(message, NumJS_StringVariables[NumJS_StringVariable_Command]);
+	commandVar = dictionaryInterface->Get(message, FJS_StringVariables[FJS_StringVariable_Command]);
 	if (commandVar.type == PP_VARTYPE_UNDEFINED) {
-		NUMJS_LOG_ERROR("Command not specified");
+		FJS_LOG_ERROR("Command not specified");
 		goto cleanup;
 	}
 
@@ -123,102 +123,102 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 	const char* const commandString = varInterface->VarToUtf8(commandVar, &commandLength);
 	/* For empty string VarToUtf8 returns zero length, but non-null pointer */
 	if (commandString == NULL) {
-		NUMJS_LOG_ERROR("Unsupported command type: string expected");
+		FJS_LOG_ERROR("Unsupported command type: string expected");
 		goto cleanup;
 	}
 
-	const enum NumJS_Command command = NumJS_Command_Parse(commandString, commandLength);
+	const enum FJS_Command command = FJS_Command_Parse(commandString, commandLength);
 	switch (command) {
-		case NumJS_Command_Create:
-			NumJS_Parse_Create(instance, message);
+		case FJS_Command_Create:
+			FJS_Parse_Create(instance, message);
 			break;
-		case NumJS_Command_CreateFromBuffer:
-			NumJS_Parse_CreateFromBuffer(instance, message);
+		case FJS_Command_CreateFromBuffer:
+			FJS_Parse_CreateFromBuffer(instance, message);
 			break;
-		case NumJS_Command_Release:
-			NumJS_Parse_Release(instance, message);
+		case FJS_Command_Release:
+			FJS_Parse_Release(instance, message);
 			break;
-		case NumJS_Command_GetBuffer:
-			NumJS_Parse_GetBuffer(instance, message);
+		case FJS_Command_GetBuffer:
+			FJS_Parse_GetBuffer(instance, message);
 			break;
-		case NumJS_Command_Add:
-			NumJS_Parse_Add(instance, message);
+		case FJS_Command_Add:
+			FJS_Parse_Add(instance, message);
 			break;
-		case NumJS_Command_Sub:
-			NumJS_Parse_Sub(instance, message);
+		case FJS_Command_Sub:
+			FJS_Parse_Sub(instance, message);
 			break;
-		case NumJS_Command_Mul:
-			NumJS_Parse_Mul(instance, message);
+		case FJS_Command_Mul:
+			FJS_Parse_Mul(instance, message);
 			break;
-		case NumJS_Command_Div:
-			NumJS_Parse_Div(instance, message);
+		case FJS_Command_Div:
+			FJS_Parse_Div(instance, message);
 			break;
-		case NumJS_Command_AddC:
-			NumJS_Parse_AddC(instance, message);
+		case FJS_Command_AddC:
+			FJS_Parse_AddC(instance, message);
 			break;
-		case NumJS_Command_SubC:
-			NumJS_Parse_SubC(instance, message);
+		case FJS_Command_SubC:
+			FJS_Parse_SubC(instance, message);
 			break;
-		case NumJS_Command_MulC:
-			NumJS_Parse_MulC(instance, message);
+		case FJS_Command_MulC:
+			FJS_Parse_MulC(instance, message);
 			break;
-		case NumJS_Command_DivC:
-			NumJS_Parse_DivC(instance, message);
+		case FJS_Command_DivC:
+			FJS_Parse_DivC(instance, message);
 			break;
-		case NumJS_Command_Neg:
-			NumJS_Parse_Neg(instance, message);
+		case FJS_Command_Neg:
+			FJS_Parse_Neg(instance, message);
 			break;
-		case NumJS_Command_Abs:
-			NumJS_Parse_Abs(instance, message);
+		case FJS_Command_Abs:
+			FJS_Parse_Abs(instance, message);
 			break;
-		case NumJS_Command_Exp:
-			NumJS_Parse_Exp(instance, message);
+		case FJS_Command_Exp:
+			FJS_Parse_Exp(instance, message);
 			break;
-		case NumJS_Command_Log:
-			NumJS_Parse_Log(instance, message);
+		case FJS_Command_Log:
+			FJS_Parse_Log(instance, message);
 			break;
-		case NumJS_Command_Sqrt:
-			NumJS_Parse_Sqrt(instance, message);
+		case FJS_Command_Sqrt:
+			FJS_Parse_Sqrt(instance, message);
 			break;
-		case NumJS_Command_Square:
-			NumJS_Parse_Square(instance, message);
+		case FJS_Command_Square:
+			FJS_Parse_Square(instance, message);
 			break;
-		case NumJS_Command_Min:
-			NumJS_Parse_Min(instance, message);
+		case FJS_Command_Min:
+			FJS_Parse_Min(instance, message);
 			break;
-		case NumJS_Command_Max:
-			NumJS_Parse_Max(instance, message);
+		case FJS_Command_Max:
+			FJS_Parse_Max(instance, message);
 			break;
-		case NumJS_Command_Sum:
-			NumJS_Parse_Sum(instance, message);
+		case FJS_Command_Sum:
+			FJS_Parse_Sum(instance, message);
 			break;
-		case NumJS_Command_CreateFromArray:
-		case NumJS_Command_SetBuffer:
-		case NumJS_Command_GetArray:
-		case NumJS_Command_SetArray:
-		case NumJS_Command_IAdd:
-		case NumJS_Command_ISub:
-		case NumJS_Command_IRSub:
-		case NumJS_Command_IMul:
-		case NumJS_Command_IDiv:
-		case NumJS_Command_IRDiv:
-		case NumJS_Command_RSubC:
-		case NumJS_Command_RDivC:
-		case NumJS_Command_IAddC:
-		case NumJS_Command_ISubC:
-		case NumJS_Command_IRSubC:
-		case NumJS_Command_IMulC:
-		case NumJS_Command_IDivC:
-		case NumJS_Command_IRDivC:
-		case NumJS_Command_INeg:
-		case NumJS_Command_IAbs:
-		case NumJS_Command_IExp:
-		case NumJS_Command_ILog:
-		case NumJS_Command_ISqrt:
-		case NumJS_Command_ISquare:
-		case NumJS_Command_Invalid:
+		case FJS_Command_CreateFromArray:
+		case FJS_Command_SetBuffer:
+		case FJS_Command_GetArray:
+		case FJS_Command_SetArray:
+		case FJS_Command_IAdd:
+		case FJS_Command_ISub:
+		case FJS_Command_IRSub:
+		case FJS_Command_IMul:
+		case FJS_Command_IDiv:
+		case FJS_Command_IRDiv:
+		case FJS_Command_RSubC:
+		case FJS_Command_RDivC:
+		case FJS_Command_IAddC:
+		case FJS_Command_ISubC:
+		case FJS_Command_IRSubC:
+		case FJS_Command_IMulC:
+		case FJS_Command_IDivC:
+		case FJS_Command_IRDivC:
+		case FJS_Command_INeg:
+		case FJS_Command_IAbs:
+		case FJS_Command_IExp:
+		case FJS_Command_ILog:
+		case FJS_Command_ISqrt:
+		case FJS_Command_ISquare:
+		case FJS_Command_Invalid:
 		default:
-			NUMJS_LOG_ERROR("Unsupported command");
+			FJS_LOG_ERROR("Unsupported command");
 			goto cleanup;
 	}
 

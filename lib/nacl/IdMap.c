@@ -27,7 +27,7 @@ static struct Entry* findEntry(PP_Instance instance, int32_t id) {
 	return NULL;
 }
 
-void* NumJS_GetPointerFromId(PP_Instance instance, int32_t id) {
+void* FJS_GetPointerFromId(PP_Instance instance, int32_t id) {
 	const struct Entry* entry = findEntry(instance, id);
 	if (entry == NULL) {
 		return NULL;
@@ -36,7 +36,7 @@ void* NumJS_GetPointerFromId(PP_Instance instance, int32_t id) {
 	}
 }
 
-void NumJS_ReleaseId(PP_Instance instance, int32_t id) {
+void FJS_ReleaseId(PP_Instance instance, int32_t id) {
 	struct Entry* releasedEntry = findEntry(instance, id);
 	if (releasedEntry != NULL) {
 		struct Entry* beginMovableEntry = releasedEntry + 1;
@@ -47,7 +47,7 @@ void NumJS_ReleaseId(PP_Instance instance, int32_t id) {
 	}
 }
 
-void NumJS_AllocateId(PP_Instance instance, int32_t id, void* pointer) {
+void FJS_AllocateId(PP_Instance instance, int32_t id, void* pointer) {
 	if (entriesCount + 1 > entriesCapacity) {
 		entriesCapacity = computeExpansionCapacity(entriesCapacity);
 		entriesBuffer = realloc(entriesBuffer, entriesCapacity);

@@ -55,164 +55,164 @@ static void sumF32(const void* dataIn, void* dataOut, size_t length);
 static void sumF64(const void* dataIn, void* dataOut, size_t length);
 
 static const BinaryOpFunction addFunctions[] = {
-	[NumJS_DataType_F64] = addF64,
-	[NumJS_DataType_F32] = addF32
+	[FJS_DataType_F64] = addF64,
+	[FJS_DataType_F32] = addF32
 };
 
 static const BinaryOpFunction subFunctions[] = {
-	[NumJS_DataType_F64] = subF64,
-	[NumJS_DataType_F32] = subF32
+	[FJS_DataType_F64] = subF64,
+	[FJS_DataType_F32] = subF32
 };
 
 static const BinaryOpFunction mulFunctions[] = {
-	[NumJS_DataType_F64] = mulF64,
-	[NumJS_DataType_F32] = mulF32
+	[FJS_DataType_F64] = mulF64,
+	[FJS_DataType_F32] = mulF32
 };
 
 static const BinaryOpFunction divFunctions[] = {
-	[NumJS_DataType_F64] = divF64,
-	[NumJS_DataType_F32] = divF32
+	[FJS_DataType_F64] = divF64,
+	[FJS_DataType_F32] = divF32
 };
 
 static const BinaryConstOpFunction addConstFunctions[] = {
-	[NumJS_DataType_F64] = addConstF64,
-	[NumJS_DataType_F32] = addConstF32
+	[FJS_DataType_F64] = addConstF64,
+	[FJS_DataType_F32] = addConstF32
 };
 
 static const BinaryConstOpFunction subConstFunctions[] = {
-	[NumJS_DataType_F64] = subConstF64,
-	[NumJS_DataType_F32] = subConstF32
+	[FJS_DataType_F64] = subConstF64,
+	[FJS_DataType_F32] = subConstF32
 };
 
 static const BinaryConstOpFunction mulConstFunctions[] = {
-	[NumJS_DataType_F64] = mulConstF64,
-	[NumJS_DataType_F32] = mulConstF32
+	[FJS_DataType_F64] = mulConstF64,
+	[FJS_DataType_F32] = mulConstF32
 };
 
 static const BinaryConstOpFunction divConstFunctions[] = {
-	[NumJS_DataType_F64] = divConstF64,
-	[NumJS_DataType_F32] = divConstF32
+	[FJS_DataType_F64] = divConstF64,
+	[FJS_DataType_F32] = divConstF32
 };
 
 static const UnaryOpFunction negFunctions[] = {
-	[NumJS_DataType_F64] = negF64,
-	[NumJS_DataType_F32] = negF32
+	[FJS_DataType_F64] = negF64,
+	[FJS_DataType_F32] = negF32
 };
 
 static const UnaryOpFunction absFunctions[] = {
-	[NumJS_DataType_F64] = absF64,
-	[NumJS_DataType_F32] = absF32
+	[FJS_DataType_F64] = absF64,
+	[FJS_DataType_F32] = absF32
 };
 
 static const UnaryOpFunction expFunctions[] = {
-	[NumJS_DataType_F64] = expF64,
-	[NumJS_DataType_F32] = expF32
+	[FJS_DataType_F64] = expF64,
+	[FJS_DataType_F32] = expF32
 };
 
 static const UnaryOpFunction logFunctions[] = {
-	[NumJS_DataType_F64] = logF64,
-	[NumJS_DataType_F32] = logF32
+	[FJS_DataType_F64] = logF64,
+	[FJS_DataType_F32] = logF32
 };
 
 static const UnaryOpFunction sqrtFunctions[] = {
-	[NumJS_DataType_F64] = sqrtF64,
-	[NumJS_DataType_F32] = sqrtF32
+	[FJS_DataType_F64] = sqrtF64,
+	[FJS_DataType_F32] = sqrtF32
 };
 
 static const UnaryOpFunction squareFunctions[] = {
-	[NumJS_DataType_F64] = squareF64,
-	[NumJS_DataType_F32] = squareF32
+	[FJS_DataType_F64] = squareF64,
+	[FJS_DataType_F32] = squareF32
 };
 
 static const ReduceOpFunction minFunctions[] = {
-	[NumJS_DataType_F64] = minF64,
-	[NumJS_DataType_F32] = minF32
+	[FJS_DataType_F64] = minF64,
+	[FJS_DataType_F32] = minF32
 };
 
 static const ReduceOpFunction maxFunctions[] = {
-	[NumJS_DataType_F64] = maxF64,
-	[NumJS_DataType_F32] = maxF32
+	[FJS_DataType_F64] = maxF64,
+	[FJS_DataType_F32] = maxF32
 };
 
 static const ReduceOpFunction sumFunctions[] = {
-	[NumJS_DataType_F64] = sumF64,
-	[NumJS_DataType_F32] = sumF32
+	[FJS_DataType_F64] = sumF64,
+	[FJS_DataType_F32] = sumF32
 };
 
 static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]);
 static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]);
 static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]);
 static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]);
-static enum NumJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]);
-static enum NumJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]);
-static enum NumJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]);
-static enum NumJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]);
 
-void NumJS_Parse_Add(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Add(PP_Instance instance, struct PP_Var message) {
 	parseBinaryOp(instance, message, addFunctions);
 }
 
-void NumJS_Parse_Sub(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Sub(PP_Instance instance, struct PP_Var message) {
 	parseBinaryOp(instance, message, subFunctions);
 }
 
-void NumJS_Parse_Mul(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Mul(PP_Instance instance, struct PP_Var message) {
 	parseBinaryOp(instance, message, mulFunctions);
 }
 
-void NumJS_Parse_Div(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Div(PP_Instance instance, struct PP_Var message) {
 	parseBinaryOp(instance, message, divFunctions);
 }
 
-void NumJS_Parse_AddC(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_AddC(PP_Instance instance, struct PP_Var message) {
 	parseBinaryConstOp(instance, message, addConstFunctions);
 }
 
-void NumJS_Parse_SubC(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_SubC(PP_Instance instance, struct PP_Var message) {
 	parseBinaryConstOp(instance, message, subConstFunctions);
 }
 
-void NumJS_Parse_MulC(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_MulC(PP_Instance instance, struct PP_Var message) {
 	parseBinaryConstOp(instance, message, mulConstFunctions);
 }
 
-void NumJS_Parse_DivC(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_DivC(PP_Instance instance, struct PP_Var message) {
 	parseBinaryConstOp(instance, message, divConstFunctions);
 }
 
-void NumJS_Parse_Neg(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Neg(PP_Instance instance, struct PP_Var message) {
 	parseUnaryOp(instance, message, negFunctions);
 }
 
-void NumJS_Parse_Abs(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Abs(PP_Instance instance, struct PP_Var message) {
 	parseUnaryOp(instance, message, absFunctions);
 }
 
-void NumJS_Parse_Exp(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Exp(PP_Instance instance, struct PP_Var message) {
 	parseUnaryOp(instance, message, expFunctions);
 }
 
-void NumJS_Parse_Log(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Log(PP_Instance instance, struct PP_Var message) {
 	parseUnaryOp(instance, message, logFunctions);
 }
 
-void NumJS_Parse_Sqrt(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Sqrt(PP_Instance instance, struct PP_Var message) {
 	parseUnaryOp(instance, message, sqrtFunctions);
 }
 
-void NumJS_Parse_Square(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Square(PP_Instance instance, struct PP_Var message) {
 	parseUnaryOp(instance, message, squareFunctions);
 }
 
-void NumJS_Parse_Min(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Min(PP_Instance instance, struct PP_Var message) {
 	parseReduceOp(instance, message, minFunctions);
 }
 
-void NumJS_Parse_Max(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Max(PP_Instance instance, struct PP_Var message) {
 	parseReduceOp(instance, message, maxFunctions);
 }
 
-void NumJS_Parse_Sum(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Sum(PP_Instance instance, struct PP_Var message) {
 	parseReduceOp(instance, message, sumFunctions);
 }
 
@@ -227,69 +227,69 @@ enum UnaryOp_Argument {
 	UnaryOp_Argument_Out,
 };
 
-static const struct NumJS_VariableDescriptor binaryOpDescriptors[] =
+static const struct FJS_VariableDescriptor binaryOpDescriptors[] =
 {
 	[BinaryOp_Argument_A] = { 
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_A
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_A
 	},
 	[BinaryOp_Argument_B] = {
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_B
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_B
 	},
 	[BinaryOp_Argument_Out] = {
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_Out
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Out
 	}
 };
 
-static const struct NumJS_VariableDescriptor binaryConstOpDescriptors[] =
+static const struct FJS_VariableDescriptor binaryConstOpDescriptors[] =
 {
 	[BinaryOp_Argument_A] = { 
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_A
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_A
 	},
 	[BinaryOp_Argument_B] = {
-		.type = NumJS_VariableType_Float64,
-		.name = NumJS_StringVariable_B
+		.type = FJS_VariableType_Float64,
+		.name = FJS_StringVariable_B
 	},
 	[BinaryOp_Argument_Out] = {
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_Out
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Out
 	}
 };
 
-static const struct NumJS_VariableDescriptor unaryOpDescriptors[] =
+static const struct FJS_VariableDescriptor unaryOpDescriptors[] =
 {
 	[UnaryOp_Argument_A] = { 
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_A
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_A
 	},
 	[UnaryOp_Argument_Out] = {
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_Out
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Out
 	}
 };
 
-static const struct NumJS_VariableDescriptor reduceOpDescriptors[] =
+static const struct FJS_VariableDescriptor reduceOpDescriptors[] =
 {
 	[UnaryOp_Argument_A] = { 
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_A
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_A
 	},
 	[UnaryOp_Argument_Out] = {
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_Out
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Out
 	}
 };
 
 static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(binaryOpDescriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
+	struct FJS_Variable variables[FJS_COUNT_OF(binaryOpDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(binaryOpDescriptors), binaryOpDescriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error");
+	error = FJS_Message_Parse(FJS_COUNT_OF(binaryOpDescriptors), binaryOpDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
@@ -298,24 +298,24 @@ static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const Bin
 		variables[BinaryOp_Argument_B].parsedValue.asInt32,
 		variables[BinaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
-	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
 
-	NumJS_Message_RemoveStatus(NumJS_ResponseVariable);
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
 cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
 static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(binaryConstOpDescriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
+	struct FJS_Variable variables[FJS_COUNT_OF(binaryConstOpDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(binaryConstOpDescriptors), binaryConstOpDescriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error");
+	error = FJS_Message_Parse(FJS_COUNT_OF(binaryConstOpDescriptors), binaryConstOpDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
@@ -324,24 +324,24 @@ static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, cons
 		variables[BinaryOp_Argument_B].parsedValue.asFloat64,
 		variables[BinaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
-	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
 
-	NumJS_Message_RemoveStatus(NumJS_ResponseVariable);
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
 cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
 static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(unaryOpDescriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
+	struct FJS_Variable variables[FJS_COUNT_OF(unaryOpDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error");
+	error = FJS_Message_Parse(FJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
@@ -349,24 +349,24 @@ static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const Unar
 		variables[UnaryOp_Argument_A].parsedValue.asInt32,
 		variables[UnaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
-	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
 
-	NumJS_Message_RemoveStatus(NumJS_ResponseVariable);
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
 cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
 static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(unaryOpDescriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
+	struct FJS_Variable variables[FJS_COUNT_OF(unaryOpDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error");
+	error = FJS_Message_Parse(FJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
@@ -374,185 +374,185 @@ static void parseReduceOp(PP_Instance instance, struct PP_Var message, const Red
 		variables[UnaryOp_Argument_A].parsedValue.asInt32,
 		variables[UnaryOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
-	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
 
-	NumJS_Message_RemoveStatus(NumJS_ResponseVariable);
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
 cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
-static enum NumJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]) {
-	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
+static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]) {
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
-		return NumJS_Error_InvalidId;
+		return FJS_Error_InvalidId;
 	}
 
-	struct NDArray* arrayB = NumJS_GetPointerFromId(instance, idB);
+	struct NDArray* arrayB = FJS_GetPointerFromId(instance, idB);
 	if (arrayB == NULL) {
-		return NumJS_Error_InvalidId;
+		return FJS_Error_InvalidId;
 	}
 
-	const enum NumJS_DataType dataType = arrayA->dataType;
+	const enum FJS_DataType dataType = arrayA->dataType;
 	if (dataType != arrayB->dataType) {
-		return NumJS_Error_MismatchingDataType;
+		return FJS_Error_MismatchingDataType;
 	}
 
 	BinaryOpFunction computeFunction;
 	switch (dataType) {
-		case NumJS_DataType_F64:
-		case NumJS_DataType_F32:
+		case FJS_DataType_F64:
+		case FJS_DataType_F32:
 			computeFunction = computeFunctions[dataType];
 			break;
-		case NumJS_DataType_Invalid:
+		case FJS_DataType_Invalid:
 		default:
-			return NumJS_Error_InvalidDataType;
+			return FJS_Error_InvalidDataType;
 	}
 
 	const uint32_t dimensions = arrayA->dimensions;
 	if (dimensions != arrayB->dimensions) {
-		return NumJS_Error_MismatchingDimensions;
+		return FJS_Error_MismatchingDimensions;
 	}
 
 	uint32_t length = arrayA->length;
 	if (length != arrayB->length) {
-		return NumJS_Error_MismatchingShape;
+		return FJS_Error_MismatchingShape;
 	}
 
-	const uint32_t* shape = NumJS_NDArray_GetShape(arrayA);
-	const uint32_t* shapeB = NumJS_NDArray_GetShape(arrayB);
+	const uint32_t* shape = FJS_NDArray_GetShape(arrayA);
+	const uint32_t* shapeB = FJS_NDArray_GetShape(arrayB);
 
 	for (uint32_t i = 0; i < dimensions; i++) {
 		if (shape[i] != shapeB[i]) {
-			return NumJS_Error_MismatchingShape;
+			return FJS_Error_MismatchingShape;
 		}
 	}
 
-	const void* dataA = NumJS_NDArray_GetData(arrayA);
-	const void* dataB = NumJS_NDArray_GetData(arrayB);
+	const void* dataA = FJS_NDArray_GetData(arrayA);
+	const void* dataB = FJS_NDArray_GetData(arrayB);
 
-	struct NDArray* arrayOut = NumJS_NDArray_Create(dimensions, length, shape, dataType);
+	struct NDArray* arrayOut = FJS_NDArray_Create(dimensions, length, shape, dataType);
 	if (arrayOut == NULL) {
-		return NumJS_Error_OutOfMemory;
+		return FJS_Error_OutOfMemory;
 	}
 
-	void* dataOut = NumJS_NDArray_GetData(arrayOut);
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	computeFunction(dataA, dataB, dataOut, length);
 
-	NumJS_AllocateId(instance, idOut, arrayOut);
-	return NumJS_Error_Ok;
+	FJS_AllocateId(instance, idOut, arrayOut);
+	return FJS_Error_Ok;
 }
 
-static enum NumJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]) {
-	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
+static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]) {
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
-		return NumJS_Error_InvalidId;
+		return FJS_Error_InvalidId;
 	}
 
-	const enum NumJS_DataType dataType = arrayA->dataType;
+	const enum FJS_DataType dataType = arrayA->dataType;
 
 	BinaryConstOpFunction computeFunction;
 	switch (dataType) {
-		case NumJS_DataType_F64:
-		case NumJS_DataType_F32:
+		case FJS_DataType_F64:
+		case FJS_DataType_F32:
 			computeFunction = computeFunctions[dataType];
 			break;
-		case NumJS_DataType_Invalid:
+		case FJS_DataType_Invalid:
 		default:
-			return NumJS_Error_InvalidDataType;
+			return FJS_Error_InvalidDataType;
 	}
 
 	const uint32_t dimensions = arrayA->dimensions;
 	const uint32_t length = arrayA->length;
-	const uint32_t* shape = NumJS_NDArray_GetShape(arrayA);
+	const uint32_t* shape = FJS_NDArray_GetShape(arrayA);
 
-	const void* dataA = NumJS_NDArray_GetData(arrayA);
+	const void* dataA = FJS_NDArray_GetData(arrayA);
 
-	struct NDArray* arrayOut = NumJS_NDArray_Create(dimensions, length, shape, dataType);
+	struct NDArray* arrayOut = FJS_NDArray_Create(dimensions, length, shape, dataType);
 	if (arrayOut == NULL) {
-		return NumJS_Error_OutOfMemory;
+		return FJS_Error_OutOfMemory;
 	}
 
-	void* dataOut = NumJS_NDArray_GetData(arrayOut);
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	computeFunction(dataA, valueB, dataOut, length);
 
-	NumJS_AllocateId(instance, idOut, arrayOut);
-	return NumJS_Error_Ok;
+	FJS_AllocateId(instance, idOut, arrayOut);
+	return FJS_Error_Ok;
 }
 
-static enum NumJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]) {
-	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
+static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]) {
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
-		return NumJS_Error_InvalidId;
+		return FJS_Error_InvalidId;
 	}
 
-	const enum NumJS_DataType dataType = arrayA->dataType;
+	const enum FJS_DataType dataType = arrayA->dataType;
 
 	UnaryOpFunction computeFunction;
 	switch (dataType) {
-		case NumJS_DataType_F64:
-		case NumJS_DataType_F32:
+		case FJS_DataType_F64:
+		case FJS_DataType_F32:
 			computeFunction = computeFunctions[dataType];
 			break;
-		case NumJS_DataType_Invalid:
+		case FJS_DataType_Invalid:
 		default:
-			return NumJS_Error_InvalidDataType;
+			return FJS_Error_InvalidDataType;
 	}
 
 	const uint32_t dimensions = arrayA->dimensions;
 	const uint32_t length = arrayA->length;
-	const uint32_t* shape = NumJS_NDArray_GetShape(arrayA);
+	const uint32_t* shape = FJS_NDArray_GetShape(arrayA);
 
-	const void* dataA = NumJS_NDArray_GetData(arrayA);
+	const void* dataA = FJS_NDArray_GetData(arrayA);
 
-	struct NDArray* arrayOut = NumJS_NDArray_Create(dimensions, length, shape, dataType);
+	struct NDArray* arrayOut = FJS_NDArray_Create(dimensions, length, shape, dataType);
 	if (arrayOut == NULL) {
-		return NumJS_Error_OutOfMemory;
+		return FJS_Error_OutOfMemory;
 	}
 
-	void* dataOut = NumJS_NDArray_GetData(arrayOut);
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	computeFunction(dataA, dataOut, length);
 
-	NumJS_AllocateId(instance, idOut, arrayOut);
-	return NumJS_Error_Ok;
+	FJS_AllocateId(instance, idOut, arrayOut);
+	return FJS_Error_Ok;
 }
 
-static enum NumJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]) {
-	struct NDArray* arrayA = NumJS_GetPointerFromId(instance, idA);
+static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]) {
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
-		return NumJS_Error_InvalidId;
+		return FJS_Error_InvalidId;
 	}
 
-	const enum NumJS_DataType dataType = arrayA->dataType;
+	const enum FJS_DataType dataType = arrayA->dataType;
 
 	UnaryOpFunction computeFunction;
 	switch (dataType) {
-		case NumJS_DataType_F64:
-		case NumJS_DataType_F32:
+		case FJS_DataType_F64:
+		case FJS_DataType_F32:
 			computeFunction = computeFunctions[dataType];
 			break;
-		case NumJS_DataType_Invalid:
+		case FJS_DataType_Invalid:
 		default:
-			return NumJS_Error_InvalidDataType;
+			return FJS_Error_InvalidDataType;
 	}
 
-	const void* dataIn = NumJS_NDArray_GetData(arrayA);
+	const void* dataIn = FJS_NDArray_GetData(arrayA);
 	const size_t lengthIn = arrayA->length;
 
 	uint32_t outShape[1] = { 1 };
-	struct NDArray* arrayOut = NumJS_NDArray_Create(NUMJS_COUNT_OF(outShape), 1, outShape, dataType);
+	struct NDArray* arrayOut = FJS_NDArray_Create(FJS_COUNT_OF(outShape), 1, outShape, dataType);
 	if (arrayOut == NULL) {
-		return NumJS_Error_OutOfMemory;
+		return FJS_Error_OutOfMemory;
 	}
 
-	void* dataOut = NumJS_NDArray_GetData(arrayOut);
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	computeFunction(dataIn, dataOut, lengthIn);
 
-	NumJS_AllocateId(instance, idOut, arrayOut);
-	return NumJS_Error_Ok;
+	FJS_AllocateId(instance, idOut, arrayOut);
+	return FJS_Error_Ok;
 }
 
 static void addF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {

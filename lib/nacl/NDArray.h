@@ -6,16 +6,16 @@
 #include "DataType.h"
 
 struct NDArray {
-	enum NumJS_DataType dataType;
+	enum FJS_DataType dataType;
 	uint32_t length;
 	uint32_t dimensions;
 	uint32_t size;
 };
 
-struct NDArray* NumJS_NDArray_Create(uint32_t dimensions, uint32_t length, const uint32_t shape[static dimensions], enum NumJS_DataType dataType);
-void NumJS_NDArray_Delete(struct NDArray* array);
+struct NDArray* FJS_NDArray_Create(uint32_t dimensions, uint32_t length, const uint32_t shape[static dimensions], enum FJS_DataType dataType);
+void FJS_NDArray_Delete(struct NDArray* array);
 
-inline uint32_t* NumJS_NDArray_GetShape(struct NDArray* array) {
+inline uint32_t* FJS_NDArray_GetShape(struct NDArray* array) {
 	if (array == NULL) {
 		return NULL;
 	} else {
@@ -23,7 +23,7 @@ inline uint32_t* NumJS_NDArray_GetShape(struct NDArray* array) {
 	}
 }
 
-inline void* NumJS_NDArray_GetData(struct NDArray* array) {
+inline void* FJS_NDArray_GetData(struct NDArray* array) {
 	if (array == NULL) {
 		return NULL;
 	} else {

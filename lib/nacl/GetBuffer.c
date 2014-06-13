@@ -12,77 +12,77 @@
 #include "Util.h"
 
 
-static const struct NumJS_VariableDescriptor getBufferDescriptors[] = 
+static const struct FJS_VariableDescriptor getBufferDescriptors[] = 
 {
 	{ 
-		.type = NumJS_VariableType_Int32,
-		.name = NumJS_StringVariable_In
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_In
 	}
 };
 
-void NumJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
-	struct NumJS_Variable variables[NUMJS_COUNT_OF(getBufferDescriptors)];
-	enum NumJS_Error error = NumJS_Error_Ok;
+void FJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
+	struct FJS_Variable variables[FJS_COUNT_OF(getBufferDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
 
-	error = NumJS_Message_Parse(NUMJS_COUNT_OF(getBufferDescriptors), getBufferDescriptors, variables, message);
-	if (error != NumJS_Error_Ok) {
-		NUMJS_LOG_ERROR("Parse error");
+	error = FJS_Message_Parse(FJS_COUNT_OF(getBufferDescriptors), getBufferDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
 	struct PP_Var bufferVar = PP_MakeUndefined();
-	error = NumJS_Execute_GetBuffer(instance, variables[0].parsedValue.asInt32, &bufferVar);
-	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+	error = FJS_Execute_GetBuffer(instance, variables[0].parsedValue.asInt32, &bufferVar);
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
-	if (dictionaryInterface->Set(NumJS_ResponseVariable, NumJS_StringVariables[NumJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
-		NUMJS_LOG_ERROR("Failed to set buffer");
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, NumJS_ResponseVariable);
-	if (!NumJS_Message_SetStatus(instance, NumJS_ResponseVariable, error)) {
+	if (dictionaryInterface->Set(FJS_ResponseVariable, FJS_StringVariables[FJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
+		FJS_LOG_ERROR("Failed to set buffer");
 		goto cleanup;
 	}
 
-	NumJS_Message_RemoveStatus(NumJS_ResponseVariable);
-	dictionaryInterface->Delete(NumJS_ResponseVariable, NumJS_StringVariables[NumJS_StringVariable_Buffer]);
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
+		goto cleanup;
+	}
+
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
+	dictionaryInterface->Delete(FJS_ResponseVariable, FJS_StringVariables[FJS_StringVariable_Buffer]);
 cleanup:
-	NumJS_Message_FreeVariables(NUMJS_COUNT_OF(variables), variables);
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 	varInterface->Release(bufferVar);
 }
 
-enum NumJS_Error NumJS_Execute_GetBuffer(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]) {
-	enum NumJS_Error error = NumJS_Error_Ok;
+enum FJS_Error FJS_Execute_GetBuffer(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]) {
+	enum FJS_Error error = FJS_Error_Ok;
 	struct PP_Var bufferVar = PP_MakeUndefined();
 	void* bufferPointer = NULL;
 
-	struct NDArray* array = NumJS_GetPointerFromId(instance, idIn);
+	struct NDArray* array = FJS_GetPointerFromId(instance, idIn);
 	if (array == NULL) {
-		error = NumJS_Error_InvalidId;
+		error = FJS_Error_InvalidId;
 		goto cleanup;
 	}
 
-	const uint32_t elementSize = NumJS_DataType_GetSize(array->dataType);
+	const uint32_t elementSize = FJS_DataType_GetSize(array->dataType);
 	if (elementSize == 0) {
-		error = NumJS_Error_InvalidDataType;
+		error = FJS_Error_InvalidDataType;
 		goto cleanup;
 	}
 	const uint32_t dataSize = elementSize * array->length;
 	bufferVar = bufferInterface->Create(dataSize);
 	bufferPointer = bufferInterface->Map(bufferVar);
 	if (bufferPointer == NULL) {
-		error = NumJS_Error_OutOfMemory;
+		error = FJS_Error_OutOfMemory;
 		goto cleanup;
 	}
 
-	memcpy(bufferPointer, NumJS_NDArray_GetData(array), dataSize);
+	memcpy(bufferPointer, FJS_NDArray_GetData(array), dataSize);
 
 cleanup:
 	if (bufferPointer != NULL) {
 		bufferInterface->Unmap(bufferVar);
 	}
-	if (error == NumJS_Error_Ok) {
+	if (error == FJS_Error_Ok) {
 		*bufferOut = bufferVar;
 	} else {
 		varInterface->Release(bufferVar);

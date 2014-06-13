@@ -1,33 +1,33 @@
 #pragma once
 
-enum NumJS_Error {
-	NumJS_Error_Ok,
+enum FJS_Error {
+	FJS_Error_Ok,
 	/* The shape array has no elements */
-	NumJS_Error_EmptyShape,
+	FJS_Error_EmptyShape,
 	/* Some of the shape elements is 0 */
-	NumJS_Error_DegenerateShape,
+	FJS_Error_DegenerateShape,
 	/* The product of shape components overflows */
-	NumJS_Error_LengthOverflow,
+	FJS_Error_LengthOverflow,
 	/* The product of length by element size overflows */
-	NumJS_Error_SizeOverflow,
+	FJS_Error_SizeOverflow,
 	/* The size of the supplied buffer does not match the size of internal buffer */
-	NumJS_Error_IncompatibleBufferSize,
+	FJS_Error_IncompatibleBufferSize,
 	/* The size of buffer is zero */
-	NumJS_Error_EmptyBuffer,
+	FJS_Error_EmptyBuffer,
 	/* Datatype elements have zero size */
-	NumJS_Error_InvalidElementSize,
+	FJS_Error_InvalidElementSize,
 	/* Datatype has invalid or unknown value */
-	NumJS_Error_InvalidDataType,
+	FJS_Error_InvalidDataType,
 	/* Wrong variable type */
-	NumJS_Error_InvalidVariableType,
+	FJS_Error_InvalidVariableType,
 	/* Missing variable */
-	NumJS_Error_MissingVariable,
+	FJS_Error_MissingVariable,
 	/* Invalid identifier */
-	NumJS_Error_InvalidId,
+	FJS_Error_InvalidId,
 	/* Mismatching array dimensions */
-	NumJS_Error_MismatchingDimensions,
-	NumJS_Error_MismatchingShape,
-	NumJS_Error_MismatchingDataType,
-	NumJS_Error_OutOfMemory
+	FJS_Error_MismatchingDimensions,
+	FJS_Error_MismatchingShape,
+	FJS_Error_MismatchingDataType,
+	FJS_Error_OutOfMemory
 };
 

@@ -12,43 +12,43 @@
 #include "Interfaces.h"
 #include "Strings.h"
 
-extern struct PP_Var NumJS_ResponseVariable;
+extern struct PP_Var FJS_ResponseVariable;
 
-enum NumJS_VariableType {
-	NumJS_VariableType_Int32,
-	NumJS_VariableType_Float64,
-	NumJS_VariableType_DataType,
-	NumJS_VariableType_Command,
-	NumJS_VariableType_Buffer
+enum FJS_VariableType {
+	FJS_VariableType_Int32,
+	FJS_VariableType_Float64,
+	FJS_VariableType_DataType,
+	FJS_VariableType_Command,
+	FJS_VariableType_Buffer
 };
 
-struct NumJS_Buffer {
+struct FJS_Buffer {
 	void* pointer;
 	uint32_t size;
 };
 
-struct NumJS_VariableDescriptor {
-	enum NumJS_VariableType type;
-	enum NumJS_StringVariable name;
+struct FJS_VariableDescriptor {
+	enum FJS_VariableType type;
+	enum FJS_StringVariable name;
 };
 
-union NumJS_VariableValue {
+union FJS_VariableValue {
 	int32_t asInt32;
 	double asFloat64;
-	enum NumJS_DataType asDatatype;
-	enum NumJS_Command asCommand;
-	struct NumJS_Buffer asBuffer;
+	enum FJS_DataType asDatatype;
+	enum FJS_Command asCommand;
+	struct FJS_Buffer asBuffer;
 };
 
-struct NumJS_Variable {
-	union NumJS_VariableValue parsedValue;
+struct FJS_Variable {
+	union FJS_VariableValue parsedValue;
 	struct PP_Var pepperVariable;
 };
 
-enum NumJS_Error NumJS_Message_Parse(uint32_t variablesCount, const struct NumJS_VariableDescriptor descriptors[static variablesCount], struct NumJS_Variable variables[static variablesCount], struct PP_Var request);
-void NumJS_Message_FreeVariables(uint32_t variablesCount, struct NumJS_Variable variables[static variablesCount]);
+enum FJS_Error FJS_Message_Parse(uint32_t variablesCount, const struct FJS_VariableDescriptor descriptors[static variablesCount], struct FJS_Variable variables[static variablesCount], struct PP_Var request);
+void FJS_Message_FreeVariables(uint32_t variablesCount, struct FJS_Variable variables[static variablesCount]);
 
-bool NumJS_Message_SetStatus(PP_Instance instance, struct PP_Var response, enum NumJS_Error error);
-inline void NumJS_Message_RemoveStatus(struct PP_Var response) {
-	dictionaryInterface->Delete(response, NumJS_StringVariables[NumJS_StringVariable_Status]);
+bool FJS_Message_SetStatus(PP_Instance instance, struct PP_Var response, enum FJS_Error error);
+inline void FJS_Message_RemoveStatus(struct PP_Var response) {
+	dictionaryInterface->Delete(response, FJS_StringVariables[FJS_StringVariable_Status]);
 }

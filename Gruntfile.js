@@ -13,15 +13,15 @@ module.exports = function(grunt) {
 		},
 
 		browserify: {
-			numjs: {
+			furious: {
 				options: {
 					bundleOptions : {
 						debug: true,
-						standalone: "numjs"
+						standalone: "furious"
 					}
 				},
 				files: {
-					"numjs.js": ["lib/numjs.js"]
+					"furious.js": ["lib/furious.js"]
 				}
 			},
 			test: {
@@ -37,17 +37,17 @@ module.exports = function(grunt) {
 		},
 
 		minifyify: {
-			numjs: {
-				src: "numjs.js",
+			furious: {
+				src: "furious.js",
 				dest: {
-					buildFile: "numjs.min.js",
-					mapFile: "numjs.min.map"
+					buildFile: "furious.min.js",
+					mapFile: "furious.min.map"
 				}
 			}
 		},
 
 		yuidoc: {
-			numjs: {
+			furious: {
 				name: '<%= pkg.name %>',
 				description: '<%= pkg.description %>',
 				version: '<%= pkg.version %>',
