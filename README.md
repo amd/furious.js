@@ -3,6 +3,9 @@
 [![Dependency Status](https://david-dm.org/amd/NumJS.png)](https://david-dm.org/amd/NumJS)
 [![devDependency Status](https://david-dm.org/amd/NumJS/dev-status.png)](https://david-dm.org/amd/NumJS#info=devDependencies)
 
+[![Browser Support](https://ci.testling.com/amd/NumJS.png)](https://ci.testling.com/amd/NumJS)
+
+
 NumJS
 =====
 
