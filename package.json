@@ -1,5 +1,5 @@
 {
-	"name": "amd-numjs",
+	"name": "furious",
 	"version": "0.0.1",
 	"description": "High-performance library for n-dimensional array processing in JavaScript",
 	"author": "Marat Dukhan <marat.dukhan@amd.com>",
@@ -13,10 +13,10 @@
 	"main": "lib/numjs.js",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/amd/NumJS"
+		"url": "https://github.com/amd/furious.js.git"
 	},
 	"bugs": {
-		"url": "https://github.com/amd/NumJS/issues"
+		"url": "https://github.com/amd/furious.js/issues"
 	},
 	"keywords": [
 		"ndarray",
