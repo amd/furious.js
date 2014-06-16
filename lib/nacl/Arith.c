@@ -12,131 +12,131 @@
 #include "IdMap.h"
 #include "Util.h"
 
-typedef void (*BinaryOpFunction)(const void*, const void*, void*, uint32_t);
-static void addF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void addF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void subF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void subF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void mulF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void mulF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void divF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
-static void divF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length);
+typedef void (*BinaryOpFunction)(size_t, const void*, const void*, void*);
+static void addF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
+static void addF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
+static void subF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
+static void subF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
+static void mulF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
+static void mulF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
+static void divF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
+static void divF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
 
-typedef void (*BinaryConstOpFunction)(const void*, double, void*, uint32_t);
-static void addConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void addConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void subConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void subConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void mulConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void mulConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void divConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length);
-static void divConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length);
+typedef void (*BinaryConstOpFunction)(size_t, const void*, double, void*);
+static void addConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
+static void addConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
+static void subConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
+static void subConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
+static void mulConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
+static void mulConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
+static void divConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
+static void divConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
 
-typedef void (*UnaryOpFunction)(const void*, void*, uint32_t);
-static void negF32(const void* dataIn, void* dataOut, uint32_t length);
-static void negF64(const void* dataIn, void* dataOut, uint32_t length);
-static void absF32(const void* dataIn, void* dataOut, uint32_t length);
-static void absF64(const void* dataIn, void* dataOut, uint32_t length);
-static void expF32(const void* dataIn, void* dataOut, uint32_t length);
-static void expF64(const void* dataIn, void* dataOut, uint32_t length);
-static void logF32(const void* dataIn, void* dataOut, uint32_t length);
-static void logF64(const void* dataIn, void* dataOut, uint32_t length);
-static void sqrtF32(const void* dataIn, void* dataOut, uint32_t length);
-static void sqrtF64(const void* dataIn, void* dataOut, uint32_t length);
-static void squareF32(const void* dataIn, void* dataOut, uint32_t length);
-static void squareF64(const void* dataIn, void* dataOut, uint32_t length);
+typedef void (*UnaryOpFunction)(size_t, const void*, void*);
+static void negF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
+static void negF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
+static void absF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
+static void absF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
+static void expF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
+static void expF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
+static void logF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
+static void logF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
+static void sqrtF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
+static void sqrtF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
+static void squareF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
+static void squareF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
 
-typedef void (*ReduceOpFunction)(const void*, void*, size_t);
-static void minF32(const void* dataIn, void* dataOut, size_t length);
-static void minF64(const void* dataIn, void* dataOut, size_t length);
-static void maxF32(const void* dataIn, void* dataOut, size_t length);
-static void maxF64(const void* dataIn, void* dataOut, size_t length);
-static void sumF32(const void* dataIn, void* dataOut, size_t length);
-static void sumF64(const void* dataIn, void* dataOut, size_t length);
+typedef void (*ReduceOpFunction)(size_t, const void*, void*);
+static void minF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static 1]);
+static void minF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static 1]);
+static void maxF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static 1]);
+static void maxF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static 1]);
+static void sumF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static 1]);
+static void sumF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static 1]);
 
 static const BinaryOpFunction addFunctions[] = {
-	[FJS_DataType_F64] = addF64,
-	[FJS_DataType_F32] = addF32
+	[FJS_DataType_F64] = (BinaryOpFunction) addF64,
+	[FJS_DataType_F32] = (BinaryOpFunction) addF32
 };
 
 static const BinaryOpFunction subFunctions[] = {
-	[FJS_DataType_F64] = subF64,
-	[FJS_DataType_F32] = subF32
+	[FJS_DataType_F64] = (BinaryOpFunction) subF64,
+	[FJS_DataType_F32] = (BinaryOpFunction) subF32
 };
 
 static const BinaryOpFunction mulFunctions[] = {
-	[FJS_DataType_F64] = mulF64,
-	[FJS_DataType_F32] = mulF32
+	[FJS_DataType_F64] = (BinaryOpFunction) mulF64,
+	[FJS_DataType_F32] = (BinaryOpFunction) mulF32
 };
 
 static const BinaryOpFunction divFunctions[] = {
-	[FJS_DataType_F64] = divF64,
-	[FJS_DataType_F32] = divF32
+	[FJS_DataType_F64] = (BinaryOpFunction) divF64,
+	[FJS_DataType_F32] = (BinaryOpFunction) divF32
 };
 
 static const BinaryConstOpFunction addConstFunctions[] = {
-	[FJS_DataType_F64] = addConstF64,
-	[FJS_DataType_F32] = addConstF32
+	[FJS_DataType_F64] = (BinaryConstOpFunction) addConstF64,
+	[FJS_DataType_F32] = (BinaryConstOpFunction) addConstF32
 };
 
 static const BinaryConstOpFunction subConstFunctions[] = {
-	[FJS_DataType_F64] = subConstF64,
-	[FJS_DataType_F32] = subConstF32
+	[FJS_DataType_F64] = (BinaryConstOpFunction) subConstF64,
+	[FJS_DataType_F32] = (BinaryConstOpFunction) subConstF32
 };
 
 static const BinaryConstOpFunction mulConstFunctions[] = {
-	[FJS_DataType_F64] = mulConstF64,
-	[FJS_DataType_F32] = mulConstF32
+	[FJS_DataType_F64] = (BinaryConstOpFunction) mulConstF64,
+	[FJS_DataType_F32] = (BinaryConstOpFunction) mulConstF32
 };
 
 static const BinaryConstOpFunction divConstFunctions[] = {
-	[FJS_DataType_F64] = divConstF64,
-	[FJS_DataType_F32] = divConstF32
+	[FJS_DataType_F64] = (BinaryConstOpFunction) divConstF64,
+	[FJS_DataType_F32] = (BinaryConstOpFunction) divConstF32
 };
 
 static const UnaryOpFunction negFunctions[] = {
-	[FJS_DataType_F64] = negF64,
-	[FJS_DataType_F32] = negF32
+	[FJS_DataType_F64] = (UnaryOpFunction) negF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) negF32
 };
 
 static const UnaryOpFunction absFunctions[] = {
-	[FJS_DataType_F64] = absF64,
-	[FJS_DataType_F32] = absF32
+	[FJS_DataType_F64] = (UnaryOpFunction) absF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) absF32
 };
 
 static const UnaryOpFunction expFunctions[] = {
-	[FJS_DataType_F64] = expF64,
-	[FJS_DataType_F32] = expF32
+	[FJS_DataType_F64] = (UnaryOpFunction) expF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) expF32
 };
 
 static const UnaryOpFunction logFunctions[] = {
-	[FJS_DataType_F64] = logF64,
-	[FJS_DataType_F32] = logF32
+	[FJS_DataType_F64] = (UnaryOpFunction) logF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) logF32
 };
 
 static const UnaryOpFunction sqrtFunctions[] = {
-	[FJS_DataType_F64] = sqrtF64,
-	[FJS_DataType_F32] = sqrtF32
+	[FJS_DataType_F64] = (UnaryOpFunction) sqrtF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) sqrtF32
 };
 
 static const UnaryOpFunction squareFunctions[] = {
-	[FJS_DataType_F64] = squareF64,
-	[FJS_DataType_F32] = squareF32
+	[FJS_DataType_F64] = (UnaryOpFunction) squareF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) squareF32
 };
 
 static const ReduceOpFunction minFunctions[] = {
-	[FJS_DataType_F64] = minF64,
-	[FJS_DataType_F32] = minF32
+	[FJS_DataType_F64] = (UnaryOpFunction) minF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) minF32
 };
 
 static const ReduceOpFunction maxFunctions[] = {
-	[FJS_DataType_F64] = maxF64,
-	[FJS_DataType_F32] = maxF32
+	[FJS_DataType_F64] = (UnaryOpFunction) maxF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) maxF32
 };
 
 static const ReduceOpFunction sumFunctions[] = {
-	[FJS_DataType_F64] = sumF64,
-	[FJS_DataType_F32] = sumF32
+	[FJS_DataType_F64] = (UnaryOpFunction) sumF64,
+	[FJS_DataType_F32] = (UnaryOpFunction) sumF32
 };
 
 static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]);
@@ -440,7 +440,7 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t
 	}
 
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
-	computeFunction(dataA, dataB, dataOut, length);
+	computeFunction(length, dataA, dataB, dataOut);
 
 	FJS_AllocateId(instance, idOut, arrayOut);
 	return FJS_Error_Ok;
@@ -477,7 +477,7 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, do
 	}
 
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
-	computeFunction(dataA, valueB, dataOut, length);
+	computeFunction(length, dataA, valueB, dataOut);
 
 	FJS_AllocateId(instance, idOut, arrayOut);
 	return FJS_Error_Ok;
@@ -514,7 +514,7 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t 
 	}
 
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
-	computeFunction(dataA, dataOut, length);
+	computeFunction(length, dataA, dataOut);
 
 	FJS_AllocateId(instance, idOut, arrayOut);
 	return FJS_Error_Ok;
@@ -549,327 +549,262 @@ static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t
 	}
 
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
-	computeFunction(dataIn, dataOut, lengthIn);
+	computeFunction(lengthIn, dataIn, dataOut);
 
 	FJS_AllocateId(instance, idOut, arrayOut);
 	return FJS_Error_Ok;
 }
 
-static void addF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float* dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+/* Binary element-wise operations */
+
+static void addF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) + (*dataB_F32++);
+		*dataOut++ = (*dataA++) + (*dataB++);
 	}
 }
 
-static void addF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const double* dataA_F64 = dataA;
-	const double* dataB_F64 = dataB;
-	double* dataOut_F64 = dataOut;
+static void addF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) + (*dataB_F64++);
+		*dataOut++ = (*dataA++) + (*dataB++);
 	}
 }
 
-static void subF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float* dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+static void subF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) - (*dataB_F32++);
+		*dataOut++ = (*dataA++) - (*dataB++);
 	}
 }
 
-static void subF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const double* dataA_F64 = dataA;
-	const double* dataB_F64 = dataB;
-	double* dataOut_F64 = dataOut;
+static void subF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) - (*dataB_F64++);
+		*dataOut++ = (*dataA++) - (*dataB++);
 	}
 }
 
-static void mulF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float* dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+static void mulF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) * (*dataB_F32++);
+		*dataOut++ = (*dataA++) * (*dataB++);
 	}
 }
 
-static void mulF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const double* dataA_F64 = dataA;
-	const double* dataB_F64 = dataB;
-	double* dataOut_F64 = dataOut;
+static void mulF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) * (*dataB_F64++);
+		*dataOut++ = (*dataA++) * (*dataB++);
 	}
 }
 
-static void divF32(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float* dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+static void divF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) / (*dataB_F32++);
+		*dataOut++ = (*dataA++) / (*dataB++);
 	}
 }
 
-static void divF64(const void* dataA, const void* dataB, void* dataOut, uint32_t length) {
-	const double* dataA_F64 = dataA;
-	const double* dataB_F64 = dataB;
-	double* dataOut_F64 = dataOut;
+static void divF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) / (*dataB_F64++);
+		*dataOut++ = (*dataA++) / (*dataB++);
 	}
 }
 
-static void addConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+/* Binary element-wise operations with a constant */
+
+static void addConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+	const float dataBF32 = dataB;
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) + dataB_F32;
+		*dataOut++ = (*dataA++) + dataBF32;
 	}
 }
 
-static void addConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
+static void addConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
+	while (length--) {
+		*dataOut++ = (*dataA++) + dataB;
+	}
+}
+
+static void subConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+	const float dataBF32 = dataB;
+	while (length--) {
+		*dataOut++ = (*dataA++) - dataBF32;
+	}
+}
+
+static void subConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
 	const double* dataA_F64 = dataA;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) + dataB;
+		*dataOut++ = (*dataA++) - dataB;
 	}
 }
 
-static void subConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+static void mulConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+	const float dataBF32 = dataB;
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) - dataB_F32;
+		*dataOut++ = (*dataA++) * dataBF32;
 	}
 }
 
-static void subConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
-	const double* dataA_F64 = dataA;
-	double* dataOut_F64 = dataOut;
+static void mulConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) - dataB;
+		*dataOut++ = (*dataA++) * dataB;
 	}
 }
 
-static void mulConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+static void divConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+	const float dataBF32 = dataB;
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) * dataB_F32;
+		*dataOut++ = (*dataA++) / dataBF32;
 	}
 }
 
-static void mulConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
-	const double* dataA_F64 = dataA;
-	double* dataOut_F64 = dataOut;
+static void divConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) * dataB;
+		*dataOut++ = (*dataA++) / dataB;
 	}
 }
 
-static void divConstF32(const void* dataA, double dataB, void* dataOut, uint32_t length) {
-	const float* dataA_F32 = dataA;
-	const float dataB_F32 = dataB;
-	float* dataOut_F32 = dataOut;
+/* Unary element-wise operations */
+
+static void negF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = (*dataA_F32++) / dataB_F32;
+		*dataOut++ = -(*dataIn++);
 	}
 }
 
-static void divConstF64(const void* dataA, double dataB, void* dataOut, uint32_t length) {
-	const double* dataA_F64 = dataA;
-	double* dataOut_F64 = dataOut;
-	while (length--) {
-		*dataOut_F64++ = (*dataA_F64++) / dataB;
-	}
-}
-
-static void negF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
-	while (length--) {
-		*dataOut_F32++ = -(*dataIn_F32++);
-	}
-}
-
-static void negF64(const void* dataIn, void* dataOut, uint32_t length) {
+static void negF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
 	const double* dataIn_F64 = dataIn;
 	double* dataOut_F64 = dataOut;
 	while (length--) {
-		*dataOut_F64++ = -(*dataIn_F64++);
+		*dataOut++ = -(*dataIn++);
 	}
 }
 
-static void absF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void absF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = fabsf(*dataIn_F32++);
+		*dataOut++ = fabsf(*dataIn++);
 	}
 }
 
-static void absF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void absF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = fabs(*dataIn_F64++);
+		*dataOut++ = fabs(*dataIn++);
 	}
 }
 
-static void expF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void expF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = expf(*dataIn_F32++);
+		*dataOut++ = expf(*dataIn++);
 	}
 }
 
-static void expF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void expF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = exp(*dataIn_F64++);
+		*dataOut++ = exp(*dataIn++);
 	}
 }
 
-static void logF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void logF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = logf(*dataIn_F32++);
+		*dataOut++ = logf(*dataIn++);
 	}
 }
 
-static void logF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void logF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = log(*dataIn_F64++);
+		*dataOut++ = log(*dataIn++);
 	}
 }
 
-static void sqrtF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void sqrtF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F32++ = sqrtf(*dataIn_F32++);
+		*dataOut++ = sqrtf(*dataIn++);
 	}
 }
 
-static void sqrtF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void sqrtF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		*dataOut_F64++ = sqrt(*dataIn_F64++);
+		*dataOut++ = sqrt(*dataIn++);
 	}
 }
 
-static void squareF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void squareF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
 	while (length--) {
-		const float x = *dataIn_F32++;
-		*dataOut_F32++ = x * x;
+		const float x = *dataIn++;
+		*dataOut++ = x * x;
 	}
 }
 
-static void squareF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void squareF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
 	while (length--) {
-		const double x = *dataIn_F64++;
-		*dataOut_F64++ = x * x;
+		const double x = *dataIn++;
+		*dataOut++ = x * x;
 	}
 }
 
+/* All-array reduction functions */
 
-static void minF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void minF32(size_t length, const float data[restrict static length], float minOut[restrict static 1]) {
 	if (length == 0) {
-		*dataOut_F32 = __builtin_nanf("");
+		*minOut = __builtin_nanf("");
 	} else {
-		float min = *dataIn_F32++;
+		float min = *data++;
 		while (--length) {
-			const float val = *dataIn_F32++;
+			const float val = *data++;
 			min = min < val ? min : val;
 		}
-		*dataOut_F32 = min;
+		*minOut = min;
 	}
 }
 
-static void minF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void minF64(size_t length, const double data[restrict static length], double minOut[restrict static 1]) {
 	if (length == 0) {
-		*dataOut_F64 = __builtin_nan("");
+		*minOut = __builtin_nan("");
 	} else {
-		double min = *dataIn_F64++;
+		double min = *data++;
 		while (--length) {
-			const double val = *dataIn_F64++;
-			min = min < val ? min : val;
+			const double value = *data++;
+			min = min < value ? min : value;
 		}
-		*dataOut_F64 = min;
+		*minOut = min;
 	}
 }
 
-static void maxF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void maxF32(size_t length, const float data[restrict static length], float maxOut[restrict static 1]) {
 	if (length == 0) {
-		*dataOut_F32 = __builtin_nanf("");
+		*maxOut = __builtin_nanf("");
 	} else {
-		float max = *dataIn_F32++;
+		float max = *data++;
 		while (--length) {
-			const float val = *dataIn_F32++;
-			max = max < val ? val : max;
+			const float value = *data++;
+			max = max < value ? value : max;
 		}
-		*dataOut_F32 = max;
+		*maxOut = max;
 	}
 }
 
-static void maxF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void maxF64(size_t length, const double data[restrict static length], double maxOut[restrict static 1]) {
 	if (length == 0) {
-		*dataOut_F64 = __builtin_nan("");
+		*maxOut = __builtin_nan("");
 	} else {
-		double max = *dataIn_F64++;
+		double max = *data++;
 		while (--length) {
-			const double val = *dataIn_F64++;
-			max = max < val ? val : max;
+			const double value = *data++;
+			max = max < value ? value : max;
 		}
-		*dataOut_F64 = max;
+		*maxOut = max;
 	}
 }
 
-static void sumF32(const void* dataIn, void* dataOut, uint32_t length) {
-	const float* dataIn_F32 = dataIn;
-	float* dataOut_F32 = dataOut;
+static void sumF32(size_t length, const float data[restrict static length], float sumOut[restrict static 1]) {
 	float s = 0.0f;
 	while (length--) {
-		s += *dataIn_F32++;
+		s += *data++;
 	}
-	*dataOut_F32 = s;
+	*sumOut = s;
 }
 
-static void sumF64(const void* dataIn, void* dataOut, uint32_t length) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
+static void sumF64(size_t length, const double data[restrict static length], double sumOut[restrict static 1]) {
 	double s = 0.0;
 	while (length--) {
-		s += *dataIn_F64++;
+		s += *data++;
 	}
-	*dataOut_F64 = s;
+	*sumOut = s;
 }
