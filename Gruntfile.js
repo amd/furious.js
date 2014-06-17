@@ -1,3 +1,5 @@
+"use strict";
+
 module.exports = function(grunt) {
 
 	grunt.initConfig({
@@ -10,6 +12,15 @@ module.exports = function(grunt) {
 				},
 				src: ["test/*.test.js"]
 			}
+		},
+
+		jshint: {
+			options: {
+				jshintrc: true
+			},
+			furious: ["lib/*.js"],
+			test: ["test/*.test.js"],
+			build: ["Gruntfile.js"]
 		},
 
 		browserify: {
@@ -48,13 +59,13 @@ module.exports = function(grunt) {
 
 		yuidoc: {
 			furious: {
-				name: '<%= pkg.name %>',
-				description: '<%= pkg.description %>',
-				version: '<%= pkg.version %>',
+				name: "<%= pkg.name %>",
+				description: "<%= pkg.description %>",
+				version: "<%= pkg.version %>",
 				options: {
-					paths: 'lib',
-					outdir: 'doc',
-					themedir: './node_modules/yuidoc-bootstrap-theme',
+					paths: "lib",
+					outdir: "doc",
+					themedir: "./node_modules/yuidoc-bootstrap-theme",
 					helpers: ["./node_modules/yuidoc-bootstrap-theme/helpers/helpers.js"]
 				}
 			}
@@ -73,9 +84,10 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks("grunt-mocha-test");
 	grunt.loadNpmTasks("grunt-browserify");
 	grunt.loadNpmTasks("grunt-minifyify");
-	grunt.loadNpmTasks('grunt-contrib-yuidoc');
-	grunt.loadNpmTasks('grunt-shell');
+	grunt.loadNpmTasks("grunt-contrib-yuidoc");
+	grunt.loadNpmTasks("grunt-contrib-jshint");
+	grunt.loadNpmTasks("grunt-shell");
 
-	grunt.registerTask("default", ["mochaTest", "browserify", "minifyify", "yuidoc", "shell:configure", "shell:buildPNaCl"]);
+	grunt.registerTask("default", ["mochaTest", "jshint", "browserify", "minifyify", "yuidoc", "shell:configure", "shell:buildPNaCl"]);
 	grunt.registerTask("test", ["mochaTest"]);
 };

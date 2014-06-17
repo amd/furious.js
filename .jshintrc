@@ -1,0 +1,18 @@
+{
+	"maxerr"        : 50,
+
+	"camelcase"     : true,
+	"quotmark"      : "double",
+	"shadow"        : true,
+    "multistr"      : true,
+    "sub"           : false,
+	
+    "browser"       : true,
+    "node"          : true,
+
+	"globals"       : {
+		"webcl": false,
+		"WebCL": false,
+		"WebCLEvent": false
+	}
+}
