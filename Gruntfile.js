@@ -27,7 +27,7 @@ module.exports = function(grunt) {
 			furious: {
 				options: {
 					bundleOptions : {
-						debug: true,
+						debug: false,
 						standalone: "furious"
 					}
 				},
@@ -47,12 +47,10 @@ module.exports = function(grunt) {
 			}
 		},
 
-		minifyify: {
-			furious: {
-				src: "furious.js",
-				dest: {
-					buildFile: "furious.min.js",
-					mapFile: "furious.min.map"
+		uglify: {
+			dist: {
+				files: {
+					"furious.min.js": ["furious.js"]
 				}
 			}
 		},
@@ -83,11 +81,11 @@ module.exports = function(grunt) {
 
 	grunt.loadNpmTasks("grunt-mocha-test");
 	grunt.loadNpmTasks("grunt-browserify");
-	grunt.loadNpmTasks("grunt-minifyify");
+	grunt.loadNpmTasks("grunt-contrib-uglify");
 	grunt.loadNpmTasks("grunt-contrib-yuidoc");
 	grunt.loadNpmTasks("grunt-contrib-jshint");
 	grunt.loadNpmTasks("grunt-shell");
 
-	grunt.registerTask("default", ["mochaTest", "jshint", "browserify", "minifyify", "yuidoc", "shell:configure", "shell:buildPNaCl"]);
+	grunt.registerTask("default", ["mochaTest", "jshint", "browserify", "uglify", "yuidoc", "shell:configure", "shell:buildPNaCl"]);
 	grunt.registerTask("test", ["mochaTest"]);
 };
