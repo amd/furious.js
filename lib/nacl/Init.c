@@ -135,6 +135,9 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case FJS_Command_CreateFromBuffer:
 			FJS_Parse_CreateFromBuffer(instance, message);
 			break;
+		case FJS_Command_LinSpace:
+			FJS_Parse_LinSpace(instance, message);
+			break;
 		case FJS_Command_Release:
 			FJS_Parse_Release(instance, message);
 			break;

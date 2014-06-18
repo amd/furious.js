@@ -19,6 +19,14 @@ enum FJS_Error FJS_Message_Parse(uint32_t variablesCount, const struct FJS_Varia
 			goto cleanup;
 		}
 		switch (descriptors[variableIndex].type) {
+			case FJS_VariableType_Boolean:
+				if (pepperType == PP_VARTYPE_BOOL) {
+					variables[variableIndex].parsedValue.asBoolean = variables[variableIndex].pepperVariable.value.as_bool;
+				} else {
+					error = FJS_Error_InvalidVariableType;
+					goto cleanup;
+				}
+				break;
 			case FJS_VariableType_Int32:
 				if (pepperType == PP_VARTYPE_INT32) {
 					variables[variableIndex].parsedValue.asInt32 = variables[variableIndex].pepperVariable.value.as_int;
@@ -28,13 +36,16 @@ enum FJS_Error FJS_Message_Parse(uint32_t variablesCount, const struct FJS_Varia
 				}
 				break;
 			case FJS_VariableType_Float64:
-				if (pepperType == PP_VARTYPE_DOUBLE) {
-					variables[variableIndex].parsedValue.asFloat64 = variables[variableIndex].pepperVariable.value.as_double;
-				} else if (pepperType == PP_VARTYPE_INT32) {
-					variables[variableIndex].parsedValue.asFloat64 = (double) variables[variableIndex].pepperVariable.value.as_int;
-				} else {
-					error = FJS_Error_InvalidVariableType;
-					goto cleanup;
+				switch (pepperType) {
+					case PP_VARTYPE_DOUBLE:
+						variables[variableIndex].parsedValue.asFloat64 = variables[variableIndex].pepperVariable.value.as_double;
+						break;
+					case PP_VARTYPE_INT32:
+						variables[variableIndex].parsedValue.asFloat64 = (double) variables[variableIndex].pepperVariable.value.as_int;
+						break;						
+					default:
+						error = FJS_Error_InvalidVariableType;
+						goto cleanup;
 				}
 				break;
 			case FJS_VariableType_DataType:

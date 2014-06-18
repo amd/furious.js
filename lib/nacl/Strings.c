@@ -30,7 +30,10 @@ static struct StringLiteral strings[FJS_StringVariable_NumberOfEntries] = {
 	[FJS_StringVariable_Y] = FJS_INIT_STRING_LITERAL("y"),
 	[FJS_StringVariable_Z] = FJS_INIT_STRING_LITERAL("z"),
 	[FJS_StringVariable_Axis] = FJS_INIT_STRING_LITERAL("axis"),
-
+	[FJS_StringVariable_Start] = FJS_INIT_STRING_LITERAL("start"),
+	[FJS_StringVariable_Stop] = FJS_INIT_STRING_LITERAL("stop"),
+	[FJS_StringVariable_Samples] = FJS_INIT_STRING_LITERAL("samples"),
+	[FJS_StringVariable_Closed] = FJS_INIT_STRING_LITERAL("closed"),
 	[FJS_StringVariable_Status] = FJS_INIT_STRING_LITERAL("status"),
 	[FJS_StringVariable_Error] = FJS_INIT_STRING_LITERAL("error"),
 	[FJS_StringVariable_Success] = FJS_INIT_STRING_LITERAL("success"),

@@ -17,6 +17,7 @@ extern struct PP_Var FJS_ResponseVariable;
 enum FJS_VariableType {
 	FJS_VariableType_Int32,
 	FJS_VariableType_Float64,
+	FJS_VariableType_Boolean,
 	FJS_VariableType_DataType,
 	FJS_VariableType_Command,
 	FJS_VariableType_Buffer
@@ -33,6 +34,7 @@ struct FJS_VariableDescriptor {
 };
 
 union FJS_VariableValue {
+	bool asBoolean;
 	int32_t asInt32;
 	double asFloat64;
 	enum FJS_DataType asDatatype;

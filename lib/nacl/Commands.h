@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+#include <stdbool.h>
 #include <ppapi/c/pp_instance.h>
 #include <ppapi/c/pp_var.h>
 
@@ -14,6 +16,8 @@ enum FJS_Command {
 	FJS_Command_CreateFromBuffer,
 	/* Create NDArray from JS Array */
 	FJS_Command_CreateFromArray,
+	/* Create NDArray the specified number on points evenly distributed on an interval */
+	FJS_Command_LinSpace,
 	/* Delete NDArray */
 	FJS_Command_Release,
 	/* Get data as ArrayBuffer */
@@ -74,6 +78,7 @@ enum FJS_Command FJS_Command_Parse(const char* string, uint32_t size);
 
 void FJS_Parse_Create(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_CreateFromBuffer(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_LinSpace(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Release(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Add(PP_Instance instance, struct PP_Var message);
@@ -99,6 +104,7 @@ void FJS_Parse_AxisSum(PP_Instance instance, struct PP_Var message);
 
 enum FJS_Error FJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType, uint32_t bufferSize, void* buffer);
+enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, int32_t idOut, double start, double stop, int32_t samples, bool closed, enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_Release(PP_Instance instance, int32_t idIn);
 enum FJS_Error FJS_Execute_GetBuffer(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]);
 enum FJS_Error FJS_Execute_GetArray(PP_Instance instance, int32_t idIn, struct PP_Var arrayOut[static 1]);
