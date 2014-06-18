@@ -611,37 +611,70 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t 
 }
 
 static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]) {
+	/* Validate input array id and get NDArray object for this id */
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
-	const enum FJS_DataType dataType = arrayA->dataType;
+	/* Load input array information */
+	const size_t lengthA = arrayA->length;
+	const uint32_t dimensionsA = arrayA->dimensions;
+	const void* dataA = FJS_NDArray_GetData(arrayA);
+	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
-	UnaryOpFunction computeFunction;
-	switch (dataType) {
+	/* Validate input data type and choose the compute function for this data type */
+	ReduceOpFunction computeFunction;
+	switch (dataTypeA) {
 		case FJS_DataType_F64:
 		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataType];
+			computeFunction = computeFunctions[dataTypeA];
 			break;
 		case FJS_DataType_Invalid:
 		default:
 			return FJS_Error_InvalidDataType;
 	}
 
-	const void* dataIn = FJS_NDArray_GetData(arrayA);
-	const size_t lengthIn = arrayA->length;
-
-	uint32_t outShape[1] = { 1 };
-	struct NDArray* arrayOut = FJS_NDArray_Create(FJS_COUNT_OF(outShape), 1, outShape, dataType);
+	/*
+	 * Try to get NDArray for the provided output id.
+	 * If there is an NDArray associated with the supplied id, validate it.
+	 * Otherwise, create an NDArray and associate it with the provided id.
+	 */
+	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	if (arrayOut == NULL) {
-		return FJS_Error_OutOfMemory;
+		/* Define parameters for the output array */
+		const uint32_t dimensionsOut = 0;
+		const uint32_t lengthOut = 1;
+		const uint32_t* shapeOut = NULL;
+		const enum FJS_DataType dataTypeOut = dataTypeA;
+
+		/* Create output array */
+		arrayOut = FJS_NDArray_Create(dimensionsOut, lengthOut, shapeOut, dataTypeOut);
+		if (arrayOut == NULL) {
+			return FJS_Error_OutOfMemory;
+		}
+
+		/* Associate the output array with its id */
+		FJS_AllocateId(instance, idOut, arrayOut);
+	} else {
+		/* Check that the output array has the same data type as input array */
+		if (arrayOut->dataType != dataTypeA) {
+			return FJS_Error_MismatchingDataType;
+		}
+
+		/* Check that the output array is just a number: is should have length of 1 and no dimensions */
+		if (arrayOut->dimensions != 0) {
+			return FJS_Error_MismatchingDimensions;
+		}
+		if (arrayOut->length != 1) {
+			return FJS_Error_MismatchingShape;
+		}
 	}
 
+	/* Do the reduction */
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
-	computeFunction(lengthIn, dataIn, dataOut);
+	computeFunction(lengthA, dataA, dataOut);
 
-	FJS_AllocateId(instance, idOut, arrayOut);
 	return FJS_Error_Ok;
 }
 
@@ -688,7 +721,7 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int
 	}
 
 	/*
-	 * Try to get NDArray for the provided id.
+	 * Try to get NDArray for the provided output id.
 	 * If there is an NDArray associated with the supplied id, validate it.
 	 * Otherwise, create an NDArray and associate it with the provided id.
 	 */
