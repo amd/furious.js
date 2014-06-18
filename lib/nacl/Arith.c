@@ -14,38 +14,38 @@
 #include "Util.h"
 
 typedef void (*BinaryOpFunction)(size_t, const void*, const void*, void*);
-static void addF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
-static void addF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
-static void subF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
-static void subF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
-static void mulF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
-static void mulF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
-static void divF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]);
-static void divF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]);
+static void addF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]);
+static void addF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
+static void subF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]);
+static void subF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
+static void mulF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]);
+static void mulF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
+static void divF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]);
+static void divF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
 
 typedef void (*BinaryConstOpFunction)(size_t, const void*, double, void*);
-static void addConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
-static void addConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
-static void subConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
-static void subConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
-static void mulConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
-static void mulConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
-static void divConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]);
-static void divConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]);
+static void addConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
+static void addConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
+static void subConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
+static void subConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
+static void mulConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
+static void mulConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
+static void divConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
+static void divConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
 
 typedef void (*UnaryOpFunction)(size_t, const void*, void*);
-static void negF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
-static void negF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
-static void absF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
-static void absF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
-static void expF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
-static void expF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
-static void logF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
-static void logF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
-static void sqrtF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
-static void sqrtF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
-static void squareF32(size_t length, const float dataInt[restrict static length], float dataOut[restrict static length]);
-static void squareF64(size_t length, const double dataInt[restrict static length], double dataOut[restrict static length]);
+static void negF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void negF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void absF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void absF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void expF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void expF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void logF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void logF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void sqrtF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void sqrtF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void squareF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void squareF64(size_t length, const double dataInt[static length], double dataOut[static length]);
 
 typedef void (*ReduceOpFunction)(size_t, const void*, void*);
 static void minF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static 1]);
@@ -926,185 +926,481 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int
 
 /* Binary element-wise operations */
 
-static void addF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) + (*dataB++);
+static void addF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] + b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) + (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] + out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) + (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] + b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) + (*dataB++);
+		}
 	}
 }
 
-static void addF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) + (*dataB++);
+static void addF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] + b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) + (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] + out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) + (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] + b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) + (*dataB++);
+		}
 	}
 }
 
-static void subF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) - (*dataB++);
+static void subF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] - b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) - (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] - out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) * (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] - b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) - (*dataB++);
+		}
 	}
 }
 
-static void subF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) - (*dataB++);
+static void subF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] - b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) - (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] - out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) - (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] - b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) - (*dataB++);
+		}
 	}
 }
 
-static void mulF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) * (*dataB++);
+static void mulF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] * b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) * (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] * out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) * (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] * b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) * (*dataB++);
+		}
 	}
 }
 
-static void mulF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) * (*dataB++);
+static void mulF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] * b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) * (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] * out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) * (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] * b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) * (*dataB++);
+		}
 	}
 }
 
-static void divF32(size_t length, const float dataA[restrict static length], const float dataB[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) / (*dataB++);
+static void divF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) * (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] / out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) * (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) * (*dataB++);
+		}
 	}
 }
 
-static void divF64(size_t length, const double dataA[restrict static length], const double dataB[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) / (*dataB++);
+static void divF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = (*dataOut) / (*dataB++);
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] / out[i] */
+		while (length--) {
+			*dataOut = (*dataA++) / (*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut++ = (*dataA++) / (*dataB++);
+		}
 	}
 }
 
 /* Binary element-wise operations with a constant */
 
-static void addConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+static void addConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]) {
 	const float dataBF32 = dataB;
-	while (length--) {
-		*dataOut++ = (*dataA++) + dataBF32;
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] + b */
+		while (length--) {
+			*dataOut = (*dataOut) + dataBF32;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] + b */
+		while (length--) {
+			*dataOut++ = (*dataA++) + dataBF32;
+		}
 	}
 }
 
-static void addConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) + dataB;
+static void addConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] + b */
+		while (length--) {
+			*dataOut = (*dataOut) + dataB;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] + b */
+		while (length--) {
+			*dataOut++ = (*dataA++) + dataB;
+		}
 	}
 }
 
-static void subConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+static void subConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]) {
 	const float dataBF32 = dataB;
-	while (length--) {
-		*dataOut++ = (*dataA++) - dataBF32;
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] - b */
+		while (length--) {
+			*dataOut = (*dataOut) - dataBF32;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] - b */
+		while (length--) {
+			*dataOut++ = (*dataA++) - dataBF32;
+		}
 	}
 }
 
-static void subConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
-	const double* dataA_F64 = dataA;
-	double* dataOut_F64 = dataOut;
-	while (length--) {
-		*dataOut++ = (*dataA++) - dataB;
+static void subConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] - b */
+		while (length--) {
+			*dataOut = (*dataOut) - dataB;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] - b */
+		while (length--) {
+			*dataOut++ = (*dataA++) - dataB;
+		}
 	}
 }
 
-static void mulConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+static void mulConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]) {
 	const float dataBF32 = dataB;
-	while (length--) {
-		*dataOut++ = (*dataA++) * dataBF32;
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] * b */
+		while (length--) {
+			*dataOut = (*dataOut) * dataBF32;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] * b */
+		while (length--) {
+			*dataOut++ = (*dataA++) * dataBF32;
+		}
 	}
 }
 
-static void mulConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) * dataB;
+static void mulConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] * b */
+		while (length--) {
+			*dataOut = (*dataOut) * dataB;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] * b */
+		while (length--) {
+			*dataOut++ = (*dataA++) * dataB;
+		}
 	}
 }
 
-static void divConstF32(size_t length, const float dataA[restrict static length], double dataB, float dataOut[restrict static length]) {
+static void divConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]) {
 	const float dataBF32 = dataB;
-	while (length--) {
-		*dataOut++ = (*dataA++) / dataBF32;
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b */
+		while (length--) {
+			*dataOut = (*dataOut) / dataBF32;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b */
+		while (length--) {
+			*dataOut++ = (*dataA++) / dataBF32;
+		}
 	}
 }
 
-static void divConstF64(size_t length, const double dataA[restrict static length], double dataB, double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = (*dataA++) / dataB;
+static void divConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b */
+		while (length--) {
+			*dataOut = (*dataOut) / dataB;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b */
+		while (length--) {
+			*dataOut++ = (*dataA++) / dataB;
+		}
 	}
 }
 
 /* Unary element-wise operations */
 
-static void negF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = -(*dataIn++);
+static void negF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = -out[i] */
+		while (length--) {
+			*dataOut = -(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = -a[i] */
+		while (length--) {
+			*dataOut++ = -(*dataA++);
+		}
 	}
 }
 
-static void negF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
-	const double* dataIn_F64 = dataIn;
-	double* dataOut_F64 = dataOut;
-	while (length--) {
-		*dataOut++ = -(*dataIn++);
+static void negF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = -out[i] */
+		while (length--) {
+			*dataOut = -(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = -a[i] */
+		while (length--) {
+			*dataOut++ = -(*dataA++);
+		}
 	}
 }
 
-static void absF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = fabsf(*dataIn++);
+static void absF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = abs(out[i]) */
+		while (length--) {
+			*dataOut = fabsf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = abs(a[i]) */
+		while (length--) {
+			*dataOut++ = fabsf(*dataA++);
+		}
 	}
 }
 
-static void absF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = fabs(*dataIn++);
+static void absF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = abs(out[i]) */
+		while (length--) {
+			*dataOut = fabs(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = abs(a[i]) */
+		while (length--) {
+			*dataOut++ = fabs(*dataA++);
+		}
 	}
 }
 
-static void expF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = expf(*dataIn++);
+static void expF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = exp(out[i]) */
+		while (length--) {
+			*dataOut = expf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = exp(a[i]) */
+		while (length--) {
+			*dataOut++ = expf(*dataA++);
+		}
 	}
 }
 
-static void expF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = exp(*dataIn++);
+static void expF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = exp(out[i]) */
+		while (length--) {
+			*dataOut = exp(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = exp(a[i]) */
+		while (length--) {
+			*dataOut++ = exp(*dataA++);
+		}
 	}
 }
 
-static void logF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = logf(*dataIn++);
+static void logF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = logf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = logf(*dataA++);
+		}
 	}
 }
 
-static void logF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = log(*dataIn++);
+static void logF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = log(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = log(*dataA++);
+		}
 	}
 }
 
-static void sqrtF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = sqrtf(*dataIn++);
+static void sqrtF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = sqrtf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = sqrtf(*dataA++);
+		}
 	}
 }
 
-static void sqrtF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		*dataOut++ = sqrt(*dataIn++);
+static void sqrtF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = sqrt(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = sqrt(*dataA++);
+		}
 	}
 }
 
-static void squareF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static length]) {
-	while (length--) {
-		const float x = *dataIn++;
-		*dataOut++ = x * x;
+static void squareF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			const float value = *dataOut;
+			*dataOut++ = value * value;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			const float value = *dataA++;
+			*dataOut++ = value * value;
+		}
 	}
 }
 
-static void squareF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static length]) {
-	while (length--) {
-		const double x = *dataIn++;
-		*dataOut++ = x * x;
+static void squareF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			const double value = *dataOut;
+			*dataOut++ = value * value;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			const double value = *dataA++;
+			*dataOut++ = value * value;
+		}
 	}
 }
 
