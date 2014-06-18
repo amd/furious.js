@@ -21,29 +21,29 @@ static const StepInitFunction stepInitFunctions[] = {
 	[FJS_DataType_F32] = (StepInitFunction) initLinearF32
 };
 
-enum FJS_Create_Argument {
-	FJS_Create_Argument_Out,
-	FJS_Create_Argument_DataType,
-	FJS_Create_Argument_Shape
+enum FJS_Empty_Argument {
+	FJS_Empty_Argument_Out,
+	FJS_Empty_Argument_DataType,
+	FJS_Empty_Argument_Shape
 };
 
 static const struct FJS_VariableDescriptor createDescriptors[] =
 {
-	[FJS_Create_Argument_Out] = { 
+	[FJS_Empty_Argument_Out] = { 
 		.type = FJS_VariableType_Int32,
 		.name = FJS_StringVariable_Out
 	},
-	[FJS_Create_Argument_DataType] = {
+	[FJS_Empty_Argument_DataType] = {
 		.type = FJS_VariableType_DataType,
 		.name = FJS_StringVariable_Datatype
 	},
-	[FJS_Create_Argument_Shape] = {
+	[FJS_Empty_Argument_Shape] = {
 		.type = FJS_VariableType_Buffer,
 		.name = FJS_StringVariable_Shape
 	}
 };
 
-void FJS_Parse_Create(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Empty(PP_Instance instance, struct PP_Var message) {
 	struct FJS_Variable variables[FJS_COUNT_OF(createDescriptors)];
 	enum FJS_Error error = FJS_Error_Ok;
 
@@ -53,11 +53,11 @@ void FJS_Parse_Create(PP_Instance instance, struct PP_Var message) {
 		goto cleanup;
 	}
 
-	error = FJS_Execute_Create(instance,
-		variables[FJS_Create_Argument_Out].parsedValue.asInt32,
-		variables[FJS_Create_Argument_Shape].parsedValue.asBuffer.size / 4,
-		variables[FJS_Create_Argument_Shape].parsedValue.asBuffer.pointer,
-		variables[FJS_Create_Argument_DataType].parsedValue.asDatatype);
+	error = FJS_Execute_Empty(instance,
+		variables[FJS_Empty_Argument_Out].parsedValue.asInt32,
+		variables[FJS_Empty_Argument_Shape].parsedValue.asBuffer.size / 4,
+		variables[FJS_Empty_Argument_Shape].parsedValue.asBuffer.pointer,
+		variables[FJS_Empty_Argument_DataType].parsedValue.asDatatype);
 	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
@@ -96,7 +96,7 @@ static const struct FJS_VariableDescriptor createFromBufferDescriptors[] =
 	}
 };
 
-void FJS_Parse_CreateFromBuffer(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Array(PP_Instance instance, struct PP_Var message) {
 	struct FJS_Variable variables[FJS_COUNT_OF(createFromBufferDescriptors)];
 	enum FJS_Error error = FJS_Error_Ok;
 
@@ -106,7 +106,7 @@ void FJS_Parse_CreateFromBuffer(PP_Instance instance, struct PP_Var message) {
 		goto cleanup;
 	}
 
-	error = FJS_Execute_CreateFromBuffer(instance,
+	error = FJS_Execute_Array(instance,
 		variables[FJS_CreateFromBuffer_Argument_Out].parsedValue.asInt32,
 		variables[FJS_CreateFromBuffer_Argument_Shape].parsedValue.asBuffer.size / 4,
 		variables[FJS_CreateFromBuffer_Argument_Shape].parsedValue.asBuffer.pointer,
@@ -189,7 +189,7 @@ cleanup:
 	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
-enum FJS_Error FJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType datatype) {
+enum FJS_Error FJS_Execute_Empty(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType datatype) {
 	if (dimensions == 0) {
 		return FJS_Error_EmptyShape;
 	}
@@ -224,7 +224,7 @@ enum FJS_Error FJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t di
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType datatype, uint32_t bufferSize, void* buffer) {
+enum FJS_Error FJS_Execute_Array(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType datatype, uint32_t bufferSize, void* buffer) {
 	if (dimensions == 0) {
 		return FJS_Error_EmptyShape;
 	}

@@ -5,20 +5,18 @@
 enum FJS_Command FJS_Command_Parse(const char* commandString, uint32_t commandLength) {
 	enum FJS_Command command = FJS_Command_Invalid;
 	if (commandString != NULL) {
-		if (strncmp(commandString, "create", commandLength) == 0) {
-			command = FJS_Command_Create;
-		} else if (strncmp(commandString, "create-from-buffer", commandLength) == 0) {
-			command = FJS_Command_CreateFromBuffer;
-		} else if (strncmp(commandString, "create-from-array", commandLength) == 0) {
-			command = FJS_Command_CreateFromArray;
+		if (strncmp(commandString, "empty", commandLength) == 0) {
+			command = FJS_Command_Empty;
+		} else if (strncmp(commandString, "array", commandLength) == 0) {
+			command = FJS_Command_Array;
 		} else if (strncmp(commandString, "linspace", commandLength) == 0) {
 			command = FJS_Command_LinSpace;
 		} else if (strncmp(commandString, "release", commandLength) == 0) {
 			command = FJS_Command_Release;
-		} else if (strncmp(commandString, "get-buffer", commandLength) == 0) {
-			command = FJS_Command_GetBuffer;
-		} else if (strncmp(commandString, "get-array", commandLength) == 0) {
-			command = FJS_Command_GetArray;
+		} else if (strncmp(commandString, "get", commandLength) == 0) {
+			command = FJS_Command_Get;
+		} else if (strncmp(commandString, "set", commandLength) == 0) {
+			command = FJS_Command_Set;
 		} else if (strncmp(commandString, "add", commandLength) == 0) {
 			command = FJS_Command_Add;
 		} else if (strncmp(commandString, "sub", commandLength) == 0) {

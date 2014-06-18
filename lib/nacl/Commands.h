@@ -10,24 +10,18 @@
 enum FJS_Command {
 	/* Invalid or unknown command */
 	FJS_Command_Invalid = -1,
-	/* Create NDArray */
-	FJS_Command_Create,
+	/* Create empty NDArray */
+	FJS_Command_Empty,
 	/* Create NDArray from ArrayBuffer */
-	FJS_Command_CreateFromBuffer,
-	/* Create NDArray from JS Array */
-	FJS_Command_CreateFromArray,
+	FJS_Command_Array,
 	/* Create NDArray the specified number on points evenly distributed on an interval */
 	FJS_Command_LinSpace,
 	/* Delete NDArray */
 	FJS_Command_Release,
 	/* Get data as ArrayBuffer */
-	FJS_Command_GetBuffer,
-	/* Get data as JS Array */
-	FJS_Command_GetArray,
+	FJS_Command_Get,
 	/* Set data as ArrayBuffer */
-	FJS_Command_SetBuffer,
-	/* Set data as JS Array */
-	FJS_Command_SetArray,
+	FJS_Command_Set,
 	/* Add: z[i] <- x[i] + y[i] */
 	FJS_Command_Add,
 	/* Subtract: z[i] <- x[i] - y[i] */
@@ -76,11 +70,11 @@ enum FJS_Command {
 
 enum FJS_Command FJS_Command_Parse(const char* string, uint32_t size);
 
-void FJS_Parse_Create(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_CreateFromBuffer(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_Empty(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_Array(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_LinSpace(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Release(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_Get(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Add(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Sub(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Mul(PP_Instance instance, struct PP_Var message);
@@ -102,9 +96,8 @@ void FJS_Parse_AxisMin(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_AxisMax(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_AxisSum(PP_Instance instance, struct PP_Var message);
 
-enum FJS_Error FJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType);
-enum FJS_Error FJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType, uint32_t bufferSize, void* buffer);
+enum FJS_Error FJS_Execute_Empty(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType);
+enum FJS_Error FJS_Execute_Array(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType, uint32_t bufferSize, void* buffer);
 enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, int32_t idOut, double start, double stop, int32_t samples, bool closed, enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_Release(PP_Instance instance, int32_t idIn);
-enum FJS_Error FJS_Execute_GetBuffer(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]);
-enum FJS_Error FJS_Execute_GetArray(PP_Instance instance, int32_t idIn, struct PP_Var arrayOut[static 1]);
+enum FJS_Error FJS_Execute_Get(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]);

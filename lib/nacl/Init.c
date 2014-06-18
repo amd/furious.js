@@ -129,11 +129,11 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 
 	const enum FJS_Command command = FJS_Command_Parse(commandString, commandLength);
 	switch (command) {
-		case FJS_Command_Create:
-			FJS_Parse_Create(instance, message);
+		case FJS_Command_Empty:
+			FJS_Parse_Empty(instance, message);
 			break;
-		case FJS_Command_CreateFromBuffer:
-			FJS_Parse_CreateFromBuffer(instance, message);
+		case FJS_Command_Array:
+			FJS_Parse_Array(instance, message);
 			break;
 		case FJS_Command_LinSpace:
 			FJS_Parse_LinSpace(instance, message);
@@ -141,8 +141,8 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case FJS_Command_Release:
 			FJS_Parse_Release(instance, message);
 			break;
-		case FJS_Command_GetBuffer:
-			FJS_Parse_GetBuffer(instance, message);
+		case FJS_Command_Get:
+			FJS_Parse_Get(instance, message);
 			break;
 		case FJS_Command_Add:
 			FJS_Parse_Add(instance, message);
@@ -204,10 +204,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case FJS_Command_AxisSum:
 			FJS_Parse_AxisSum(instance, message);
 			break;
-		case FJS_Command_CreateFromArray:
-		case FJS_Command_SetBuffer:
-		case FJS_Command_GetArray:
-		case FJS_Command_SetArray:
+		case FJS_Command_Set:
 		case FJS_Command_RSubC:
 		case FJS_Command_RDivC:
 		case FJS_Command_Invalid:

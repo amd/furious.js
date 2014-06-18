@@ -20,7 +20,7 @@ static const struct FJS_VariableDescriptor getBufferDescriptors[] =
 	}
 };
 
-void FJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
+void FJS_Parse_Get(PP_Instance instance, struct PP_Var message) {
 	struct FJS_Variable variables[FJS_COUNT_OF(getBufferDescriptors)];
 	enum FJS_Error error = FJS_Error_Ok;
 
@@ -31,7 +31,7 @@ void FJS_Parse_GetBuffer(PP_Instance instance, struct PP_Var message) {
 	}
 
 	struct PP_Var bufferVar = PP_MakeUndefined();
-	error = FJS_Execute_GetBuffer(instance, variables[0].parsedValue.asInt32, &bufferVar);
+	error = FJS_Execute_Get(instance, variables[0].parsedValue.asInt32, &bufferVar);
 	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}
@@ -52,7 +52,7 @@ cleanup:
 	varInterface->Release(bufferVar);
 }
 
-enum FJS_Error FJS_Execute_GetBuffer(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]) {
+enum FJS_Error FJS_Execute_Get(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]) {
 	enum FJS_Error error = FJS_Error_Ok;
 	struct PP_Var bufferVar = PP_MakeUndefined();
 	void* bufferPointer = NULL;
