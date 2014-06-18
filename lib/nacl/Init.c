@@ -192,6 +192,15 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case FJS_Command_Sum:
 			FJS_Parse_Sum(instance, message);
 			break;
+		case FJS_Command_AxisMin:
+			FJS_Parse_AxisMin(instance, message);
+			break;
+		case FJS_Command_AxisMax:
+			FJS_Parse_AxisMax(instance, message);
+			break;
+		case FJS_Command_AxisSum:
+			FJS_Parse_AxisSum(instance, message);
+			break;
 		case FJS_Command_CreateFromArray:
 		case FJS_Command_SetBuffer:
 		case FJS_Command_GetArray:

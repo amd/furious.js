@@ -13,6 +13,7 @@ enum FJS_StringVariable {
 	FJS_StringVariable_Array,
 	FJS_StringVariable_Buffer,
 	FJS_StringVariable_Data,
+	FJS_StringVariable_Axis,
 	FJS_StringVariable_A,
 	FJS_StringVariable_B,
 	FJS_StringVariable_X,

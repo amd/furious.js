@@ -98,6 +98,12 @@ enum FJS_Command {
 	FJS_Command_Max,
 	/* All-array sum */
 	FJS_Command_Sum,
+	/* Axis minimum */
+	FJS_Command_AxisMin,
+	/* Axis maximum */
+	FJS_Command_AxisMax,
+	/* Axis sum */
+	FJS_Command_AxisSum,
 };
 
 enum FJS_Command FJS_Command_Parse(const char* string, uint32_t size);
@@ -123,6 +129,9 @@ void FJS_Parse_Square(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Min(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Max(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Sum(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_AxisMin(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_AxisMax(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_AxisSum(PP_Instance instance, struct PP_Var message);
 
 enum FJS_Error FJS_Execute_Create(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_CreateFromBuffer(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType, uint32_t bufferSize, void* buffer);

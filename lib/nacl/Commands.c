@@ -91,6 +91,12 @@ enum FJS_Command FJS_Command_Parse(const char* commandString, uint32_t commandLe
 			command = FJS_Command_Max;
 		} else if (strncmp(commandString, "sum", commandLength) == 0) {
 			command = FJS_Command_Sum;
+		} else if (strncmp(commandString, "amin", commandLength) == 0) {
+			command = FJS_Command_AxisMin;
+		} else if (strncmp(commandString, "amax", commandLength) == 0) {
+			command = FJS_Command_AxisMax;
+		} else if (strncmp(commandString, "asum", commandLength) == 0) {
+			command = FJS_Command_AxisSum;
 		}
 	}
 	return command;

@@ -54,6 +54,14 @@ static void maxF64(size_t length, const double dataIn[restrict static length], d
 static void sumF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static 1]);
 static void sumF64(size_t length, const double dataIn[restrict static length], double dataOut[restrict static 1]);
 
+typedef void (*AxisReduceOpFunction)(size_t, size_t, size_t, const void*, void*);
+static void axisMinF32(size_t width, size_t height, size_t depth, const float dataIn[restrict static width*height*depth], float dataOut[restrict static width*depth]);
+static void axisMinF64(size_t width, size_t height, size_t depth, const double dataIn[restrict static width*height*depth], double dataOut[restrict static width*depth]);
+static void axisMaxF32(size_t width, size_t height, size_t depth, const float dataIn[restrict static width*height*depth], float dataOut[restrict static width*depth]);
+static void axisMaxF64(size_t width, size_t height, size_t depth, const double dataIn[restrict static width*height*depth], double dataOut[restrict static width*depth]);
+static void axisSumF32(size_t width, size_t height, size_t depth, const float dataIn[restrict static width*height*depth], float dataOut[restrict static width*depth]);
+static void axisSumF64(size_t width, size_t height, size_t depth, const double dataIn[restrict static width*height*depth], double dataOut[restrict static width*depth]);
+
 static const BinaryOpFunction addFunctions[] = {
 	[FJS_DataType_F64] = (BinaryOpFunction) addF64,
 	[FJS_DataType_F32] = (BinaryOpFunction) addF32
@@ -125,28 +133,45 @@ static const UnaryOpFunction squareFunctions[] = {
 };
 
 static const ReduceOpFunction minFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) minF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) minF32
+	[FJS_DataType_F64] = (ReduceOpFunction) minF64,
+	[FJS_DataType_F32] = (ReduceOpFunction) minF32
 };
 
 static const ReduceOpFunction maxFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) maxF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) maxF32
+	[FJS_DataType_F64] = (ReduceOpFunction) maxF64,
+	[FJS_DataType_F32] = (ReduceOpFunction) maxF32
 };
 
 static const ReduceOpFunction sumFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) sumF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) sumF32
+	[FJS_DataType_F64] = (ReduceOpFunction) sumF64,
+	[FJS_DataType_F32] = (ReduceOpFunction) sumF32
+};
+
+static const AxisReduceOpFunction axisMinFunctions[] = {
+	[FJS_DataType_F64] = (AxisReduceOpFunction) axisMinF64,
+	[FJS_DataType_F32] = (AxisReduceOpFunction) axisMinF32
+};
+
+static const AxisReduceOpFunction axisMaxFunctions[] = {
+	[FJS_DataType_F64] = (AxisReduceOpFunction) axisMaxF64,
+	[FJS_DataType_F32] = (AxisReduceOpFunction) axisMaxF32
+};
+
+static const AxisReduceOpFunction axisSumFunctions[] = {
+	[FJS_DataType_F64] = (AxisReduceOpFunction) axisSumF64,
+	[FJS_DataType_F32] = (AxisReduceOpFunction) axisSumF32
 };
 
 static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]);
 static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]);
 static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]);
 static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]);
+static void parseAxisReduceOp(PP_Instance instance, struct PP_Var message, const AxisReduceOpFunction computeFunctions[static 1]);
 static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]);
 static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]);
 static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]);
 static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int32_t axis, int32_t idOut, const AxisReduceOpFunction computeFunctions[static 1]);
 
 void FJS_Parse_Add(PP_Instance instance, struct PP_Var message) {
 	parseBinaryOp(instance, message, addFunctions);
@@ -216,6 +241,18 @@ void FJS_Parse_Sum(PP_Instance instance, struct PP_Var message) {
 	parseReduceOp(instance, message, sumFunctions);
 }
 
+void FJS_Parse_AxisMin(PP_Instance instance, struct PP_Var message) {
+	parseAxisReduceOp(instance, message, axisMinFunctions);
+}
+
+void FJS_Parse_AxisMax(PP_Instance instance, struct PP_Var message) {
+	parseAxisReduceOp(instance, message, axisMaxFunctions);
+}
+
+void FJS_Parse_AxisSum(PP_Instance instance, struct PP_Var message) {
+	parseAxisReduceOp(instance, message, axisSumFunctions);
+}
+
 enum BinaryOp_Argument {
 	BinaryOp_Argument_A,
 	BinaryOp_Argument_B,
@@ -225,6 +262,17 @@ enum BinaryOp_Argument {
 enum UnaryOp_Argument {
 	UnaryOp_Argument_A,
 	UnaryOp_Argument_Out,
+};
+
+enum ReduceOp_Argument {
+	ReduceOp_Argument_A,
+	ReduceOp_Argument_Out,
+};
+
+enum AxisReduceOp_Argument {
+	AxisReduceOp_Argument_A,
+	AxisReduceOp_Argument_Axis,
+	AxisReduceOp_Argument_Out,
 };
 
 static const struct FJS_VariableDescriptor binaryOpDescriptors[] =
@@ -273,11 +321,27 @@ static const struct FJS_VariableDescriptor unaryOpDescriptors[] =
 
 static const struct FJS_VariableDescriptor reduceOpDescriptors[] =
 {
-	[UnaryOp_Argument_A] = { 
+	[ReduceOp_Argument_A] = { 
 		.type = FJS_VariableType_Int32,
 		.name = FJS_StringVariable_A
 	},
-	[UnaryOp_Argument_Out] = {
+	[ReduceOp_Argument_Out] = {
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Out
+	}
+};
+
+static const struct FJS_VariableDescriptor axisReduceOpDescriptors[] =
+{
+	[AxisReduceOp_Argument_A] = { 
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_A
+	},
+	[AxisReduceOp_Argument_Axis] = { 
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Axis
+	},
+	[AxisReduceOp_Argument_Out] = {
 		.type = FJS_VariableType_Int32,
 		.name = FJS_StringVariable_Out
 	}
@@ -336,10 +400,10 @@ cleanup:
 }
 
 static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(unaryOpDescriptors)];
+	struct FJS_Variable variables[FJS_COUNT_OF(reduceOpDescriptors)];
 	enum FJS_Error error = FJS_Error_Ok;
 
-	error = FJS_Message_Parse(FJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
+	error = FJS_Message_Parse(FJS_COUNT_OF(reduceOpDescriptors), reduceOpDescriptors, variables, message);
 	if (error != FJS_Error_Ok) {
 		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
@@ -361,18 +425,44 @@ cleanup:
 }
 
 static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(unaryOpDescriptors)];
+	struct FJS_Variable variables[FJS_COUNT_OF(reduceOpDescriptors)];
 	enum FJS_Error error = FJS_Error_Ok;
 
-	error = FJS_Message_Parse(FJS_COUNT_OF(unaryOpDescriptors), unaryOpDescriptors, variables, message);
+	error = FJS_Message_Parse(FJS_COUNT_OF(reduceOpDescriptors), reduceOpDescriptors, variables, message);
 	if (error != FJS_Error_Ok) {
 		FJS_LOG_ERROR("Parse error");
 		goto cleanup;
 	}
 
 	error = executeReduceOp(instance,
-		variables[UnaryOp_Argument_A].parsedValue.asInt32,
-		variables[UnaryOp_Argument_Out].parsedValue.asInt32,
+		variables[ReduceOp_Argument_A].parsedValue.asInt32,
+		variables[ReduceOp_Argument_Out].parsedValue.asInt32,
+		computeFunctions);
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
+		goto cleanup;
+	}
+
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
+cleanup:
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
+}
+
+static void parseAxisReduceOp(PP_Instance instance, struct PP_Var message, const AxisReduceOpFunction computeFunctions[static 1]) {
+	struct FJS_Variable variables[FJS_COUNT_OF(axisReduceOpDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
+
+	error = FJS_Message_Parse(FJS_COUNT_OF(axisReduceOpDescriptors), axisReduceOpDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
+		goto cleanup;
+	}
+
+	error = executeAxisReduceOp(instance,
+		variables[AxisReduceOp_Argument_A].parsedValue.asInt32,
+		variables[AxisReduceOp_Argument_Axis].parsedValue.asInt32,
+		variables[AxisReduceOp_Argument_Out].parsedValue.asInt32,
 		computeFunctions);
 	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
@@ -552,6 +642,101 @@ static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t
 	computeFunction(lengthIn, dataIn, dataOut);
 
 	FJS_AllocateId(instance, idOut, arrayOut);
+	return FJS_Error_Ok;
+}
+
+static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int32_t axis, int32_t idOut, const AxisReduceOpFunction computeFunctions[static 1]) {
+	/* Validate input array id and get NDArray object for this id */
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	if (arrayA == NULL) {
+		return FJS_Error_InvalidId;
+	}
+
+	/* Load input array information */
+	const size_t lengthA = arrayA->length;
+	const uint32_t dimensionsA = arrayA->dimensions;
+	const uint32_t* shapeA = FJS_NDArray_GetShape(arrayA);
+	const void* dataA = FJS_NDArray_GetData(arrayA);
+	const enum FJS_DataType dataTypeA = arrayA->dataType;
+
+	/* Validate axis. Note that this check always fails if dimensionsA == 0. */
+	if ((axis < 0) || (axis >= dimensionsA)) {
+		return FJS_Error_AxisOutOfRange;
+	}
+
+	/* Validate input data type and choose the compute function for this data type */
+	AxisReduceOpFunction computeFunction;
+	switch (dataTypeA) {
+		case FJS_DataType_F64:
+		case FJS_DataType_F32:
+			computeFunction = computeFunctions[dataTypeA];
+			break;
+		case FJS_DataType_Invalid:
+		default:
+			return FJS_Error_InvalidDataType;
+	}
+
+	/* Compute strides for reduction */
+	uint32_t outerStride = 1;
+	for (uint32_t i = 0; i < axis; i++) {
+		outerStride *= shapeA[i];
+	}
+	const uint32_t reductionLength = shapeA[axis];
+	uint32_t innerStride = 1;
+	for (uint32_t i = axis + 1; i < dimensionsA; i++) {
+		innerStride *= shapeA[i];
+	}
+
+	/*
+	 * Try to get NDArray for the provided id.
+	 * If there is an NDArray associated with the supplied id, validate it.
+	 * Otherwise, create an NDArray and associate it with the provided id.
+	 */
+	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
+	if (arrayOut == NULL) {
+		/* Initialize the shape for the output array and compute strides for reduction */
+		const uint32_t dimensionsOut = dimensionsA - 1;
+		uint32_t shapeOut[dimensionsOut];
+		for (uint32_t i = 0; i < axis; i++) {
+			shapeOut[i] = shapeA[i];
+		}
+		for (uint32_t i = axis + 1; i < dimensionsA; i++) {
+			shapeOut[i-1] = shapeA[i];
+		}
+		const uint32_t lengthOut = outerStride * innerStride;
+
+		/* Create output array */
+		arrayOut = FJS_NDArray_Create(dimensionsOut, lengthOut, shapeOut, dataTypeA);
+		if (arrayOut == NULL) {
+			return FJS_Error_OutOfMemory;
+		}
+
+		/* Associate the output array with its id */
+		FJS_AllocateId(instance, idOut, arrayOut);
+	} else {
+		/* Check that the output array has the same data type as input array */
+		if (arrayOut->dataType != dataTypeA) {
+			return FJS_Error_MismatchingDataType;
+		}
+
+		/* Check the shape of the output array and compute strides for reduction */
+		const uint32_t* shapeOut = FJS_NDArray_GetShape(arrayOut);
+		for (uint32_t i = 0; i < axis; i++) {
+			if (shapeOut[i] != shapeA[i]) {
+				return FJS_Error_MismatchingShape;
+			}
+		}
+		for (uint32_t i = axis + 1; i < dimensionsA; i++) {
+			if (shapeOut[i-1] != shapeA[i]) {
+				return FJS_Error_MismatchingShape;
+			}
+		}
+	}
+
+	/* Do the reduction */
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
+	computeFunction(outerStride, reductionLength, innerStride, dataA, dataOut);
+
 	return FJS_Error_Ok;
 }
 
@@ -808,3 +993,106 @@ static void sumF64(size_t length, const double data[restrict static length], dou
 	}
 	*sumOut = s;
 }
+
+/* Axis reduction functions */
+
+static void axisMinF32(size_t width, size_t height, size_t depth, const float dataIn[restrict static width*height*depth], float dataOut[restrict static width*depth]) {
+	if (height == 0) {
+		__builtin_trap();
+	}
+	for (size_t i = 0; i < width; i++) {
+		for (size_t k = 0; k < depth; k++) {
+			size_t offset = i * height * width + k;
+			float min = dataIn[offset];
+			for (size_t j = 1; j < height; j++) {
+				offset += width;
+				const float value = dataIn[offset];
+				min = min < value ? min : value;
+			}
+			dataOut[i * width + k] = min;
+		}
+	}
+}
+
+static void axisMinF64(size_t width, size_t height, size_t depth, const double dataIn[restrict static width*height*depth], double dataOut[restrict static width*depth]) {
+	if (height == 0) {
+		__builtin_trap();
+	}
+	for (size_t i = 0; i < width; i++) {
+		for (size_t k = 0; k < depth; k++) {
+			size_t offset = i * height * width + k;
+			double min = dataIn[offset];
+			for (size_t j = 1; j < height; j++) {
+				offset += width;
+				const double value = dataIn[offset];
+				min = min < value ? min : value;
+			}
+			dataOut[i * width + k] = min;
+		}
+	}
+}
+
+static void axisMaxF32(size_t width, size_t height, size_t depth, const float dataIn[restrict static width*height*depth], float dataOut[restrict static width*depth]) {
+	if (height == 0) {
+		__builtin_trap();
+	}
+	for (size_t i = 0; i < width; i++) {
+		for (size_t k = 0; k < depth; k++) {
+			size_t offset = i * height * width + k;
+			float max = dataIn[offset];
+			for (size_t j = 1; j < height; j++) {
+				offset += width;
+				const float value = dataIn[offset];
+				max = max > value ? max : value;
+			}
+			dataOut[i * width + k] = max;
+		}
+	}
+}
+
+static void axisMaxF64(size_t width, size_t height, size_t depth, const double dataIn[restrict static width*height*depth], double dataOut[restrict static width*depth]) {
+	if (height == 0) {
+		__builtin_trap();
+	}
+	for (size_t i = 0; i < width; i++) {
+		for (size_t k = 0; k < depth; k++) {
+			size_t offset = i * height * width + k;
+			double max = dataIn[offset];
+			for (size_t j = 1; j < height; j++) {
+				offset += width;
+				const double value = dataIn[offset];
+				max = max > value ? max : value;
+			}
+			dataOut[i * width + k] = max;
+		}
+	}
+}
+
+static void axisSumF32(size_t width, size_t height, size_t depth, const float dataIn[restrict static width*height*depth], float dataOut[restrict static width*depth]) {
+	for (size_t i = 0; i < width; i++) {
+		for (size_t k = 0; k < depth; k++) {
+			size_t offset = i * height * width + k;
+			float sum = 0.0f;
+			for (size_t j = 0; j < height; j++) {
+				offset += width;
+				sum += dataIn[offset];
+			}
+			dataOut[i * width + k] = sum;
+		}
+	}
+}
+
+static void axisSumF64(size_t width, size_t height, size_t depth, const double dataIn[restrict static width*height*depth], double dataOut[restrict static width*depth]) {
+	for (size_t i = 0; i < width; i++) {
+		for (size_t k = 0; k < depth; k++) {
+			size_t offset = i * height * width + k;
+			double sum = 0.0;
+			for (size_t j = 0; j < height; j++) {
+				offset += width;
+				sum += dataIn[offset];
+			}
+			dataOut[i * width + k] = sum;
+		}
+	}
+}
+
