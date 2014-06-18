@@ -538,39 +538,80 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t
 }
 
 static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]) {
+	/* Validate input array id and get NDArray object for this id */
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
-	const enum FJS_DataType dataType = arrayA->dataType;
+	/* Load input array information */
+	const uint32_t lengthA = arrayA->length;
+	const uint32_t dimensionsA = arrayA->dimensions;
+	const uint32_t* shapeA = FJS_NDArray_GetShape(arrayA);
+	const void* dataA = FJS_NDArray_GetData(arrayA);
+	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
+	/* Validate input data type and choose the compute function for this data type */
 	BinaryConstOpFunction computeFunction;
-	switch (dataType) {
+	switch (dataTypeA) {
 		case FJS_DataType_F64:
 		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataType];
+			computeFunction = computeFunctions[dataTypeA];
 			break;
 		case FJS_DataType_Invalid:
 		default:
 			return FJS_Error_InvalidDataType;
 	}
 
-	const uint32_t dimensions = arrayA->dimensions;
-	const uint32_t length = arrayA->length;
-	const uint32_t* shape = FJS_NDArray_GetShape(arrayA);
+	/* Short-cut: do additional checks only if a and out are actually different arrays */
+	void* dataOut = (void*) dataA;
+	if (idA != idOut) {
+		/*
+		 * Try to get NDArray for the provided output id.
+		 * If there is an NDArray associated with the supplied id, validate it.
+		 * Otherwise, create an NDArray and associate it with the provided id.
+		 */
+		struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
+		if (arrayOut == NULL) {
+			/* Define parameters for the output array */
+			const uint32_t dimensionsOut = dimensionsA;
+			const uint32_t lengthOut = lengthA;
+			const uint32_t* shapeOut = shapeA;
+			const enum FJS_DataType dataTypeOut = dataTypeA;
 
-	const void* dataA = FJS_NDArray_GetData(arrayA);
+			/* Create output array */
+			arrayOut = FJS_NDArray_Create(dimensionsOut, lengthOut, shapeOut, dataTypeOut);
+			if (arrayOut == NULL) {
+				return FJS_Error_OutOfMemory;
+			}
 
-	struct NDArray* arrayOut = FJS_NDArray_Create(dimensions, length, shape, dataType);
-	if (arrayOut == NULL) {
-		return FJS_Error_OutOfMemory;
+			/* Associate the output array with its id */
+			FJS_AllocateId(instance, idOut, arrayOut);
+		} else {
+			/* Check that the output array has the same data type as input array */
+			if (arrayOut->dataType != dataTypeA) {
+				return FJS_Error_MismatchingDataType;
+			}
+
+			/* Check that the output array is just a number: is should have length of 1 and no dimensions */
+			if (arrayOut->dimensions != dimensionsA) {
+				return FJS_Error_MismatchingDimensions;
+			}
+			if (arrayOut->length != lengthA) {
+				return FJS_Error_MismatchingShape;
+			}
+			const uint32_t* shapeOut = FJS_NDArray_GetShape(arrayOut);
+			if (memcmp(shapeA, shapeOut, dimensionsA * sizeof(uint32_t)) != 0) {
+				return FJS_Error_MismatchingShape;
+			}
+		}
+		/* Re-initialize with proper value for created/validated output array */
+		dataOut = FJS_NDArray_GetData(arrayOut);
 	}
 
-	void* dataOut = FJS_NDArray_GetData(arrayOut);
-	computeFunction(length, dataA, valueB, dataOut);
+	/* Do the binary operation with constant */
+	computeFunction(lengthA, dataA, valueB, dataOut);
 
-	FJS_AllocateId(instance, idOut, arrayOut);
 	return FJS_Error_Ok;
 }
 
