@@ -205,26 +205,8 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case FJS_Command_SetBuffer:
 		case FJS_Command_GetArray:
 		case FJS_Command_SetArray:
-		case FJS_Command_IAdd:
-		case FJS_Command_ISub:
-		case FJS_Command_IRSub:
-		case FJS_Command_IMul:
-		case FJS_Command_IDiv:
-		case FJS_Command_IRDiv:
 		case FJS_Command_RSubC:
 		case FJS_Command_RDivC:
-		case FJS_Command_IAddC:
-		case FJS_Command_ISubC:
-		case FJS_Command_IRSubC:
-		case FJS_Command_IMulC:
-		case FJS_Command_IDivC:
-		case FJS_Command_IRDivC:
-		case FJS_Command_INeg:
-		case FJS_Command_IAbs:
-		case FJS_Command_IExp:
-		case FJS_Command_ILog:
-		case FJS_Command_ISqrt:
-		case FJS_Command_ISquare:
 		case FJS_Command_Invalid:
 		default:
 			FJS_LOG_ERROR("Unsupported command");

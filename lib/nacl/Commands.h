@@ -32,18 +32,6 @@ enum FJS_Command {
 	FJS_Command_Mul,
 	/* Divide: z[i] <- x[i] / y[i] */
 	FJS_Command_Div,
-	/* In-place add: x[i] <- x[i] + y[i] */
-	FJS_Command_IAdd,
-	/* In-place subtract: x[i] <- x[i] - y[i] */
-	FJS_Command_ISub,
-	/* In-place reverse subtract: x[i] <- y[i] - x[i] */
-	FJS_Command_IRSub,
-	/* In-place multuply: x[i] <- x[i] * y[i] */
-	FJS_Command_IMul,
-	/* In-place divide: x[i] <- x[i] / y[i] */
-	FJS_Command_IDiv,
-	/* In-place reverse divide: x[i] = y[i] / x[i] */
-	FJS_Command_IRDiv,
 	/* Add constant: z[i] <- x[i] + y */
 	FJS_Command_AddC,
 	/* Subtract constant: z[i] <- x[i] - y */
@@ -56,18 +44,6 @@ enum FJS_Command {
 	FJS_Command_DivC,
 	/* Reverse divide by constant: z[i] <- x / y[i] */
 	FJS_Command_RDivC,
-	/* In-place add constant: x[i] <- x[i] + y */
-	FJS_Command_IAddC,
-	/* In-place subtract constant: x[i] <- x[i] - y */
-	FJS_Command_ISubC,
-	/* In-place reverse subtract constant: y[i] <- x - y[i] */
-	FJS_Command_IRSubC,
-	/* In-place multuply by constant: x[i] <- x[i] * y */
-	FJS_Command_IMulC,
-	/* In-place divide by constant: x[i] <- x[i] / y */
-	FJS_Command_IDivC,
-	/* In-place reverse divide by constant: y[i] <- x / y[i] */
-	FJS_Command_IRDivC,
 	/* Negation: y[i] <- -x[i] */
 	FJS_Command_Neg,
 	/* Absolute value: y[i] <- abs(x[i]) */
@@ -80,18 +56,6 @@ enum FJS_Command {
 	FJS_Command_Sqrt,
 	/* Square: y[i] <- x[i] * x[i] */
 	FJS_Command_Square,
-	/* In-place negation: x[i] <- -x[i] */
-	FJS_Command_INeg,
-	/* In-place absolute value: x[i] <- abs(x[i]) */
-	FJS_Command_IAbs,
-	/* In-place exponentiation: x[i] <- exp(x[i]) */
-	FJS_Command_IExp,
-	/* In-place logarithm: x[i] <- log(x[i]) */
-	FJS_Command_ILog,
-	/* In-place square root: x[i] <- sqrt(x[i]) */
-	FJS_Command_ISqrt,
-	/* In-place square: x[i] <- x[i] * x[i] */
-	FJS_Command_ISquare,
 	/* All-array minimum */
 	FJS_Command_Min,
 	/* All-array maximum */
