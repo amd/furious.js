@@ -6,7 +6,7 @@
 #define FJS_COUNT_OF(array) (sizeof(array) / sizeof((array)[0]))
 #define FJS_LENGTH_OF(stringLiteral) (FJS_COUNT_OF(stringLiteral) - 1)
 
-inline bool FJS_Util_Mul32u(uint32_t a, uint32_t b, uint32_t out[restrict static 1]) {
+inline static bool FJS_Util_Mul32u(uint32_t a, uint32_t b, uint32_t out[restrict static 1]) {
 #if defined(__clang__) && !defined(__pnacl__)
 	return !__builtin_umul_overflow(a, b, out);
 #else
@@ -16,7 +16,7 @@ inline bool FJS_Util_Mul32u(uint32_t a, uint32_t b, uint32_t out[restrict static
 #endif
 }
 
-inline bool FJS_Util_Add32u(uint32_t a, uint32_t b, uint32_t out[restrict static 1]) {
+inline static bool FJS_Util_Add32u(uint32_t a, uint32_t b, uint32_t out[restrict static 1]) {
 #if defined(__clang__) && !defined(__pnacl__)
 	return !__builtin_uadd_overflow(a, b, out);
 #else

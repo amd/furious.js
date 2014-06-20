@@ -51,6 +51,6 @@ enum FJS_Error FJS_Message_Parse(uint32_t variablesCount, const struct FJS_Varia
 void FJS_Message_FreeVariables(uint32_t variablesCount, struct FJS_Variable variables[static variablesCount]);
 
 bool FJS_Message_SetStatus(PP_Instance instance, struct PP_Var response, enum FJS_Error error);
-inline void FJS_Message_RemoveStatus(struct PP_Var response) {
+inline static void FJS_Message_RemoveStatus(struct PP_Var response) {
 	dictionaryInterface->Delete(response, FJS_StringVariables[FJS_StringVariable_Status]);
 }
