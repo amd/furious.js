@@ -50,7 +50,7 @@ void FJS_ReleaseId(PP_Instance instance, int32_t id) {
 void FJS_AllocateId(PP_Instance instance, int32_t id, void* pointer) {
 	if (entriesCount + 1 > entriesCapacity) {
 		entriesCapacity = computeExpansionCapacity(entriesCapacity);
-		entriesBuffer = realloc(entriesBuffer, entriesCapacity);
+		entriesBuffer = realloc(entriesBuffer, entriesCapacity * sizeof(struct Entry));
 	}
 	const struct Entry entry = {
 		.instance = instance,
