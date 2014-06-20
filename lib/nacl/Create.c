@@ -189,6 +189,57 @@ cleanup:
 	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
+enum FJS_ReShape_Argument {
+	FJS_ReShape_Argument_A,
+	FJS_ReShape_Argument_Out,
+	FJS_ReShape_Argument_Shape
+};
+
+static const struct FJS_VariableDescriptor reshapeDescriptors[] =
+{
+	[FJS_ReShape_Argument_A] = { 
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_A
+	},
+	[FJS_ReShape_Argument_Out] = { 
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Out
+	},
+	[FJS_ReShape_Argument_Shape] = {
+		.type = FJS_VariableType_Buffer,
+		.name = FJS_StringVariable_Shape
+	},
+};
+
+void FJS_Parse_ReShape(PP_Instance instance, struct PP_Var message) {
+	struct FJS_Variable variables[FJS_COUNT_OF(reshapeDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
+
+	error = FJS_Message_Parse(FJS_COUNT_OF(reshapeDescriptors), reshapeDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
+		goto cleanup;
+	}
+
+	error = FJS_Execute_ReShape(instance,
+		variables[FJS_ReShape_Argument_A].parsedValue.asInt32,
+		variables[FJS_ReShape_Argument_Out].parsedValue.asInt32,
+		variables[FJS_ReShape_Argument_Shape].parsedValue.asBuffer.size / 4,
+		variables[FJS_ReShape_Argument_Shape].parsedValue.asBuffer.pointer);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Execution error");
+	}
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
+		goto cleanup;
+	}
+
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
+cleanup:
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
+}
+
 enum FJS_Error FJS_Execute_Empty(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType datatype) {
 	if (dimensions == 0) {
 		return FJS_Error_EmptyShape;
@@ -302,6 +353,101 @@ enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, int32_t idOut, double 
 	const double range = stop - start;
 	const double step = range / ((closed) ? samples - 1 : samples);
 	initFunction(samples, start, step, data);
+
+	return FJS_Error_Ok;
+}
+
+enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, int32_t idA, int32_t idOut, size_t dimensionsOut, uint32_t shapeOut[static dimensionsOut]) {
+	/* Validate the id for input array A and get NDArray object for array A */
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	if (arrayA == NULL) {
+		return FJS_Error_InvalidId;
+	}
+
+	/* Load information on the input array */
+	uint32_t* shapeA = FJS_NDArray_GetShape(arrayA);
+	const uint32_t lengthA = arrayA->length;
+	const uint32_t dimensionsA = arrayA->dimensions;
+	const void* dataA = FJS_NDArray_GetData(arrayA);
+	const enum FJS_DataType dataTypeA = arrayA->dataType;
+	const size_t elementSizeA = FJS_DataType_GetSize(dataTypeA);
+
+	/* Compute the length of the new array */
+	uint32_t lengthOut = 1;
+	for (uint32_t dimension = 0; dimension < dimensionsOut; dimension++) {
+		const uint32_t measure = shapeOut[dimension];
+		if (measure < 1) {
+			return FJS_Error_DegenerateShape;
+		}
+		/* This multiplication can easily overflow */
+		if (!FJS_Util_Mul32u(lengthOut, measure, &lengthOut)) {
+			return FJS_Error_LengthOverflow;
+		}
+	}
+
+	/* Check that the length does not change */
+	if (lengthOut != lengthA) {
+		return FJS_Error_MismatchingLength;
+	}
+
+	/*
+	 * Pointer to the old output array.
+	 * If it is non-null, the output array must be deleted and de-associated from id if the function finishes successfully
+	 */
+	struct NDArray* arrayOutOld = NULL;
+
+	/* Short-cut: if input and output arrays and the number of dimensions are the same, only change array shape */
+	if (idOut == idA) {
+		if (dimensionsOut == dimensionsA) {
+			memcpy(shapeA, shapeOut, dimensionsA * sizeof(uint32_t));
+			return FJS_Error_Ok;
+		} else {
+			arrayOutOld = arrayA;
+		}
+	} else {
+		/*
+		 * Try to get NDArray for the provided output id.
+		 * If there is an NDArray associated with the supplied id, validate it.
+		 * Note that currently this array is not used for output, but recreated again with target parameters.
+		 */
+		arrayOutOld = FJS_GetPointerFromId(instance, idOut);
+		if (arrayOutOld != NULL) {
+			/* Check that the output array has expected length */
+			if (arrayOutOld->length != lengthOut) {
+				return FJS_Error_MismatchingLength;
+			}
+
+			/* Check that the output array matches the data type of the input array */
+			if (arrayOutOld->dataType != dataTypeA) {
+				return FJS_Error_MismatchingDataType;
+			}
+		}
+	}
+
+	/* Create an output array with the required parameters */
+	const enum FJS_DataType dataTypeOut = dataTypeA;
+	struct NDArray* arrayOut = FJS_NDArray_Create(dimensionsOut, lengthOut, shapeOut, dataTypeOut);
+	if (arrayOut == NULL) {
+		return FJS_Error_OutOfMemory;
+	}
+
+	/* Copy data to the output array */
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
+	memcpy(dataOut, dataA, lengthA * elementSizeA);
+
+	/*
+	 * At this point the command cannot fail.
+	 * If needed, delete the old output array.
+	 * Note that it may be the same as input array
+	 * (thus we should not delete it before we copy the data, as in previous statement).
+	 */
+	if (arrayOutOld != NULL) {
+		FJS_ReleaseId(instance, idOut);
+		FJS_NDArray_Delete(arrayOutOld);
+	}
+
+	/* Associate the (new) output array with output id */
+	FJS_AllocateId(instance, idOut, arrayOut);
 
 	return FJS_Error_Ok;
 }

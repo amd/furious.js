@@ -28,6 +28,8 @@ enum FJS_Error {
 	FJS_Error_MismatchingDimensions,
 	FJS_Error_MismatchingShape,
 	FJS_Error_MismatchingDataType,
+	/* Mismatching array lengths */
+	FJS_Error_MismatchingLength,
 	/* Invalid number of elements */
 	FJS_Error_InvalidLength,
 	/* Axis is either negative or exceeds valid array dimensions */
