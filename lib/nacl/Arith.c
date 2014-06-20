@@ -1482,14 +1482,15 @@ static void axisMinF32(size_t width, size_t height, size_t depth, const float da
 	}
 	for (size_t i = 0; i < width; i++) {
 		for (size_t k = 0; k < depth; k++) {
-			size_t offset = i * height * width + k;
+			size_t offset = i * height * depth + k;
 			float min = dataIn[offset];
 			for (size_t j = 1; j < height; j++) {
 				offset += width;
+
 				const float value = dataIn[offset];
 				min = min < value ? min : value;
 			}
-			dataOut[i * width + k] = min;
+			dataOut[i * depth + k] = min;
 		}
 	}
 }
@@ -1500,14 +1501,15 @@ static void axisMinF64(size_t width, size_t height, size_t depth, const double d
 	}
 	for (size_t i = 0; i < width; i++) {
 		for (size_t k = 0; k < depth; k++) {
-			size_t offset = i * height * width + k;
+			size_t offset = i * height * depth + k;
 			double min = dataIn[offset];
 			for (size_t j = 1; j < height; j++) {
-				offset += width;
+				offset += depth;
+
 				const double value = dataIn[offset];
 				min = min < value ? min : value;
 			}
-			dataOut[i * width + k] = min;
+			dataOut[i * depth + k] = min;
 		}
 	}
 }
@@ -1518,14 +1520,15 @@ static void axisMaxF32(size_t width, size_t height, size_t depth, const float da
 	}
 	for (size_t i = 0; i < width; i++) {
 		for (size_t k = 0; k < depth; k++) {
-			size_t offset = i * height * width + k;
+			size_t offset = i * height * depth + k;
 			float max = dataIn[offset];
 			for (size_t j = 1; j < height; j++) {
-				offset += width;
+				offset += depth;
+
 				const float value = dataIn[offset];
 				max = max > value ? max : value;
 			}
-			dataOut[i * width + k] = max;
+			dataOut[i * depth + k] = max;
 		}
 	}
 }
@@ -1536,14 +1539,15 @@ static void axisMaxF64(size_t width, size_t height, size_t depth, const double d
 	}
 	for (size_t i = 0; i < width; i++) {
 		for (size_t k = 0; k < depth; k++) {
-			size_t offset = i * height * width + k;
+			size_t offset = i * height * depth + k;
 			double max = dataIn[offset];
 			for (size_t j = 1; j < height; j++) {
-				offset += width;
+				offset += depth;
+
 				const double value = dataIn[offset];
 				max = max > value ? max : value;
 			}
-			dataOut[i * width + k] = max;
+			dataOut[i * depth + k] = max;
 		}
 	}
 }
@@ -1551,13 +1555,13 @@ static void axisMaxF64(size_t width, size_t height, size_t depth, const double d
 static void axisSumF32(size_t width, size_t height, size_t depth, const float dataIn[restrict static width*height*depth], float dataOut[restrict static width*depth]) {
 	for (size_t i = 0; i < width; i++) {
 		for (size_t k = 0; k < depth; k++) {
-			size_t offset = i * height * width + k;
+			size_t offset = i * height * depth + k;
 			float sum = 0.0f;
 			for (size_t j = 0; j < height; j++) {
-				offset += width;
 				sum += dataIn[offset];
+				offset += depth;
 			}
-			dataOut[i * width + k] = sum;
+			dataOut[i * depth + k] = sum;
 		}
 	}
 }
@@ -1565,14 +1569,13 @@ static void axisSumF32(size_t width, size_t height, size_t depth, const float da
 static void axisSumF64(size_t width, size_t height, size_t depth, const double dataIn[restrict static width*height*depth], double dataOut[restrict static width*depth]) {
 	for (size_t i = 0; i < width; i++) {
 		for (size_t k = 0; k < depth; k++) {
-			size_t offset = i * height * width + k;
+			size_t offset = i * height * depth + k;
 			double sum = 0.0;
 			for (size_t j = 0; j < height; j++) {
-				offset += width;
 				sum += dataIn[offset];
+				offset += depth;
 			}
-			dataOut[i * width + k] = sum;
+			dataOut[i * depth + k] = sum;
 		}
 	}
 }
-
