@@ -4,58 +4,58 @@
 		<meta charset="utf-8">
 		<meta http-equiv="X-UA-Compatible" content="IE=edge">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>NumJS Demo: Browser Feature Detection</title>
+		<title>Furious.js Demo: Browser Feature Detection</title>
 		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap.css">
 		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap-theme.css">
 		<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
 		<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/js/bootstrap.min.js"></script>
-		<script src="numjs.js"></script>
+		<script src="furious.js"></script>
 		<script language="javascript">
 			function detectFeatures() {
-				var supportedBackends = numjs.getSupportedBackends();
+				var supportedBackends = furious.getSupportedBackends();
 				$("#SupportedBackends").text("Supported backends: " + supportedBackends.join(", ")).addClass("list-group-item-info");
-				var defaultBackend = numjs.getDefaultBackend();
+				var defaultBackend = furious.getDefaultBackend();
 				if (defaultBackend === "javascript") {
 					$("#DefaultBackend").text("Default backend: " + defaultBackend + " (not accelerated)").addClass("list-group-item-warning");
 				} else {
 					$("#DefaultBackend").text("Default backend: " + defaultBackend + " (accelerated)").addClass("list-group-item-success");
 				}
-				if (numjs.hasFeature("webcl")) {
+				if (furious.hasFeature("webcl")) {
 					$("#WebCLBlock").removeClass('panel-default').addClass('panel-success')
 					$("#WebCLTitle").text('WebCL is supported');
 				} else {
 					$("#WebCLBlock").removeClass('panel-default').addClass('panel-danger')
 					$("#WebCLTitle").text('WebCL is not supported');
 				}
-				if (numjs.hasFeature("webgl")) {
+				if (furious.hasFeature("webgl")) {
 					$("#WebGLBlock").removeClass('panel-default').addClass('panel-success')
 					$("#WebGLTitle").text('WebGL is supported');
 				} else {
 					$("#WebGLBlock").removeClass('panel-default').addClass('panel-danger')
 					$("#WebGLTitle").text('WebGL is not supported');
 				}
-				if (numjs.hasFeature("pnacl")) {
+				if (furious.hasFeature("pnacl")) {
 					$("#PNaClBlock").removeClass('panel-default').addClass('panel-success')
 					$("#PNaClTitle").text('PNaCl is supported');
 				} else {
 					$("#PNaClBlock").removeClass('panel-default').addClass('panel-danger')
 					$("#PNaClTitle").text('PNaCl is not supported');
 				}
-				if (numjs.hasFeature("nacl")) {
+				if (furious.hasFeature("nacl")) {
 					$("#NaClBlock").removeClass('panel-default').addClass('panel-success')
 					$("#NaClTitle").text('NaCl is supported');
 				} else {
 					$("#NaClBlock").removeClass('panel-default').addClass('panel-danger')
 					$("#NaClTitle").text('NaCl is not supported');
 				}
-				if (numjs.hasFeature("asm.js")) {
+				if (furious.hasFeature("asm.js")) {
 					$("#AsmJSBlock").removeClass('panel-default').addClass('panel-success')
 					$("#AsmJSTitle").text('Asm.js is accelerated');
 				} else {
 					$("#AsmJSBlock").removeClass('panel-default').addClass('panel-warning')
 					$("#AsmJSTitle").text('Asm.js is not accelerated');
 				}
-				if (numjs.hasFeature("simd.js")) {
+				if (furious.hasFeature("simd.js")) {
 					$("#SimdJSBlock").removeClass('panel-default').addClass('panel-success')
 					$("#SimdJSTitle").text('SIMD.js is supported');
 				} else {
