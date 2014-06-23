@@ -136,6 +136,13 @@ bool FJS_Message_SetStatus(PP_Instance instance, struct PP_Var responseVar, enum
 			FJS_LOG_ERROR("Failed to set error status");
 			return false;
 		}
+		if (dictionaryInterface->Set(responseVar,
+			FJS_StringVariables[FJS_StringVariable_Description],
+			FJS_StringVariables[FJS_Error_ToString(error)]) != PP_TRUE)
+		{
+			FJS_LOG_ERROR("Failed to set error description");
+			return false;
+		}
 	}
 	return true;
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Strings.h"
+
 enum FJS_Error {
 	FJS_Error_Ok,
 	/* The shape array has no elements */
@@ -32,8 +34,56 @@ enum FJS_Error {
 	FJS_Error_MismatchingLength,
 	/* Invalid number of elements */
 	FJS_Error_InvalidLength,
+	/* Invalid dimensions */
+	FJS_Error_InvalidDimensions,
 	/* Axis is either negative or exceeds valid array dimensions */
 	FJS_Error_AxisOutOfRange,
 	FJS_Error_OutOfMemory
 };
 
+inline static enum FJS_StringVariable FJS_Error_ToString(enum FJS_Error error) {
+	switch (error) {
+		case FJS_Error_Ok:
+			return FJS_StringVariable_Ok;
+		case FJS_Error_EmptyShape:
+			return FJS_StringVariable_EmptyShape;
+		case FJS_Error_DegenerateShape:
+			return FJS_StringVariable_DegenerateShape;
+		case FJS_Error_LengthOverflow:
+			return FJS_StringVariable_LengthOverflow;
+		case FJS_Error_SizeOverflow:
+			return FJS_StringVariable_SizeOverflow;
+		case FJS_Error_IncompatibleBufferSize:
+			return FJS_StringVariable_IncompatibleBufferSize;
+		case FJS_Error_EmptyBuffer:
+			return FJS_StringVariable_EmptyBuffer;
+		case FJS_Error_InvalidElementSize:
+			return FJS_StringVariable_InvalidElementSize;
+		case FJS_Error_InvalidDataType:
+			return FJS_StringVariable_InvalidDataType;
+		case FJS_Error_InvalidVariableType:
+			return FJS_StringVariable_InvalidVariableType;
+		case FJS_Error_MissingVariable:
+			return FJS_StringVariable_MissingVariable;
+		case FJS_Error_InvalidId:
+			return FJS_StringVariable_InvalidId;
+		case FJS_Error_MismatchingDimensions:
+			return FJS_StringVariable_MismatchingDimensions;
+		case FJS_Error_MismatchingShape:
+			return FJS_StringVariable_MismatchingShape;
+		case FJS_Error_MismatchingDataType:
+			return FJS_StringVariable_MismatchingDataType;
+		case FJS_Error_MismatchingLength:
+			return FJS_StringVariable_MismatchingLength;
+		case FJS_Error_InvalidLength:
+			return FJS_StringVariable_InvalidLength;
+		case FJS_Error_InvalidDimensions:
+			return FJS_StringVariable_InvalidDimensions;
+		case FJS_Error_AxisOutOfRange:
+			return FJS_StringVariable_AxisOutOfRange;
+		case FJS_Error_OutOfMemory:
+			return FJS_StringVariable_OutOfMemory;
+		default:
+			__builtin_unreachable();
+	}
+}
