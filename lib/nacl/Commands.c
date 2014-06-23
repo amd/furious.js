@@ -63,6 +63,8 @@ enum FJS_Command FJS_Command_Parse(const char* commandString, uint32_t commandLe
 			command = FJS_Command_AxisMax;
 		} else if (strncmp(commandString, "asum", commandLength) == 0) {
 			command = FJS_Command_AxisSum;
+		} else if (strncmp(commandString, "dot", commandLength) == 0) {
+			command = FJS_Command_Dot;
 		}
 	}
 	return command;

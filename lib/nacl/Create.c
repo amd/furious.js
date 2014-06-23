@@ -226,9 +226,6 @@ void FJS_Parse_ReShape(PP_Instance instance, struct PP_Var message) {
 		variables[FJS_ReShape_Argument_Out].parsedValue.asInt32,
 		variables[FJS_ReShape_Argument_Shape].parsedValue.asBuffer.size / 4,
 		variables[FJS_ReShape_Argument_Shape].parsedValue.asBuffer.pointer);
-	if (error != FJS_Error_Ok) {
-		FJS_LOG_ERROR("Execution error");
-	}
 	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
 		goto cleanup;
 	}

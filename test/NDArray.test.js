@@ -238,14 +238,14 @@ describe("NDArray", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					x.min().toArray(function(result) {
-						expect(result[0]).to.equal(1);
+						expect(result).to.equal(1);
 						done();
 					});
 				});
 				it("Correct result for 2-dimensional arrays", function(done){
 					var x = context.array([[-2, 4], [-8, 16]]);
 					x.min().toArray(function(result) {
-						expect(result[0]).to.equal(-8);
+						expect(result).to.equal(-8);
 						done();
 					});
 				});
@@ -293,14 +293,14 @@ describe("NDArray", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					x.max().toArray(function(result) {
-						expect(result[0]).to.equal(9);
+						expect(result).to.equal(9);
 						done();
 					});
 				});
 				it("Correct result for 2-dimensional arrays", function(done){
 					var x = context.array([[-2, 4], [-8, 16]]);
 					x.max().toArray(function(result) {
-						expect(result[0]).to.equal(16);
+						expect(result).to.equal(16);
 						done();
 					});
 				});
@@ -348,14 +348,14 @@ describe("NDArray", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					x.sum().toArray(function (result) {
-						expect(result[0]).to.equal(14);
+						expect(result).to.equal(14);
 						done();
 					});
 				});
 				it("Correct result for 2-dimensional arrays", function(done){
 					var x = context.array([[-2, 4], [-8, 16]]);
 					x.sum().toArray(function (result) {
-						expect(result[0]).to.equal(10);
+						expect(result).to.equal(10);
 						done();
 					});
 				});
@@ -418,7 +418,7 @@ describe("NDArray", function(){
 				var x = context.array([2, 5]);
 				var y = context.array([5, 11]);
 				context.dot(x, y).toArray(function(result){
-					expect(result).to.deep.equal([65]);
+					expect(result).to.deep.equal(65);
 					done();
 				});
 			});

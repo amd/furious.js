@@ -68,6 +68,8 @@ enum FJS_Command {
 	FJS_Command_AxisMax,
 	/* Axis sum */
 	FJS_Command_AxisSum,
+	/* Dot product: C[i, ..., j, k, ..., l, m] <- sum over x {A[i, ..., j, x] * B[k, ..., l, x, m]} */
+	FJS_Command_Dot,
 };
 
 enum FJS_Command FJS_Command_Parse(const char* string, uint32_t size);
@@ -98,6 +100,7 @@ void FJS_Parse_Sum(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_AxisMin(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_AxisMax(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_AxisSum(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_Dot(PP_Instance instance, struct PP_Var message);
 
 enum FJS_Error FJS_Execute_Empty(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_Array(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType, uint32_t bufferSize, void* buffer);

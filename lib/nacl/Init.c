@@ -207,6 +207,9 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		case FJS_Command_AxisSum:
 			FJS_Parse_AxisSum(instance, message);
 			break;
+		case FJS_Command_Dot:
+			FJS_Parse_Dot(instance, message);
+			break;
 		case FJS_Command_Set:
 		case FJS_Command_RSubC:
 		case FJS_Command_RDivC:
