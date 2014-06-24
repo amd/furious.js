@@ -41,6 +41,33 @@ describe("NDArray", function(){
 			});
 		});
 	});
+	describe("repeat", function(){
+		it("Repeats array elements along axis 0", function(done){
+			var x = context.array([[8, 1, 6],
+			                       [3, 5, 7],
+			                       [4, 9, 2]]);
+			x.repeat(2, 0).get(function(result) {
+				expect(result).to.deep.equal([[8, 1, 6],
+				                              [8, 1, 6],
+				                              [3, 5, 7],
+				                              [3, 5, 7],
+				                              [4, 9, 2],
+				                              [4, 9, 2]]);
+				done();
+			});
+		});
+		it("Repeats array elements along axis 1", function(done){
+			var x = context.array([[8, 1, 6],
+			                       [3, 5, 7],
+			                       [4, 9, 2]]);
+			x.repeat(2, 1).get(function(result) {
+				expect(result).to.deep.equal([[8, 8, 1, 1, 6, 6],
+				                              [3, 3, 5, 5, 7, 7],
+				                              [4, 4, 9, 9, 2, 2]]);
+				done();
+			});
+		});
+	});
 	describe("get", function(){
 		it("Works with 1-dimensional array", function(done){
 			var x = context.array([42, 10]);
