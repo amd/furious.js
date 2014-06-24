@@ -52,8 +52,6 @@ PP_EXPORT int32_t PPP_InitializeModule(PP_Module module, PPB_GetInterface get_br
 
 	FJS_Strings_Initialize();
 
-	FJS_ResponseVariable = dictionaryInterface->Create();
-
 	return PP_OK;
 }
 
@@ -63,6 +61,23 @@ PP_EXPORT void PPP_ShutdownModule(void) {
 }
 
 static PP_Bool onCreateInstance(PP_Instance instance, uint32_t argc, const char* argn[], const char* argv[]) {
+	FJS_ResponseVariable = dictionaryInterface->Create();
+	if (dictionaryInterface->Set(FJS_ResponseVariable,
+		FJS_StringVariables[FJS_StringVariable_Id],
+		PP_MakeInt32(0)) != PP_TRUE)
+	{
+		FJS_LOG_ERROR("Failed to set reply message id");
+		return PP_FALSE;
+	}
+	if (dictionaryInterface->Set(FJS_ResponseVariable,
+		FJS_StringVariables[FJS_StringVariable_Status],
+		FJS_StringVariables[FJS_StringVariable_Success]) != PP_TRUE)
+	{
+		FJS_LOG_ERROR("Failed to set success status");
+		return PP_FALSE;
+	}
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+
 	FJS_LOG_INFO("PNaCl INIT");
 	return PP_TRUE;
 }
@@ -129,6 +144,13 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 
 	const enum FJS_Command command = FJS_Command_Parse(commandString, commandLength);
 	switch (command) {
+		case FJS_Command_Init:
+		{
+			if (FJS_Message_SetStatus(instance, FJS_ResponseVariable, FJS_Error_Ok)) {
+				messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+			}
+			break;
+		}
 		case FJS_Command_Empty:
 			FJS_Parse_Empty(instance, message);
 			break;

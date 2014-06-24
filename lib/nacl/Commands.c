@@ -5,7 +5,9 @@
 enum FJS_Command FJS_Command_Parse(const char* commandString, uint32_t commandLength) {
 	enum FJS_Command command = FJS_Command_Invalid;
 	if (commandString != NULL) {
-		if (strncmp(commandString, "empty", commandLength) == 0) {
+		if (strncmp(commandString, "init", commandLength) == 0) {
+			command = FJS_Command_Init;
+		} else if (strncmp(commandString, "empty", commandLength) == 0) {
 			command = FJS_Command_Empty;
 		} else if (strncmp(commandString, "array", commandLength) == 0) {
 			command = FJS_Command_Array;

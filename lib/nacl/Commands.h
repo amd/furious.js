@@ -10,6 +10,8 @@
 enum FJS_Command {
 	/* Invalid or unknown command */
 	FJS_Command_Invalid = -1,
+	/* Initialize */
+	FJS_Command_Init,
 	/* Create empty NDArray */
 	FJS_Command_Empty,
 	/* Create NDArray from ArrayBuffer */
