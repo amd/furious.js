@@ -4,11 +4,12 @@
 	"camelcase"     : true,
 	"quotmark"      : "double",
 	"shadow"        : true,
-    "multistr"      : true,
-    "sub"           : false,
-	
-    "browser"       : true,
-    "node"          : true,
+	"multistr"      : true,
+	"sub"           : false,
+	"loopfunc"      : true,
+
+	"browser"       : true,
+	"node"          : true,
 
 	"globals"       : {
 		"webcl": false,
