@@ -18,8 +18,10 @@ enum FJS_Command {
 	FJS_Command_Array,
 	/* Create NDArray the specified number on points evenly distributed on an interval */
 	FJS_Command_LinSpace,
-	/* Changes NDArray shape (creates a copy of array data) */
+	/* Change NDArray shape (creates a copy of array data) */
 	FJS_Command_ReShape,
+	/* Repeat array elements along an axis */
+	FJS_Command_Repeat,
 	/* Delete NDArray */
 	FJS_Command_Release,
 	/* Get data as ArrayBuffer */
@@ -80,6 +82,7 @@ void FJS_Parse_Empty(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Array(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_LinSpace(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_ReShape(PP_Instance instance, struct PP_Var message);
+void FJS_Parse_Repeat(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Release(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Get(PP_Instance instance, struct PP_Var message);
 void FJS_Parse_Add(PP_Instance instance, struct PP_Var message);
@@ -108,5 +111,6 @@ enum FJS_Error FJS_Execute_Empty(PP_Instance instance, int32_t idOut, size_t dim
 enum FJS_Error FJS_Execute_Array(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType, uint32_t bufferSize, void* buffer);
 enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, int32_t idOut, double start, double stop, int32_t samples, bool closed, enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, int32_t idA, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions]);
+enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, int32_t idA, int32_t idOut, int32_t repeats, int32_t axis);
 enum FJS_Error FJS_Execute_Release(PP_Instance instance, int32_t idIn);
 enum FJS_Error FJS_Execute_Get(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]);

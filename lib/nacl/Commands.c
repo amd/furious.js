@@ -15,6 +15,8 @@ enum FJS_Command FJS_Command_Parse(const char* commandString, uint32_t commandLe
 			command = FJS_Command_LinSpace;
 		} else if (strncmp(commandString, "reshape", commandLength) == 0) {
 			command = FJS_Command_ReShape;
+		} else if (strncmp(commandString, "repeat", commandLength) == 0) {
+			command = FJS_Command_Repeat;
 		} else if (strncmp(commandString, "release", commandLength) == 0) {
 			command = FJS_Command_Release;
 		} else if (strncmp(commandString, "get", commandLength) == 0) {

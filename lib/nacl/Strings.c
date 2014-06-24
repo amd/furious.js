@@ -30,6 +30,7 @@ static struct StringLiteral strings[FJS_StringVariable_NumberOfEntries] = {
 	[FJS_StringVariable_Y] = FJS_INIT_STRING_LITERAL("y"),
 	[FJS_StringVariable_Z] = FJS_INIT_STRING_LITERAL("z"),
 	[FJS_StringVariable_Axis] = FJS_INIT_STRING_LITERAL("axis"),
+	[FJS_StringVariable_Repeats] = FJS_INIT_STRING_LITERAL("repeats"),
 	[FJS_StringVariable_Start] = FJS_INIT_STRING_LITERAL("start"),
 	[FJS_StringVariable_Stop] = FJS_INIT_STRING_LITERAL("stop"),
 	[FJS_StringVariable_Samples] = FJS_INIT_STRING_LITERAL("samples"),
@@ -59,6 +60,7 @@ static struct StringLiteral strings[FJS_StringVariable_NumberOfEntries] = {
 	[FJS_StringVariable_InvalidLength] = FJS_INIT_STRING_LITERAL("invalid length"),
 	[FJS_StringVariable_InvalidDimensions] = FJS_INIT_STRING_LITERAL("invalid dimensions"),
 	[FJS_StringVariable_AxisOutOfRange] = FJS_INIT_STRING_LITERAL("axis out of range"),
+	[FJS_StringVariable_RepeatsOutOfRange] = FJS_INIT_STRING_LITERAL("repeats out of range"),
 	[FJS_StringVariable_OutOfMemory] = FJS_INIT_STRING_LITERAL("out of memory"),	
 };
 

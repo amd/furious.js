@@ -38,6 +38,8 @@ enum FJS_Error {
 	FJS_Error_InvalidDimensions,
 	/* Axis is either negative or exceeds valid array dimensions */
 	FJS_Error_AxisOutOfRange,
+	/* Repeats arguments does not exceed 2 */
+	FJS_Error_RepeatsOutOfRange,
 	FJS_Error_OutOfMemory
 };
 
@@ -81,6 +83,8 @@ inline static enum FJS_StringVariable FJS_Error_ToString(enum FJS_Error error) {
 			return FJS_StringVariable_InvalidDimensions;
 		case FJS_Error_AxisOutOfRange:
 			return FJS_StringVariable_AxisOutOfRange;
+		case FJS_Error_RepeatsOutOfRange:
+			return FJS_StringVariable_RepeatsOutOfRange;
 		case FJS_Error_OutOfMemory:
 			return FJS_StringVariable_OutOfMemory;
 		default:

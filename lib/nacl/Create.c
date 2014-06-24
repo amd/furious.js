@@ -237,6 +237,59 @@ cleanup:
 	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
 }
 
+enum FJS_Repeat_Argument {
+	FJS_Repeat_Argument_A,
+	FJS_Repeat_Argument_Out,
+	FJS_Repeat_Argument_Repeats,
+	FJS_Repeat_Argument_Axis,
+};
+
+static const struct FJS_VariableDescriptor repeatDescriptors[] =
+{
+	[FJS_Repeat_Argument_A] = { 
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_A
+	},
+	[FJS_Repeat_Argument_Out] = { 
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Out
+	},
+	[FJS_Repeat_Argument_Repeats] = {
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Repeats
+	},
+	[FJS_Repeat_Argument_Axis] = {
+		.type = FJS_VariableType_Int32,
+		.name = FJS_StringVariable_Axis
+	},
+};
+
+void FJS_Parse_Repeat(PP_Instance instance, struct PP_Var message) {
+	struct FJS_Variable variables[FJS_COUNT_OF(repeatDescriptors)];
+	enum FJS_Error error = FJS_Error_Ok;
+
+	error = FJS_Message_Parse(FJS_COUNT_OF(repeatDescriptors), repeatDescriptors, variables, message);
+	if (error != FJS_Error_Ok) {
+		FJS_LOG_ERROR("Parse error");
+		goto cleanup;
+	}
+
+	error = FJS_Execute_Repeat(instance,
+		variables[FJS_Repeat_Argument_A].parsedValue.asInt32,
+		variables[FJS_Repeat_Argument_Out].parsedValue.asInt32,
+		variables[FJS_Repeat_Argument_Repeats].parsedValue.asInt32,
+		variables[FJS_Repeat_Argument_Axis].parsedValue.asInt32);
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
+		goto cleanup;
+	}
+
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
+cleanup:
+	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
+}
+
 enum FJS_Error FJS_Execute_Empty(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType datatype) {
 	if (dimensions == 0) {
 		return FJS_Error_EmptyShape;
@@ -445,6 +498,132 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, int32_t idA, int32_t id
 
 	/* Associate the (new) output array with output id */
 	FJS_AllocateId(instance, idOut, arrayOut);
+
+	return FJS_Error_Ok;
+}
+
+enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, int32_t idA, int32_t idOut, int32_t repeats, int32_t axis) {
+	/* Validate the id for input array A and get NDArray object for array A */
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	if (arrayA == NULL) {
+		return FJS_Error_InvalidId;
+	}
+
+	/* Load information on the input array */
+	uint32_t* shapeA = FJS_NDArray_GetShape(arrayA);
+	const uint32_t lengthA = arrayA->length;
+	const uint32_t dimensionsA = arrayA->dimensions;
+	const double* dataA = FJS_NDArray_GetData(arrayA);
+	const enum FJS_DataType dataTypeA = arrayA->dataType;
+	const size_t elementSizeA = FJS_DataType_GetSize(dataTypeA);
+
+	/* Validate axis. Note that this check always fails if dimensionsA == 0. */
+	if ((axis < 0) || (axis >= dimensionsA)) {
+		return FJS_Error_AxisOutOfRange;
+	}
+
+	/* Validate repeats count */
+	if (repeats <= 1) {
+		return FJS_Error_RepeatsOutOfRange;
+	}
+
+	/* Compute the length of the new array */
+	uint32_t lengthOut = lengthA;
+	if (!FJS_Util_Mul32u(lengthOut, (uint32_t) repeats, &lengthOut)) {
+		/* This multiplication overflowed */
+		return FJS_Error_LengthOverflow;
+	}
+
+	/*
+	 * Try to get NDArray for the provided output id.
+	 * If there is an NDArray associated with the supplied id, validate it.
+	 */
+	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
+	size_t outerStride = 1, innerStride = 1, repeatLengthA, repeatLengthOut;
+	if (arrayOut != NULL) {
+		/* Check that the output array matches the data type of the input array */
+		if (arrayOut->dataType != dataTypeA) {
+			return FJS_Error_MismatchingDataType;
+		}
+
+		/* Check that the output array has expected length */
+		if (arrayOut->length != lengthOut) {
+			return FJS_Error_MismatchingLength;
+		}
+
+		/* Check that the output array has expected number of dimensions */
+		if (arrayOut->dimensions != dimensionsA) {
+			return FJS_Error_MismatchingDimensions;
+		}
+
+		/* Check that the output array has expected shape and compute strides */
+		const uint32_t* shapeOut = FJS_NDArray_GetShape(arrayOut);
+		for (size_t i = 0; i < (size_t) axis; i++) {
+			const size_t sizeOut = shapeOut[i];
+			if (sizeOut != shapeA[i]) {
+				return FJS_Error_MismatchingShape;
+			}
+			outerStride *= sizeOut;
+		}
+		{
+			repeatLengthOut = shapeOut[(uint32_t) axis];
+			repeatLengthA = shapeA[(uint32_t) axis];
+			if (repeatLengthOut != repeatLengthA * ((uint32_t) repeats)) {
+				return FJS_Error_MismatchingShape;
+			}
+		}
+		for (size_t i = (size_t) axis; i < dimensionsA; i++) {
+			const size_t sizeOut = shapeOut[i];
+			if (sizeOut != shapeA[i]) {
+				return FJS_Error_MismatchingShape;
+			}
+			innerStride *= sizeOut;
+		}
+	} else {
+		/* Initialize the parameters for the output array */
+		const enum FJS_DataType dataTypeOut = dataTypeA;
+		const size_t dimensionsOut = dimensionsA;
+
+		/* Initialize the shape for the output array and compute strides */
+		uint32_t shapeOut[dimensionsA];
+		for (size_t i = 0; i < (size_t) axis; i++) {
+			const size_t sizeA = shapeA[i];
+			shapeOut[i] = sizeA;
+			outerStride *= sizeA;
+		}
+		{
+			repeatLengthA = shapeA[(uint32_t) axis];
+			repeatLengthOut = repeatLengthA * ((uint32_t) repeats);
+			shapeOut[(uint32_t) axis] = repeatLengthOut;
+		}
+		for (size_t i = (size_t) (axis + 1); i < dimensionsA; i++) {
+			const size_t sizeA = shapeA[i];
+			shapeOut[i] = sizeA;
+			innerStride *= sizeA;
+		}
+
+		/* Create output array */
+		arrayOut = FJS_NDArray_Create(dimensionsOut, lengthOut, shapeOut, dataTypeOut);
+		if (arrayOut == NULL) {
+			return FJS_Error_OutOfMemory;
+		}
+
+		/* Associate the output array with its id */
+		FJS_AllocateId(instance, idOut, arrayOut);
+	}
+
+	/* Do the computation */
+	double* dataOut = FJS_NDArray_GetData(arrayOut);
+	for (size_t i = 0; i < outerStride; i++) {
+		for (size_t j = 0; j < repeatLengthA; j++) {
+			for (size_t k = 0; k < innerStride; k++) {
+				size_t valueA = dataA[(i * repeatLengthA + j) * innerStride + k];
+				for (size_t c = 0; c < repeats; c++) {
+					dataOut[((i * repeatLengthA + j) * repeats + c) * innerStride + k] = valueA;
+				}
+			}
+		}
+	}
 
 	return FJS_Error_Ok;
 }

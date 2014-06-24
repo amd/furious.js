@@ -14,6 +14,7 @@ enum FJS_StringVariable {
 	FJS_StringVariable_Buffer,
 	FJS_StringVariable_Data,
 	FJS_StringVariable_Axis,
+	FJS_StringVariable_Repeats,
 	FJS_StringVariable_Start,
 	FJS_StringVariable_Stop,
 	FJS_StringVariable_Samples,
@@ -49,6 +50,7 @@ enum FJS_StringVariable {
 	FJS_StringVariable_InvalidLength,
 	FJS_StringVariable_InvalidDimensions,
 	FJS_StringVariable_AxisOutOfRange,
+	FJS_StringVariable_RepeatsOutOfRange,
 	FJS_StringVariable_OutOfMemory,
 	
 	FJS_StringVariable_NumberOfEntries,
