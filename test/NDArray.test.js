@@ -1,9 +1,9 @@
 var furious = require("../lib/furious.js");
 var expect = require("chai").expect;
 
-describe("NDArray", function(){
-	describe("length", function(){
-		furious.connect(function(context) {
+furious.connect(function(context) {
+	describe("NDArray", function(){
+		describe("length", function(){
 			it("Equals to the number passed in constructor", function(){
 				expect((context.empty(42)).length).to.equal(42);
 			});
@@ -14,9 +14,7 @@ describe("NDArray", function(){
 				expect((context.empty([2, 5, 3])).length).to.equal(30);
 			});
 		});
-	});
-	describe("reshape", function(){
-		furious.connect(function(context) {
+		describe("reshape", function(){
 			it("Preserves length", function(){
 				var x = context.empty([7,5,3]);
 				var y = x.reshape([21,5]);
@@ -36,9 +34,7 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("toArray", function(){
-		furious.connect(function(context) {
+		describe("toArray", function(){
 			it("Works with 1-dimensional array", function(done){
 				var x = context.array([42, 10]);
 				x.toArray(function(result){
@@ -57,10 +53,8 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("add", function(){
-		describe("Add array", function(){
-			furious.connect(function(context) {
+		describe("add", function(){
+			describe("Add array", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					var y = context.array([8, -1, 10]);
@@ -80,9 +74,7 @@ describe("NDArray", function(){
 					});
 				});
 			});
-		});
-		describe("Add scalar", function(){
-			furious.connect(function(context) {
+			describe("Add scalar", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					var z = x.add(-7);
@@ -101,10 +93,8 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("sub", function(){
-		describe("Subtract array", function(){
-			furious.connect(function(context) {
+		describe("sub", function(){
+			describe("Subtract array", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					var y = context.array([8, -1, 10]);
@@ -124,9 +114,7 @@ describe("NDArray", function(){
 					});
 				});
 			});
-		});
-		describe("Subtract scalar", function(){
-			furious.connect(function(context) {
+			describe("Subtract scalar", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					var y = x.sub(-7);
@@ -145,10 +133,8 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("mul", function(){
-		describe("Multiply by array", function(){
-			furious.connect(function(context) {
+		describe("mul", function(){
+			describe("Multiply by array", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					var y = context.array([8, -1, 10]);
@@ -168,9 +154,7 @@ describe("NDArray", function(){
 					});
 				});
 			});
-		});
-		describe("Multiply by scalar", function(){
-			furious.connect(function(context) {
+			describe("Multiply by scalar", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					var y = x.mul(-10);
@@ -189,10 +173,8 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("div", function(){
-		describe("Divide by array", function(){
-			furious.connect(function(context) {
+		describe("div", function(){
+			describe("Divide by array", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					var y = context.array([2, -4, 8]);
@@ -212,9 +194,7 @@ describe("NDArray", function(){
 					});
 				});
 			});
-		});
-		describe("Divide by scalar", function(){
-			furious.connect(function(context) {
+			describe("Divide by scalar", function(){
 				it("Correct result for 1-dimensional arrays", function(){
 					var x = context.array([1, 4, 9]);
 					var y = x.div(-2);
@@ -231,10 +211,8 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("min", function(){
-		describe("All elements", function(){
-			furious.connect(function(context) {
+		describe("min", function(){
+			describe("All elements", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					x.min().toArray(function(result) {
@@ -250,9 +228,7 @@ describe("NDArray", function(){
 					});
 				});
 			});
-		});
-		describe("Along an axis", function(){
-			furious.connect(function(context) {
+			describe("Along an axis", function(){
 				it("Correct shape for 3-dimensional arrays", function(){
 					var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
 					expect(x.min(0).shape).to.deep.equal([3, 4]);
@@ -286,10 +262,8 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("max", function(){
-		describe("All elements", function(){
-			furious.connect(function(context) {
+		describe("max", function(){
+			describe("All elements", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					x.max().toArray(function(result) {
@@ -305,9 +279,7 @@ describe("NDArray", function(){
 					});
 				});
 			});
-		});
-		describe("Along an axis", function(){
-			furious.connect(function(context) {
+			describe("Along an axis", function(){
 				it("Correct shape for 3-dimensional arrays", function(){
 					var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
 					expect(x.max(0).shape).to.deep.equal([3, 4]);
@@ -341,10 +313,8 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("sum", function(){
-		describe("All elements", function(){
-			furious.connect(function(context) {
+		describe("sum", function(){
+			describe("All elements", function(){
 				it("Correct result for 1-dimensional arrays", function(done){
 					var x = context.array([1, 4, 9]);
 					x.sum().toArray(function (result) {
@@ -360,9 +330,7 @@ describe("NDArray", function(){
 					});
 				});
 			});
-		});
-		describe("Along an axis", function(){
-			furious.connect(function(context) {
+			describe("Along an axis", function(){
 				it("Correct shape for 3-dimensional arrays", function(){
 					var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
 					expect(x.sum(0).shape).to.deep.equal([3, 4]);
@@ -396,9 +364,7 @@ describe("NDArray", function(){
 				});
 			});
 		});
-	});
-	describe("dot", function(){
-		furious.connect(function(context) {
+		describe("dot", function(){
 			it("Correct shape for 2-dimensional arrays", function(){
 				var x = context.empty([2, 5]);
 				var y = context.empty([5, 11]);
@@ -424,10 +390,10 @@ describe("NDArray", function(){
 			});
 			it("Correct value for 2-dimensional arrays", function(done){
 				var x = context.array([[64,  2,  3],
-				                   [61, 60,  6]]);
+				                       [61, 60,  6]]);
 				var y = context.array([[92, 99,  1,  8, 15],
-				                   [67, 74, 51, 58, 40],
-				                   [98, 80,  7, 14, 16]]);
+				                       [67, 74, 51, 58, 40],
+				                       [98, 80,  7, 14, 16]]);
 				var z = context.dot(x, y);
 				z.toArray(function(result){
 					expect(result).to.deep.equal([[  6316,  6724,  187,  670, 1088],
@@ -437,9 +403,7 @@ describe("NDArray", function(){
 			});
 		});
 	});
-});
-describe("empty", function(){
-	furious.connect(function(context) {
+	describe("empty", function(){
 		it("No error with integer shape", function(){
 			expect(function (){context.empty(100);}).to.not.throw(Error);
 		});
@@ -456,9 +420,7 @@ describe("empty", function(){
 			expect(function (){context.empty([2, 5, 1], furious.DataType("f32"));}).to.not.throw(Error);
 		});
 	});
-});
-describe("array", function(){
-	furious.connect(function(context) {
+	describe("array", function(){
 		it("Matches the length of the provided array", function(){
 			expect((context.array([0, 1])).length).to.equal(2);
 			expect((context.array([[0, 1], [2,3], [3,4]])).length).to.equal(6);
@@ -477,9 +439,7 @@ describe("array", function(){
 			});
 		});
 	});
-});
-describe("linspace", function(){
-	furious.connect(function(context) {
+	describe("linspace", function(){
 		it("Has length of 50 with default arguments", function(){
 			expect((context.linspace(0, 1)).length).to.equal(50);
 		});
@@ -510,9 +470,7 @@ describe("linspace", function(){
 			});
 		});
 	});
-});
-describe("neg", function() {
-	furious.connect(function(context) {
+	describe("neg", function() {
 		it("Correct result for 2-dimensional array", function(done){
 			var x = context.array([1, -7.5, 0, -15]);
 			var y = context.neg(x);
@@ -522,9 +480,7 @@ describe("neg", function() {
 			});
 		});
 	});
-});
-describe("abs", function() {
-	furious.connect(function(context) {
+	describe("abs", function() {
 		it("Correct result for 2-dimensional array", function(done){
 			var x = context.array([1, -7.5, 0, -15]);
 			var y = context.abs(x);
@@ -534,9 +490,7 @@ describe("abs", function() {
 			});
 		});
 	});
-});
-describe("exp", function() {
-	furious.connect(function(context) {
+	describe("exp", function() {
 		it("Correct result for 1-dimensional newly created output array", function(done){
 			var x = context.array([1, -1, 0]);
 			context.exp(x).toArray(function(result) {
@@ -547,9 +501,7 @@ describe("exp", function() {
 			});
 		});
 	});
-});
-describe("log", function() {
-	furious.connect(function(context) {
+	describe("log", function() {
 		it("Correct result for 1-dimensional newly created output array", function(done){
 			var x = context.array([1, 3, 10]);
 			context.log(x).toArray(function(result) {
@@ -560,9 +512,7 @@ describe("log", function() {
 			});
 		});
 	});
-});
-describe("sqrt", function() {
-	furious.connect(function(context) {
+	describe("sqrt", function() {
 		it("Correct result for 1-dimensional newly created output array", function(done){
 			var x = context.array([0, 0.25, 1, 9, 10]);
 			context.sqrt(x).toArray(function(result) {
@@ -575,9 +525,7 @@ describe("sqrt", function() {
 			});
 		});
 	});
-});
-describe("square", function() {
-	furious.connect(function(context) {
+	describe("square", function() {
 		it("Correct result for 1-dimensional newly created output array", function(done){
 			var x = context.array([-2, 0, 0.5, 1, 3]);
 			context.square(x).toArray(function(result) {
