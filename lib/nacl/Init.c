@@ -78,7 +78,6 @@ static PP_Bool onCreateInstance(PP_Instance instance, uint32_t argc, const char*
 	}
 	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
 
-	FJS_LOG_INFO("PNaCl INIT");
 	return PP_TRUE;
 }
 
