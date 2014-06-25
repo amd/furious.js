@@ -1028,11 +1028,6 @@ static enum FJS_Error executeDotOp(PP_Instance instance, int32_t idA, int32_t id
 			return FJS_Error_InvalidDataType;
 	}
 
-	/* Check that the input arrays have the same number of dimensions */
-	if (dimensionsB != dimensionsA) {
-		return FJS_Error_MismatchingDimensions;
-	}
-
 	/* Compute the axes that will be used for reduction */
 	const size_t axisA = dimensionsA - 1;
 	const size_t axisB = (dimensionsB == 1) ? 0 : dimensionsB - 2;
