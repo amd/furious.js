@@ -58,7 +58,7 @@
 			var context = null;
 			var g = null;
 			var main = null;
-			var unemployment = null;
+			var unemployment = null, unemploymentMin = null, unemploymentMax = null;
 			var gdpGrowth = null;
 			var year = null;
 			var line = null;
@@ -68,8 +68,8 @@
 
 			function furiousInit() {
 				if (unemployment && gdpGrowth) {
-					unemploymentArray = context.array(unemployment);
-					gdpGrowthArray = context.array(gdpGrowth);
+					unemploymentArray = context.array(unemployment).lock();
+					gdpGrowthArray = context.array(gdpGrowth).lock();
 				}
 			}
 
@@ -82,25 +82,22 @@
 					
 					var interpolation_points = 1000;
 					var data_points = gdpGrowthArray.length;
-					var a = context.min(unemploymentArray);
-					var b = context.max(unemploymentArray);
-					context.get(a, b, function(aVal, bVal) {
-						var x = context.linspace(aVal, bVal, interpolation_points);
 
-						var XmX = unemploymentArray.div(h).reshape([1, data_points]).repeat(interpolation_points, 0).sub(x.div(h).reshape([interpolation_points, 1]).repeat(data_points, 1));
-						var K = context.exp(context.square(XmX).mul(-0.5));
-						var y = context.dot(K, gdpGrowthArray).div(context.sum(K, 1));
-						context.get(x, y, function(xVal, yVal) {
-							var endTime = performance.now();
-							if (linePlot == null) {
-								linePlot = main.append("svg:path")
-									.attr("d", line(d3.zip(xVal, yVal)))
-									.attr("class", "trend");
-							} else {
-								linePlot.attr("d", line(d3.zip(xVal, yVal)));
-							}
-							$("#time").text((endTime - startTime).toFixed(2) + " ms");
-						});
+					var x = context.linspace(unemploymentMin, unemploymentMax, interpolation_points).retain();
+
+					var XmX = unemploymentArray.div(h).reshape([1, data_points]).repeat(interpolation_points, 0).sub(x.div(h).reshape([interpolation_points, 1]).repeat(data_points, 1));
+					var K = context.exp(context.square(XmX).mul(-0.5));
+					var y = context.dot(K.retain(), gdpGrowthArray).div(context.sum(K, 1));
+					context.get(x, y, function(xVal, yVal) {
+						var endTime = performance.now();
+						if (linePlot == null) {
+							linePlot = main.append("svg:path")
+								.attr("d", line(d3.zip(xVal, yVal)))
+								.attr("class", "trend");
+						} else {
+							linePlot.attr("d", line(d3.zip(xVal, yVal)));
+						}
+						$("#time").text((endTime - startTime).toFixed(2) + " ms");
 					});
 				}
 			}
@@ -133,12 +130,15 @@
 					gdpGrowth = data.map(function(d) { return parseFloat(d["GDP Growth"]) * 100.0; });
 					year = data.map(function(d) { return parseInt(d["Year"]); });
 
+					unemploymentMin = d3.min(unemployment);
+					unemploymentMax = d3.max(unemployment);
+
 					var margin = {top: 40, right: 15, bottom: 60, left: 50};
 					var width = 960 - margin.left - margin.right;
 					var height = 500 - margin.top - margin.bottom;
 			
 					var scaleX = d3.scale.linear()
-						.domain([d3.min(unemployment), d3.max(unemployment)])
+						.domain([unemploymentMin, unemploymentMax])
 						.range([ 0, width ]);
 			
 					var scaleY = d3.scale.linear()
