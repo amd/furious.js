@@ -617,7 +617,7 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, int32_t idA, int32_t idO
 	for (size_t i = 0; i < outerStride; i++) {
 		for (size_t j = 0; j < repeatLengthA; j++) {
 			for (size_t k = 0; k < innerStride; k++) {
-				size_t valueA = dataA[(i * repeatLengthA + j) * innerStride + k];
+				double valueA = dataA[(i * repeatLengthA + j) * innerStride + k];
 				for (size_t c = 0; c < repeats; c++) {
 					dataOut[((i * repeatLengthA + j) * repeats + c) * innerStride + k] = valueA;
 				}
