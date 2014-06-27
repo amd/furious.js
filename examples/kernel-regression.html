@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Furious.js Demo: Kernel Regression</title>
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap.css">
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap-theme.css">
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.10.4/css/jquery-ui.css">
+		<style>
+			body {
+				font-family: Verdana, Geneva, sans-serif;
+			}
+			.trend {
+				fill: none;
+				stroke: red;
+				stroke-width: 1.5px;
+			}
+			.axis path,
+			.axis line {
+				fill: none;
+				stroke: #000;
+				shape-rendering: crispEdges;
+			}
+			.label {
+				font-size: larger;
+				font-weight: bold;
+			}
+			.title {
+				font-size: x-large;
+				font-weight: bold;
+			}
+			.jumbotron {
+				max-width: 1000px;
+			}
+			#controls {
+				margin-top: 100px;
+				width: *;
+			}
+		</style>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/js/bootstrap.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.8/d3.min.js"></script>
+		<script src="../furious.js"></script>
+	</head>
+	<body onload="pageInit();">
+		<div class="jumbotron row center-block">
+			<div id="showcase" class="col-md-9"></div>
+			<div id="controls" class="col-md-3">
+				<div>Kernel bandwidth: <span id="bandwidth"></span></div>
+				<div id="slider"></div>
+				<div>Compute time: <span id="time"></span></div>
+				<div class="dropdown">
+					<button class="btn btn-default dropdown-toggle" type="button" id="backendMenu" data-toggle="dropdown">
+						Backend: <span id="activeBackend">None</span><span class="caret"></span>
+					</button>
+					<ul class="dropdown-menu" id="backendDropdown" role="menu" aria-labelledby="backendMenu">
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="JavaScriptBackend" data-backend="javascript">JavaScript</a></li>
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="AsmJSBackend" data-backend="asmjs">Asm.js</a></li>
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="PNaClBackend" data-backend="pnacl">PNaCl</a></li>
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="WebCLBackend" data-backend="webcl">WebCL</a></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<script>
+			var h = 0.5;
+			var context = null;
+			var g = null;
+			var main = null;
+			var unemployment = null, unemploymentMin = null, unemploymentMax = null;
+			var gdpGrowth = null;
+			var year = null;
+			var line = null;
+			var linePlot = null;
+			var unemploymentArray = null;
+			var gdpGrowthArray = null;
+
+			function furiousInit(backend) {
+				furious.init(backend, function(ctx) {
+					context = ctx;
+					furiousCompute();
+				});
+			}
+
+			function furiousFree() {
+				furiousDeallocate();
+				context = null;
+			}
+
+			function furiousAllocate() {
+				if (unemployment && gdpGrowth) {
+					unemploymentArray = context.array(unemployment).lock();
+					gdpGrowthArray = context.array(gdpGrowth).lock();
+				}
+			}
+
+			function furiousDeallocate() {
+				if (unemploymentArray && gdpGrowthArray) {
+					unemploymentArray.invalidate();
+					gdpGrowthArray.invalidate();
+					unemploymentArray = null;
+					gdpGrowthArray = null;
+				}
+			}
+
+			function furiousCompute() {
+				if (context && unemployment && gdpGrowth && g) {
+					var startTime = performance.now();
+					if (!unemploymentArray || !gdpGrowthArray) {
+						furiousAllocate();
+					}
+					
+					var interpolation_points = 1000;
+					var data_points = gdpGrowthArray.length;
+
+					var x = context.linspace(unemploymentMin, unemploymentMax, interpolation_points).retain();
+
+					var XmX = unemploymentArray.div(h).reshape([1, data_points]).repeat(interpolation_points, 0).sub(x.div(h).reshape([interpolation_points, 1]).repeat(data_points, 1));
+					var K = context.exp(context.square(XmX).mul(-0.5));
+					var y = context.dot(K.retain(), gdpGrowthArray).div(context.sum(K, 1));
+					context.get(x, y, function(xVal, yVal) {
+						var endTime = performance.now();
+						if (linePlot == null) {
+							linePlot = main.append("svg:path")
+								.attr("d", line(d3.zip(xVal, yVal)))
+								.attr("class", "trend");
+						} else {
+							linePlot.attr("d", line(d3.zip(xVal, yVal)));
+						}
+						$("#time").text((endTime - startTime).toFixed(2) + " ms");
+					});
+				}
+			}
+
+			function plotInit() {
+				d3.csv("okun.csv", function(data) {
+					unemployment = data.map(function(d) { return parseFloat(d["Unemployment Change"]) * 100.0; });
+					gdpGrowth = data.map(function(d) { return parseFloat(d["GDP Growth"]) * 100.0; });
+					year = data.map(function(d) { return parseInt(d["Year"]); });
+
+					unemploymentMin = d3.min(unemployment);
+					unemploymentMax = d3.max(unemployment);
+
+					var margin = {top: 40, right: 15, bottom: 60, left: 50};
+					var width = 960 - margin.left - margin.right;
+					var height = 500 - margin.top - margin.bottom;
+			
+					var scaleX = d3.scale.linear()
+						.domain([unemploymentMin, unemploymentMax])
+						.range([ 0, width ]);
+			
+					var scaleY = d3.scale.linear()
+						.domain([d3.min(gdpGrowth), d3.max(gdpGrowth)])
+						.range([ height, 0 ]);
+		 
+					var chart = d3.select('#showcase')
+						.append('svg:svg')
+						.attr('width', width + margin.right + margin.left)
+						.attr('height', height + margin.top + margin.bottom)
+						.attr('class', 'chart')
+
+					main = chart.append('g')
+						.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
+						.attr('width', width)
+						.attr('height', height)
+				
+					var axisX = d3.svg.axis()
+						.scale(scaleX)
+						.orient('bottom');
+
+					main.append('g')
+						.attr('transform', 'translate(0,' + height + ')')
+						.attr('class', 'axis')
+						.call(axisX)
+							.append("text")
+							.attr("class", "label")
+							.attr("x", width / 2)
+							.attr("y", margin.bottom * 0.60)
+							.style("text-anchor", "middle")
+							.text("Annual Change in Unemployment Rate, Percent");
+
+					var axisY = d3.svg.axis()
+						.scale(scaleY)
+						.orient('left');
+
+					main.append('g')
+						.attr('transform', 'translate(0,0)')
+						.attr('class', 'axis')
+						.call(axisY)
+							.append("text")
+							.attr("class", "label")
+							.attr("transform", "rotate(-90)")
+							.attr("x", -height / 2)
+							.attr("y", -margin.left * 0.60)
+							.style("text-anchor", "middle")
+							.text("Annual GDP growth, Percent");
+
+					line = d3.svg.line()
+						.x(function(d, i) { return scaleX(d[0]); })
+						.y(function(d) { return scaleY(d[1]); })
+						.interpolate("linear");
+
+					g = main.append("svg:g");
+
+					var title = chart.append("text")
+						.attr("x", (width / 2))
+						.attr("y", (margin.top / 2))
+						.attr("text-anchor", "middle")
+						.attr("class", "title")
+						.text("Okun's Law on U.S. Economy Data (1949-2013)");
+
+					g.selectAll("scatter-dots")
+						.data(d3.zip(unemployment, gdpGrowth))
+						.enter().append("svg:circle")
+							.attr("cx", function (d,i) { return scaleX(d[0]); } )
+							.attr("cy", function (d) { return scaleY(d[1]); } )
+							.attr("r", 2);
+
+					furiousCompute();
+				});
+			};
+			
+			function bandwidthSliderInit() {
+				function onslider() {
+					h = parseFloat($("#slider").slider("value"));
+					$("#bandwidth").text(h.toFixed(2));
+					furiousCompute();
+				}
+				$(function() {
+					$("#slider" ).slider({
+						min: 0.10,
+						max: 1.0,
+						step: 0.01,
+						value: 0.33,
+						slide: onslider,
+						change: onslider
+					});
+				});
+				onslider();
+			}
+
+			function beautifyBackendName(backend) {
+				switch (backend) {
+					case "javascript":
+						return "JavaScript";
+					case "asmjs":
+						return "Asm.js";
+					case "pnacl":
+						return "PNaCl";
+					case "webcl":
+						return "WebCL";
+					default:
+						return backend;
+				}
+			}
+
+			function backendDropdownInit() {
+				var supportedBackends = furious.getSupportedBackends();
+				$("#activeBackend").text(beautifyBackendName(furious.getDefaultBackend()));
+				$("#backendDropdown a").each(function() {
+					if ($.inArray($(this).data("backend"), supportedBackends) === -1) {
+						$(this).parent().addClass("disabled");
+					} else {
+						$(this).click(function() {
+							var backend = $(this).data("backend");
+							furiousFree();
+							furiousInit(backend);
+							$("#activeBackend").text(beautifyBackendName(backend));
+						});
+					}
+				});
+			}
+
+			function pageInit() {
+				bandwidthSliderInit();
+				backendDropdownInit();
+
+				furiousInit(furious.getDefaultBackend());
+				plotInit();
+			}
+		</script>
+	</body>
+</html>

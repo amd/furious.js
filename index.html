@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Furious.js Unit Test</title>
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/mocha/1.18.2/mocha.min.css">
+	</head>
+	<body onload="mocha.run();">
+		<div id="mocha"></div>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/mocha/1.18.2/mocha.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/chai/1.9.0/chai.min.js"></script>
+		<script>mocha.setup('bdd')</script>
+		<script>expect = chai.expect</script>
+		<script src="test.js"></script>
+	</body>
+</html>
