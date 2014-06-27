@@ -1,3 +1,0 @@
-*       text=auto
-*.c     text diff=cpp
-*.h     text diff=cpp
