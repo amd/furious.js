@@ -35,6 +35,7 @@
 				max-width: 1000px;
 			}
 			#controls {
+				margin-top: 100px;
 				width: *;
 			}
 		</style>
@@ -44,13 +45,24 @@
 		<script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.8/d3.min.js"></script>
 		<script src="../furious.js"></script>
 	</head>
-	<body onload="plotInit();">
+	<body onload="pageInit();">
 		<div class="jumbotron row center-block">
-			<div id="showcase" class="col-md-10"></div>
-			<div id="controls" class="col-md-2">
+			<div id="showcase" class="col-md-9"></div>
+			<div id="controls" class="col-md-3">
 				<div>Kernel bandwidth: <span id="bandwidth"></span></div>
 				<div id="slider"></div>
 				<div>Compute time: <span id="time"></span></div>
+				<div class="dropdown">
+					<button class="btn btn-default dropdown-toggle" type="button" id="backendMenu" data-toggle="dropdown">
+						Backend: <span id="activeBackend">None</span><span class="caret"></span>
+					</button>
+					<ul class="dropdown-menu" id="backendDropdown" role="menu" aria-labelledby="backendMenu">
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="JavaScriptBackend" data-backend="javascript">JavaScript</a></li>
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="AsmJSBackend" data-backend="asmjs">Asm.js</a></li>
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="PNaClBackend" data-backend="pnacl">PNaCl</a></li>
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="WebCLBackend" data-backend="webcl">WebCL</a></li>
+					</ul>
+				</div>
 			</div>
 		</div>
 		<script>
@@ -66,10 +78,31 @@
 			var unemploymentArray = null;
 			var gdpGrowthArray = null;
 
-			function furiousInit() {
+			function furiousInit(backend) {
+				furious.connect(backend, function(ctx) {
+					context = ctx;
+					furiousCompute();
+				});
+			}
+
+			function furiousFree() {
+				furiousDeallocate();
+				context = null;
+			}
+
+			function furiousAllocate() {
 				if (unemployment && gdpGrowth) {
 					unemploymentArray = context.array(unemployment).lock();
 					gdpGrowthArray = context.array(gdpGrowth).lock();
+				}
+			}
+
+			function furiousDeallocate() {
+				if (unemploymentArray && gdpGrowthArray) {
+					unemploymentArray.invalidate();
+					gdpGrowthArray.invalidate();
+					unemploymentArray = null;
+					gdpGrowthArray = null;
 				}
 			}
 
@@ -77,7 +110,7 @@
 				if (context && unemployment && gdpGrowth && g) {
 					var startTime = performance.now();
 					if (!unemploymentArray || !gdpGrowthArray) {
-						furiousInit();
+						furiousAllocate();
 					}
 					
 					var interpolation_points = 1000;
@@ -102,30 +135,8 @@
 				}
 			}
 
-			furious.connect(function(ctx) {
-				context = ctx;
-				furiousCompute();
-			});
-
 			function plotInit() {
 				d3.csv("okun.csv", function(data) {
-					function onslider() {
-						h = parseFloat($("#slider").slider("value"));
-						$("#bandwidth").text(h.toFixed(2));
-						furiousCompute();
-					}
-					$(function() {
-						$("#slider" ).slider({
-							min: 0.10,
-							max: 1.0,
-							step: 0.01,
-							value: 0.33,
-							slide: onslider,
-							change: onslider
-						});
-					});
-					onslider();
-				
 					unemployment = data.map(function(d) { return parseFloat(d["Unemployment Change"]) * 100.0; });
 					gdpGrowth = data.map(function(d) { return parseFloat(d["GDP Growth"]) * 100.0; });
 					year = data.map(function(d) { return parseInt(d["Year"]); });
@@ -211,6 +222,65 @@
 					furiousCompute();
 				});
 			};
+			
+			function bandwidthSliderInit() {
+				function onslider() {
+					h = parseFloat($("#slider").slider("value"));
+					$("#bandwidth").text(h.toFixed(2));
+					furiousCompute();
+				}
+				$(function() {
+					$("#slider" ).slider({
+						min: 0.10,
+						max: 1.0,
+						step: 0.01,
+						value: 0.33,
+						slide: onslider,
+						change: onslider
+					});
+				});
+				onslider();
+			}
+
+			function beautifyBackendName(backend) {
+				switch (backend) {
+					case "javascript":
+						return "JavaScript";
+					case "asmjs":
+						return "Asm.js";
+					case "pnacl":
+						return "PNaCl";
+					case "webcl":
+						return "WebCL";
+					default:
+						return backend;
+				}
+			}
+
+			function backendDropdownInit() {
+				var supportedBackends = furious.getSupportedBackends();
+				$("#activeBackend").text(beautifyBackendName(furious.getDefaultBackend()));
+				$("#backendDropdown a").each(function() {
+					if ($.inArray($(this).data("backend"), supportedBackends) === -1) {
+						$(this).parent().addClass("disabled");
+					} else {
+						$(this).click(function() {
+							var backend = $(this).data("backend");
+							furiousFree();
+							furiousInit(backend);
+							$("#activeBackend").text(beautifyBackendName(backend));
+						});
+					}
+				});
+			}
+
+			function pageInit() {
+				bandwidthSliderInit();
+				backendDropdownInit();
+
+				furiousInit(furious.getDefaultBackend());
+				plotInit();
+			}
 		</script>
 	</body>
 </html>
