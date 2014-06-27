@@ -3,7 +3,7 @@ var expect = require("chai").expect;
 
 var context = null;
 before(function(done) {
-	furious.connect(function(ctx) {
+	furious.init(function(ctx) {
 		context = ctx;
 		done();
 	});

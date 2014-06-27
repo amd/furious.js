@@ -79,7 +79,7 @@
 			var gdpGrowthArray = null;
 
 			function furiousInit(backend) {
-				furious.connect(backend, function(ctx) {
+				furious.init(backend, function(ctx) {
 					context = ctx;
 					furiousCompute();
 				});
