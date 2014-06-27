@@ -78,6 +78,20 @@
 			var unemploymentArray = null;
 			var gdpGrowthArray = null;
 
+			if (performance && performance.now) {
+				function getTimerTicks() {
+					return performance.now();
+				}
+			} else if (performance && performance.webkitNow) {
+				function getTimerTicks() {
+					return performance.webkitNow();
+				}
+			} else {
+				function getTimerTicks() {
+					return Date.now();
+				}
+			}
+
 			function furiousInit(backend) {
 				furious.init(backend, function(ctx) {
 					context = ctx;
@@ -108,7 +122,7 @@
 
 			function furiousCompute() {
 				if (context && unemployment && gdpGrowth && g) {
-					var startTime = performance.now();
+					var startTime = getTimerTicks();
 					if (!unemploymentArray || !gdpGrowthArray) {
 						furiousAllocate();
 					}
@@ -122,7 +136,7 @@
 					var K = context.exp(context.square(XmX).mul(-0.5));
 					var y = context.dot(K.retain(), gdpGrowthArray).div(context.sum(K, 1));
 					context.get(x, y, function(xVal, yVal) {
-						var endTime = performance.now();
+						var endTime = getTimerTicks();
 						if (linePlot == null) {
 							linePlot = main.append("svg:path")
 								.attr("d", line(d3.zip(xVal, yVal)))
