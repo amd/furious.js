@@ -78,11 +78,11 @@
 			var unemploymentArray = null;
 			var gdpGrowthArray = null;
 
-			if (performance && performance.now) {
+			if ((typeof performance !== "undefined") && (typeof performance.now !== "undefined")) {
 				function getTimerTicks() {
 					return performance.now();
 				}
-			} else if (performance && performance.webkitNow) {
+			} else if ((typeof performance !== "undefined") && (typeof performance.webkitNow !== "undefined")) {
 				function getTimerTicks() {
 					return performance.webkitNow();
 				}
