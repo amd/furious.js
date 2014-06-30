@@ -11,10 +11,13 @@ enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
 	size_t variableSize,
 	size_t variablesCount,
 	const struct FJS_ArgumentDescriptor descriptors[static variablesCount],
+	size_t cleanupEntries,
+	const enum FJS_StringVariable cleanupNames[static cleanupEntries],
 	struct PP_Var request,
 	FJS_Execute_Function executeFunction)
 {
 	enum FJS_Error error = FJS_Error_Ok;
+	bool cleanupResponse = false;
 
 	void* arguments = alloca(variableSize);
 	memset(arguments, 0, variableSize);
@@ -123,6 +126,9 @@ enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
 		}
 	}
 	error = executeFunction(instance, arguments, &FJS_ResponseVariable);
+	if (error == FJS_Error_Ok) {
+		cleanupResponse = true;
+	}
 
 reply:
 	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
@@ -131,7 +137,12 @@ reply:
 
 	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
 
-	/* TODO: Fix memory leak here if executeFunction adds members to response variable */
+	if (cleanupResponse) {
+		for (size_t entryIndex = 0; entryIndex < cleanupEntries; entryIndex++) {
+			const enum FJS_StringVariable cleanupName = cleanupNames[entryIndex];
+			dictionaryInterface->Delete(FJS_ResponseVariable, FJS_StringVariables[cleanupName]);
+		}
+	}
 	FJS_Message_RemoveStatus(FJS_ResponseVariable);
 
 cleanup:

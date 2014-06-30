@@ -221,6 +221,8 @@ struct FJS_Command_Descriptor {
 	size_t argumentsSize;
 	size_t argumentsCount;
 	const struct FJS_ArgumentDescriptor* argumentsDescriptors;
+	size_t cleanupEntries;
+	const enum FJS_StringVariable* cleanupNames;
 	FJS_Execute_Function executeFunction;
 };
 

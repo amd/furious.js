@@ -131,6 +131,10 @@ static const struct FJS_ArgumentDescriptor releaseArguments[] =
 	}
 };
 
+static const enum FJS_StringVariable getCleanupNames[] = {
+	FJS_StringVariable_Buffer
+};
+
 static const struct FJS_ArgumentDescriptor getArguments[] = 
 {
 	{ 
@@ -285,6 +289,8 @@ const struct FJS_Command_Descriptor FJS_Command_Descriptors[] = {
 		.argumentsSize = sizeof(struct FJS_Get_Command_Arguments),
 		.argumentsCount = FJS_COUNT_OF(getArguments),
 		.argumentsDescriptors = getArguments,
+		.cleanupEntries = FJS_COUNT_OF(getCleanupNames),
+		.cleanupNames = getCleanupNames,
 		.executeFunction = (FJS_Execute_Function) FJS_Execute_Get
 	},
 	[FJS_Command_Add] = {

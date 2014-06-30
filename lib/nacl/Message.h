@@ -33,6 +33,8 @@ enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
 	size_t variablesSize,
 	size_t variablesCount,
 	const struct FJS_ArgumentDescriptor descriptors[static variablesCount],
+	size_t cleanupEntries,
+	const enum FJS_StringVariable cleanupNames[static cleanupEntries],
 	struct PP_Var request,
 	FJS_Execute_Function executeFunction);
 

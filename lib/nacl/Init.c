@@ -184,6 +184,8 @@ static void handleMessage(PP_Instance instance, struct PP_Var request) {
 				commandDescriptor.argumentsSize,
 				commandDescriptor.argumentsCount,
 				commandDescriptor.argumentsDescriptors,
+				commandDescriptor.cleanupEntries,
+				commandDescriptor.cleanupNames,
 				request,
 				commandDescriptor.executeFunction);
 			break;
