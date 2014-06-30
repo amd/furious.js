@@ -37,6 +37,7 @@ enum FJS_StringVariable {
 	FJS_StringVariable_LengthOverflow,
 	FJS_StringVariable_SizeOverflow,
 	FJS_StringVariable_IncompatibleBufferSize,
+	FJS_StringVariable_InvalidBufferSize,
 	FJS_StringVariable_EmptyBuffer,
 	FJS_StringVariable_InvalidElementSize,
 	FJS_StringVariable_InvalidDataType,

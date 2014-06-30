@@ -1,3 +1,4 @@
+#include <alloca.h>
 #include <string.h>
 
 #include "Message.h"
@@ -6,94 +7,114 @@
 
 struct PP_Var FJS_ResponseVariable = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 
-enum FJS_Error FJS_Message_Parse(uint32_t variablesCount, const struct FJS_VariableDescriptor descriptors[static variablesCount], struct FJS_Variable variables[static variablesCount], struct PP_Var request) {
+enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
+	size_t variableSize,
+	size_t variablesCount,
+	const struct FJS_ArgumentDescriptor descriptors[static variablesCount],
+	struct PP_Var request,
+	FJS_Execute_Function executeFunction)
+{
 	enum FJS_Error error = FJS_Error_Ok;
+
+	void* arguments = alloca(variableSize);
+	memset(arguments, 0, variableSize);
+
 	/* Zero-initialization sets PPAPI variables to undefined value */
-	memset(variables, 0, sizeof(struct FJS_Variable) * variablesCount);
+	struct PP_Var variables[variablesCount];
+	memset(variables, 0, sizeof(struct PP_Var) * variablesCount);
 	for (uint32_t variableIndex = 0; variableIndex < variablesCount; variableIndex++) {
-		variables[variableIndex].pepperVariable = dictionaryInterface->Get(request,
-			FJS_StringVariables[descriptors[variableIndex].name]);
-		const PP_VarType pepperType = variables[variableIndex].pepperVariable.type;
+		variables[variableIndex] =
+			dictionaryInterface->Get(request, FJS_StringVariables[descriptors[variableIndex].name]);
+		const PP_VarType pepperType = variables[variableIndex].type;
 		if (pepperType == PP_VARTYPE_UNDEFINED) {
 			error = FJS_Error_MissingVariable;
-			goto cleanup;
+			goto reply;
 		}
+		const void* argument = arguments + descriptors[variableIndex].offset;
 		switch (descriptors[variableIndex].type) {
-			case FJS_VariableType_Boolean:
+			case FJS_ArgumentType_Boolean:
 				if (pepperType == PP_VARTYPE_BOOL) {
-					variables[variableIndex].parsedValue.asBoolean = variables[variableIndex].pepperVariable.value.as_bool;
+					*((bool*) argument) = variables[variableIndex].value.as_bool;
 				} else {
 					error = FJS_Error_InvalidVariableType;
-					goto cleanup;
+					goto reply;
 				}
 				break;
-			case FJS_VariableType_Int32:
+			case FJS_ArgumentType_Int32:
 				if (pepperType == PP_VARTYPE_INT32) {
-					variables[variableIndex].parsedValue.asInt32 = variables[variableIndex].pepperVariable.value.as_int;
+					*((int32_t*) argument) = variables[variableIndex].value.as_int;
 				} else {
 					error = FJS_Error_InvalidVariableType;
-					goto cleanup;
+					goto reply;
 				}
 				break;
-			case FJS_VariableType_Float64:
+			case FJS_ArgumentType_Float64:
 				switch (pepperType) {
 					case PP_VARTYPE_DOUBLE:
-						variables[variableIndex].parsedValue.asFloat64 = variables[variableIndex].pepperVariable.value.as_double;
+						*((double*) argument) = variables[variableIndex].value.as_double;
 						break;
 					case PP_VARTYPE_INT32:
-						variables[variableIndex].parsedValue.asFloat64 = (double) variables[variableIndex].pepperVariable.value.as_int;
+						*((double*) argument) = variables[variableIndex].value.as_int;
 						break;						
 					default:
 						error = FJS_Error_InvalidVariableType;
-						goto cleanup;
+						goto reply;
 				}
 				break;
-			case FJS_VariableType_DataType:
-			case FJS_VariableType_Command:
+			case FJS_ArgumentType_DataType:
 			{
 				uint32_t stringSize = 0;
-				const char* const stringPointer = varInterface->VarToUtf8(variables[variableIndex].pepperVariable, &stringSize);
+				const char* const stringPointer = varInterface->VarToUtf8(variables[variableIndex], &stringSize);
 				/* For empty string VarToUtf8 returns zero length, but non-null pointer */
 				if (stringPointer != NULL) {
-					switch (descriptors[variableIndex].type) {
-						case FJS_VariableType_DataType:
-							variables[variableIndex].parsedValue.asDatatype = FJS_DataType_Parse(stringPointer, stringSize);
-							break;
-						case FJS_VariableType_Command:
-							variables[variableIndex].parsedValue.asCommand = FJS_Command_Parse(stringPointer, stringSize);
-							break;
-						case FJS_VariableType_Int32:
-						case FJS_VariableType_Float64:
-						case FJS_VariableType_Buffer:
-						default:
-							__builtin_unreachable();
-					}
+					*((enum FJS_DataType*) argument) = FJS_DataType_Parse(stringPointer, stringSize);
 				} else {
 					error = FJS_Error_InvalidVariableType;
-					goto cleanup;
+					goto reply;
 				}
 				break;
 			}
-			case FJS_VariableType_Buffer:
+			case FJS_ArgumentType_Buffer:
+			case FJS_ArgumentType_Shape:
 			{
 				uint32_t bufferSize = 0;
-				if (bufferInterface->ByteLength(variables[variableIndex].pepperVariable, &bufferSize) == PP_TRUE) {
+				if (bufferInterface->ByteLength(variables[variableIndex], &bufferSize) == PP_TRUE) {
 					if (bufferSize != 0) {
-						void* bufferPointer = bufferInterface->Map(variables[variableIndex].pepperVariable);
+						if (descriptors[variableIndex].type == FJS_ArgumentType_Shape) {
+							if (bufferSize % sizeof(uint32_t) != 0) {
+								error = FJS_Error_InvalidBufferSize;
+								goto reply;
+							}
+						}
+						void* bufferPointer = bufferInterface->Map(variables[variableIndex]);
 						if (bufferPointer != NULL) {
-							variables[variableIndex].parsedValue.asBuffer.size = bufferSize;
-							variables[variableIndex].parsedValue.asBuffer.pointer = bufferPointer;
+							switch (descriptors[variableIndex].type) {
+								case FJS_ArgumentType_Buffer:
+									*((struct FJS_Buffer*) argument) = (struct FJS_Buffer) {
+										.size = bufferSize,
+										.pointer = bufferPointer
+									};
+									break;
+								case FJS_ArgumentType_Shape:
+									*((struct FJS_Shape*) argument) = (struct FJS_Shape) {
+										.dimensions = bufferSize / 4,
+										.buffer = bufferPointer
+									};
+									break;
+								default:
+									__builtin_unreachable();
+							}
 						} else {
 							error = FJS_Error_InvalidVariableType;
-							goto cleanup;
+							goto reply;
 						}
 					} else {
 						error = FJS_Error_EmptyBuffer;
-						goto cleanup;
+						goto reply;
 					}
 				} else {
 					error = FJS_Error_InvalidVariableType;
-					goto cleanup;
+					goto reply;
 				}
 				break;
 			}
@@ -101,22 +122,29 @@ enum FJS_Error FJS_Message_Parse(uint32_t variablesCount, const struct FJS_Varia
 				__builtin_unreachable();
 		}
 	}
-	return FJS_Error_Ok;
-cleanup:
-	FJS_Message_FreeVariables(variablesCount, variables);
-	return error;
-}
+	error = executeFunction(instance, arguments, &FJS_ResponseVariable);
 
-void FJS_Message_FreeVariables(uint32_t variablesCount, struct FJS_Variable variables[static variablesCount]) {
+reply:
+	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
+		goto cleanup;
+	}
+
+	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+
+	/* TODO: Fix memory leak here if executeFunction adds members to response variable */
+	FJS_Message_RemoveStatus(FJS_ResponseVariable);
+
+cleanup:
 	for (uint32_t variableIndex = 0; variableIndex < variablesCount; variableIndex++) {
-		if (variables[variableIndex].pepperVariable.type == PP_VARTYPE_ARRAY_BUFFER) {
-			if (variables[variableIndex].parsedValue.asBuffer.pointer != NULL) {
-				bufferInterface->Unmap(variables[variableIndex].pepperVariable);
+		if (variables[variableIndex].type == PP_VARTYPE_ARRAY_BUFFER) {
+			void* argument = (arguments + descriptors[variableIndex].offset);
+			if (((struct FJS_Buffer*) argument)->pointer != NULL) {
+				bufferInterface->Unmap(variables[variableIndex]);
 			}
 		}
-		varInterface->Release(variables[variableIndex].pepperVariable);
-		variables[variableIndex].pepperVariable = PP_MakeUndefined();
+		varInterface->Release(variables[variableIndex]);
 	}
+	return error;
 }
 
 bool FJS_Message_SetStatus(PP_Instance instance, struct PP_Var responseVar, enum FJS_Error error) {

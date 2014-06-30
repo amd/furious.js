@@ -47,6 +47,7 @@ static struct StringLiteral strings[FJS_StringVariable_NumberOfEntries] = {
 	[FJS_StringVariable_LengthOverflow] = FJS_INIT_STRING_LITERAL("length overflow"),
 	[FJS_StringVariable_SizeOverflow] = FJS_INIT_STRING_LITERAL("size overflow"),
 	[FJS_StringVariable_IncompatibleBufferSize] = FJS_INIT_STRING_LITERAL("incompatible buffer size"),
+	[FJS_StringVariable_InvalidBufferSize] = FJS_INIT_STRING_LITERAL("invalid buffer size"),
 	[FJS_StringVariable_EmptyBuffer] = FJS_INIT_STRING_LITERAL("empty buffer"),
 	[FJS_StringVariable_InvalidElementSize] = FJS_INIT_STRING_LITERAL("invalid element size"),
 	[FJS_StringVariable_InvalidDataType] = FJS_INIT_STRING_LITERAL("invalid data type"),

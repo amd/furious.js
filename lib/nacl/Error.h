@@ -14,6 +14,8 @@ enum FJS_Error {
 	FJS_Error_SizeOverflow,
 	/* The size of the supplied buffer does not match the size of internal buffer */
 	FJS_Error_IncompatibleBufferSize,
+	/* The size of the supplied buffer is not proportional to element size */
+	FJS_Error_InvalidBufferSize,
 	/* The size of buffer is zero */
 	FJS_Error_EmptyBuffer,
 	/* Datatype elements have zero size */
@@ -57,6 +59,8 @@ inline static enum FJS_StringVariable FJS_Error_ToString(enum FJS_Error error) {
 			return FJS_StringVariable_SizeOverflow;
 		case FJS_Error_IncompatibleBufferSize:
 			return FJS_StringVariable_IncompatibleBufferSize;
+		case FJS_Error_InvalidBufferSize:
+			return FJS_StringVariable_InvalidBufferSize;
 		case FJS_Error_EmptyBuffer:
 			return FJS_StringVariable_EmptyBuffer;
 		case FJS_Error_InvalidElementSize:

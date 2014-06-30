@@ -76,41 +76,152 @@ enum FJS_Command {
 	FJS_Command_Dot,
 };
 
+struct FJS_Buffer {
+	void* pointer;
+	uint32_t size;
+};
+
+struct FJS_Shape {
+	uint32_t* buffer;
+	uint32_t dimensions;
+};
+
+struct FJS_Empty_Command_Arguments {
+	int32_t idOut;
+	struct FJS_Shape shape;
+	enum FJS_DataType dataType;
+};
+
+struct FJS_Array_Command_Arguments {
+	int32_t idOut;
+	struct FJS_Shape shape;
+	enum FJS_DataType dataType;
+	struct FJS_Buffer buffer;
+};
+
+struct FJS_LinSpace_Command_Arguments {
+	int32_t idOut;
+	double start;
+	double stop;
+	int32_t samples;
+	bool closed;
+	enum FJS_DataType dataType;
+};
+
+struct FJS_ReShape_Command_Arguments {
+	int32_t idA;
+	int32_t idOut;
+	struct FJS_Shape shapeOut;
+};
+
+struct FJS_Repeat_Command_Arguments {
+	int32_t idA;
+	int32_t idOut;
+	int32_t repeats;
+	int32_t axis;
+};
+
+struct FJS_Release_Command_Arguments {
+	int32_t idA;
+};
+
+struct FJS_Get_Command_Arguments {
+	int32_t idA;
+};
+
+struct FJS_BinaryOp_Command_Arguments {
+	int32_t idA;
+	int32_t idB;
+	int32_t idOut;
+	enum FJS_Command command;
+};
+
+struct FJS_BinaryConstOp_Command_Arguments {
+	int32_t idA;
+	double valueB;
+	int32_t idOut;
+	enum FJS_Command command;
+};
+
+struct FJS_UnaryOp_Command_Arguments {
+	int32_t idA;
+	int32_t idOut;
+	enum FJS_Command command;
+};
+
+struct FJS_ReduceOp_Command_Arguments {
+	int32_t idA;
+	int32_t idOut;
+	enum FJS_Command command;
+};
+
+struct FJS_AxisReduceOp_Command_Arguments {
+	int32_t idA;
+	int32_t axis;
+	int32_t idOut;
+	enum FJS_Command command;
+};
+
+struct FJS_Dot_Command_Arguments {
+	int32_t idA;
+	int32_t idB;
+	int32_t idOut;
+};
+
+union FJS_Command_Arguments {
+	struct FJS_Empty_Command_Arguments emptyArguments;
+	struct FJS_Array_Command_Arguments arrayArguments;
+	struct FJS_LinSpace_Command_Arguments linspaceArguments;
+	struct FJS_ReShape_Command_Arguments reshapeArguments;
+	struct FJS_Repeat_Command_Arguments repeatArguments;
+	struct FJS_Release_Command_Arguments releaseArguments;
+	struct FJS_Get_Command_Arguments getArguments;
+	struct FJS_BinaryOp_Command_Arguments binaryOpArguments;
+	struct FJS_BinaryConstOp_Command_Arguments binaryConstOpArguments;
+	struct FJS_UnaryOp_Command_Arguments unaryOpArguments;
+	struct FJS_ReduceOp_Command_Arguments reduceOpArguments;
+	struct FJS_AxisReduceOp_Command_Arguments axisReduceOpArguments;
+	struct FJS_Dot_Command_Arguments dotArguments;
+};
+
 enum FJS_Command FJS_Command_Parse(const char* string, uint32_t size);
 
-void FJS_Parse_Empty(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Array(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_LinSpace(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_ReShape(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Repeat(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Release(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Get(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Add(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Sub(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Mul(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Div(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_AddC(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_SubC(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_MulC(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_DivC(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Neg(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Abs(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Exp(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Log(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Sqrt(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Square(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Min(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Max(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Sum(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_AxisMin(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_AxisMax(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_AxisSum(PP_Instance instance, struct PP_Var message);
-void FJS_Parse_Dot(PP_Instance instance, struct PP_Var message);
+typedef enum FJS_Error (*FJS_Execute_Function)(PP_Instance instance, const void* arguments, struct PP_Var response[static 1]);
 
-enum FJS_Error FJS_Execute_Empty(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType);
-enum FJS_Error FJS_Execute_Array(PP_Instance instance, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions], enum FJS_DataType dataType, uint32_t bufferSize, void* buffer);
-enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, int32_t idOut, double start, double stop, int32_t samples, bool closed, enum FJS_DataType dataType);
-enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, int32_t idA, int32_t idOut, size_t dimensions, uint32_t shape[static dimensions]);
-enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, int32_t idA, int32_t idOut, int32_t repeats, int32_t axis);
-enum FJS_Error FJS_Execute_Release(PP_Instance instance, int32_t idIn);
-enum FJS_Error FJS_Execute_Get(PP_Instance instance, int32_t idIn, struct PP_Var bufferOut[static 1]);
+enum FJS_Error FJS_Execute_Empty(PP_Instance instance, const struct FJS_Empty_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Array(PP_Instance instance, const struct FJS_Array_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, const struct FJS_LinSpace_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShape_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Release(PP_Instance instance, const struct FJS_Release_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Get(PP_Instance instance, const struct FJS_Get_Command_Arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Add(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Sub(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Mul(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Div(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_AddC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_SubC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_MulC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_DivC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Neg(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Abs(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Exp(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Log(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Sqrt(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Square(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Min(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Max(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Sum(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_AxisMin(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_AxisMax(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_AxisSum(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Dot(PP_Instance instance, const struct FJS_Dot_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+
+struct FJS_Command_Descriptor {
+	size_t argumentsSize;
+	size_t argumentsCount;
+	const struct FJS_ArgumentDescriptor* argumentsDescriptors;
+	FJS_Execute_Function executeFunction;
+};
+
+extern const struct FJS_Command_Descriptor FJS_Command_Descriptors[];

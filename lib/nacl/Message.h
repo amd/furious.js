@@ -14,41 +14,27 @@
 
 extern struct PP_Var FJS_ResponseVariable;
 
-enum FJS_VariableType {
-	FJS_VariableType_Int32,
-	FJS_VariableType_Float64,
-	FJS_VariableType_Boolean,
-	FJS_VariableType_DataType,
-	FJS_VariableType_Command,
-	FJS_VariableType_Buffer
+enum FJS_ArgumentType {
+	FJS_ArgumentType_Int32,
+	FJS_ArgumentType_Float64,
+	FJS_ArgumentType_Boolean,
+	FJS_ArgumentType_DataType,
+	FJS_ArgumentType_Buffer,
+	FJS_ArgumentType_Shape
 };
 
-struct FJS_Buffer {
-	void* pointer;
-	uint32_t size;
-};
-
-struct FJS_VariableDescriptor {
-	enum FJS_VariableType type;
+struct FJS_ArgumentDescriptor {
+	enum FJS_ArgumentType type;
 	enum FJS_StringVariable name;
+	size_t offset;
 };
 
-union FJS_VariableValue {
-	bool asBoolean;
-	int32_t asInt32;
-	double asFloat64;
-	enum FJS_DataType asDatatype;
-	enum FJS_Command asCommand;
-	struct FJS_Buffer asBuffer;
-};
-
-struct FJS_Variable {
-	union FJS_VariableValue parsedValue;
-	struct PP_Var pepperVariable;
-};
-
-enum FJS_Error FJS_Message_Parse(uint32_t variablesCount, const struct FJS_VariableDescriptor descriptors[static variablesCount], struct FJS_Variable variables[static variablesCount], struct PP_Var request);
-void FJS_Message_FreeVariables(uint32_t variablesCount, struct FJS_Variable variables[static variablesCount]);
+enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
+	size_t variablesSize,
+	size_t variablesCount,
+	const struct FJS_ArgumentDescriptor descriptors[static variablesCount],
+	struct PP_Var request,
+	FJS_Execute_Function executeFunction);
 
 bool FJS_Message_SetStatus(PP_Instance instance, struct PP_Var response, enum FJS_Error error);
 inline static void FJS_Message_RemoveStatus(struct PP_Var response) {

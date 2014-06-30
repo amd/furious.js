@@ -102,19 +102,19 @@ static struct PPP_Instance_1_1 pluginInstanceInterface = {
 	.HandleDocumentLoad = onDocumentLoad
 };
 
-static void handleMessage(PP_Instance instance, struct PP_Var message) {
+static void handleMessage(PP_Instance instance, struct PP_Var request) {
 	struct PP_Var commandVar = PP_MakeUndefined();
 	struct PP_Var idVar = PP_MakeUndefined();
 
-	if (message.type == PP_VARTYPE_UNDEFINED) {
-		FJS_LOG_ERROR("Message not specified");
+	if (request.type == PP_VARTYPE_UNDEFINED) {
+		FJS_LOG_ERROR("Request not specified");
 		goto cleanup;
-	} else if (message.type != PP_VARTYPE_DICTIONARY) {
-		FJS_LOG_ERROR("Unsupported message type: dictionary expected");
+	} else if (request.type != PP_VARTYPE_DICTIONARY) {
+		FJS_LOG_ERROR("Unsupported request type: dictionary expected");
 		goto cleanup;
 	}
 
-	idVar = dictionaryInterface->Get(message, FJS_StringVariables[FJS_StringVariable_Id]);
+	idVar = dictionaryInterface->Get(request, FJS_StringVariables[FJS_StringVariable_Id]);
 	if (idVar.type == PP_VARTYPE_UNDEFINED) {
 		FJS_LOG_ERROR("Id not specified");
 		goto cleanup;
@@ -123,11 +123,11 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 		goto cleanup;
 	}
 	if (dictionaryInterface->Set(FJS_ResponseVariable, FJS_StringVariables[FJS_StringVariable_Id], idVar) != PP_TRUE) {
-		FJS_LOG_ERROR("Failed to set reply message id");
+		FJS_LOG_ERROR("Failed to set response message id");
 		goto cleanup;
 	}
 
-	commandVar = dictionaryInterface->Get(message, FJS_StringVariables[FJS_StringVariable_Command]);
+	commandVar = dictionaryInterface->Get(request, FJS_StringVariables[FJS_StringVariable_Command]);
 	if (commandVar.type == PP_VARTYPE_UNDEFINED) {
 		FJS_LOG_ERROR("Command not specified");
 		goto cleanup;
@@ -151,89 +151,43 @@ static void handleMessage(PP_Instance instance, struct PP_Var message) {
 			break;
 		}
 		case FJS_Command_Empty:
-			FJS_Parse_Empty(instance, message);
-			break;
 		case FJS_Command_Array:
-			FJS_Parse_Array(instance, message);
-			break;
 		case FJS_Command_LinSpace:
-			FJS_Parse_LinSpace(instance, message);
-			break;
 		case FJS_Command_ReShape:
-			FJS_Parse_ReShape(instance, message);
-			break;
 		case FJS_Command_Repeat:
-			FJS_Parse_Repeat(instance, message);
-			break;
 		case FJS_Command_Release:
-			FJS_Parse_Release(instance, message);
-			break;
 		case FJS_Command_Get:
-			FJS_Parse_Get(instance, message);
-			break;
 		case FJS_Command_Add:
-			FJS_Parse_Add(instance, message);
-			break;
 		case FJS_Command_Sub:
-			FJS_Parse_Sub(instance, message);
-			break;
 		case FJS_Command_Mul:
-			FJS_Parse_Mul(instance, message);
-			break;
 		case FJS_Command_Div:
-			FJS_Parse_Div(instance, message);
-			break;
 		case FJS_Command_AddC:
-			FJS_Parse_AddC(instance, message);
-			break;
 		case FJS_Command_SubC:
-			FJS_Parse_SubC(instance, message);
-			break;
 		case FJS_Command_MulC:
-			FJS_Parse_MulC(instance, message);
-			break;
 		case FJS_Command_DivC:
-			FJS_Parse_DivC(instance, message);
-			break;
 		case FJS_Command_Neg:
-			FJS_Parse_Neg(instance, message);
-			break;
 		case FJS_Command_Abs:
-			FJS_Parse_Abs(instance, message);
-			break;
 		case FJS_Command_Exp:
-			FJS_Parse_Exp(instance, message);
-			break;
 		case FJS_Command_Log:
-			FJS_Parse_Log(instance, message);
-			break;
 		case FJS_Command_Sqrt:
-			FJS_Parse_Sqrt(instance, message);
-			break;
 		case FJS_Command_Square:
-			FJS_Parse_Square(instance, message);
-			break;
 		case FJS_Command_Min:
-			FJS_Parse_Min(instance, message);
-			break;
 		case FJS_Command_Max:
-			FJS_Parse_Max(instance, message);
-			break;
 		case FJS_Command_Sum:
-			FJS_Parse_Sum(instance, message);
-			break;
 		case FJS_Command_AxisMin:
-			FJS_Parse_AxisMin(instance, message);
-			break;
 		case FJS_Command_AxisMax:
-			FJS_Parse_AxisMax(instance, message);
-			break;
 		case FJS_Command_AxisSum:
-			FJS_Parse_AxisSum(instance, message);
-			break;
 		case FJS_Command_Dot:
-			FJS_Parse_Dot(instance, message);
+		{
+			const struct FJS_Command_Descriptor commandDescriptor = FJS_Command_Descriptors[command];
+			FJS_Message_Dispatch(instance,
+				commandDescriptor.argumentsSize,
+				commandDescriptor.argumentsCount,
+				commandDescriptor.argumentsDescriptors,
+				request,
+				commandDescriptor.executeFunction);
 			break;
+		}
 		case FJS_Command_Set:
 		case FJS_Command_RSubC:
 		case FJS_Command_RDivC:

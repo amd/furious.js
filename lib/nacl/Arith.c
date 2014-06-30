@@ -178,359 +178,106 @@ static const DotOpFunction dotFunctions[] = {
 	[FJS_DataType_F32] = (DotOpFunction) dotF32
 };
 
-static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]);
-static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]);
-static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]);
-static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]);
-static void parseAxisReduceOp(PP_Instance instance, struct PP_Var message, const AxisReduceOpFunction computeFunctions[static 1]);
-static void parseDotOp(PP_Instance instance, struct PP_Var message, const DotOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int32_t axis, int32_t idOut, const AxisReduceOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeDotOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const DotOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeBinaryOp(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const BinaryOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeBinaryConstOp(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const BinaryConstOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeUnaryOp(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const UnaryOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeReduceOp(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const ReduceOpFunction computeFunctions[static 1]);
+static enum FJS_Error executeAxisReduceOp(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const AxisReduceOpFunction computeFunctions[static 1]);
 
-void FJS_Parse_Add(PP_Instance instance, struct PP_Var message) {
-	parseBinaryOp(instance, message, addFunctions);
+enum FJS_Error FJS_Execute_Add(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryOp(instance, arguments, response, addFunctions);
 }
 
-void FJS_Parse_Sub(PP_Instance instance, struct PP_Var message) {
-	parseBinaryOp(instance, message, subFunctions);
+enum FJS_Error FJS_Execute_Sub(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryOp(instance, arguments, response, subFunctions);
 }
 
-void FJS_Parse_Mul(PP_Instance instance, struct PP_Var message) {
-	parseBinaryOp(instance, message, mulFunctions);
+enum FJS_Error FJS_Execute_Mul(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryOp(instance, arguments, response, mulFunctions);
 }
 
-void FJS_Parse_Div(PP_Instance instance, struct PP_Var message) {
-	parseBinaryOp(instance, message, divFunctions);
+enum FJS_Error FJS_Execute_Div(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryOp(instance, arguments, response, divFunctions);
 }
 
-void FJS_Parse_AddC(PP_Instance instance, struct PP_Var message) {
-	parseBinaryConstOp(instance, message, addConstFunctions);
+enum FJS_Error FJS_Execute_AddC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryConstOp(instance, arguments, response, addConstFunctions);
 }
 
-void FJS_Parse_SubC(PP_Instance instance, struct PP_Var message) {
-	parseBinaryConstOp(instance, message, subConstFunctions);
+enum FJS_Error FJS_Execute_SubC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryConstOp(instance, arguments, response, subConstFunctions);
 }
 
-void FJS_Parse_MulC(PP_Instance instance, struct PP_Var message) {
-	parseBinaryConstOp(instance, message, mulConstFunctions);
+enum FJS_Error FJS_Execute_MulC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryConstOp(instance, arguments, response, mulConstFunctions);
 }
 
-void FJS_Parse_DivC(PP_Instance instance, struct PP_Var message) {
-	parseBinaryConstOp(instance, message, divConstFunctions);
+enum FJS_Error FJS_Execute_DivC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeBinaryConstOp(instance, arguments, response, divConstFunctions);
 }
 
-void FJS_Parse_Neg(PP_Instance instance, struct PP_Var message) {
-	parseUnaryOp(instance, message, negFunctions);
+enum FJS_Error FJS_Execute_Neg(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeUnaryOp(instance, arguments, response, negFunctions);
 }
 
-void FJS_Parse_Abs(PP_Instance instance, struct PP_Var message) {
-	parseUnaryOp(instance, message, absFunctions);
+enum FJS_Error FJS_Execute_Abs(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeUnaryOp(instance, arguments, response, absFunctions);
 }
 
-void FJS_Parse_Exp(PP_Instance instance, struct PP_Var message) {
-	parseUnaryOp(instance, message, expFunctions);
+enum FJS_Error FJS_Execute_Exp(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeUnaryOp(instance, arguments, response, expFunctions);
 }
 
-void FJS_Parse_Log(PP_Instance instance, struct PP_Var message) {
-	parseUnaryOp(instance, message, logFunctions);
+enum FJS_Error FJS_Execute_Log(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeUnaryOp(instance, arguments, response, logFunctions);
 }
 
-void FJS_Parse_Sqrt(PP_Instance instance, struct PP_Var message) {
-	parseUnaryOp(instance, message, sqrtFunctions);
+enum FJS_Error FJS_Execute_Sqrt(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeUnaryOp(instance, arguments, response, sqrtFunctions);
 }
 
-void FJS_Parse_Square(PP_Instance instance, struct PP_Var message) {
-	parseUnaryOp(instance, message, squareFunctions);
+enum FJS_Error FJS_Execute_Square(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeUnaryOp(instance, arguments, response, squareFunctions);
 }
 
-void FJS_Parse_Min(PP_Instance instance, struct PP_Var message) {
-	parseReduceOp(instance, message, minFunctions);
+enum FJS_Error FJS_Execute_Min(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeReduceOp(instance, arguments, response, minFunctions);
 }
 
-void FJS_Parse_Max(PP_Instance instance, struct PP_Var message) {
-	parseReduceOp(instance, message, maxFunctions);
+enum FJS_Error FJS_Execute_Max(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeReduceOp(instance, arguments, response, maxFunctions);
 }
 
-void FJS_Parse_Sum(PP_Instance instance, struct PP_Var message) {
-	parseReduceOp(instance, message, sumFunctions);
+enum FJS_Error FJS_Execute_Sum(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeReduceOp(instance, arguments, response, sumFunctions);
 }
 
-void FJS_Parse_AxisMin(PP_Instance instance, struct PP_Var message) {
-	parseAxisReduceOp(instance, message, axisMinFunctions);
+enum FJS_Error FJS_Execute_AxisMin(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeAxisReduceOp(instance, arguments, response, axisMinFunctions);
 }
 
-void FJS_Parse_AxisMax(PP_Instance instance, struct PP_Var message) {
-	parseAxisReduceOp(instance, message, axisMaxFunctions);
+enum FJS_Error FJS_Execute_AxisMax(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeAxisReduceOp(instance, arguments, response, axisMaxFunctions);
 }
 
-void FJS_Parse_AxisSum(PP_Instance instance, struct PP_Var message) {
-	parseAxisReduceOp(instance, message, axisSumFunctions);
+enum FJS_Error FJS_Execute_AxisSum(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	return executeAxisReduceOp(instance, arguments, response, axisSumFunctions);
 }
 
-void FJS_Parse_Dot(PP_Instance instance, struct PP_Var message) {
-	parseDotOp(instance, message, dotFunctions);
-}
-
-enum BinaryOp_Argument {
-	BinaryOp_Argument_A,
-	BinaryOp_Argument_B,
-	BinaryOp_Argument_Out,
-};
-
-enum UnaryOp_Argument {
-	UnaryOp_Argument_A,
-	UnaryOp_Argument_Out,
-};
-
-enum ReduceOp_Argument {
-	ReduceOp_Argument_A,
-	ReduceOp_Argument_Out,
-};
-
-enum AxisReduceOp_Argument {
-	AxisReduceOp_Argument_A,
-	AxisReduceOp_Argument_Axis,
-	AxisReduceOp_Argument_Out,
-};
-
-static const struct FJS_VariableDescriptor binaryOpDescriptors[] =
+static enum FJS_Error executeBinaryOp(PP_Instance instance,
+	const struct FJS_BinaryOp_Command_Arguments arguments[static 1],
+	struct PP_Var response[static 1],
+	const BinaryOpFunction computeFunctions[static 1])
 {
-	[BinaryOp_Argument_A] = { 
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_A
-	},
-	[BinaryOp_Argument_B] = {
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_B
-	},
-	[BinaryOp_Argument_Out] = {
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_Out
-	}
-};
-
-static const struct FJS_VariableDescriptor binaryConstOpDescriptors[] =
-{
-	[BinaryOp_Argument_A] = { 
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_A
-	},
-	[BinaryOp_Argument_B] = {
-		.type = FJS_VariableType_Float64,
-		.name = FJS_StringVariable_B
-	},
-	[BinaryOp_Argument_Out] = {
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_Out
-	}
-};
-
-static const struct FJS_VariableDescriptor unaryOpDescriptors[] =
-{
-	[UnaryOp_Argument_A] = { 
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_A
-	},
-	[UnaryOp_Argument_Out] = {
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_Out
-	}
-};
-
-static const struct FJS_VariableDescriptor reduceOpDescriptors[] =
-{
-	[ReduceOp_Argument_A] = { 
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_A
-	},
-	[ReduceOp_Argument_Out] = {
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_Out
-	}
-};
-
-static const struct FJS_VariableDescriptor axisReduceOpDescriptors[] =
-{
-	[AxisReduceOp_Argument_A] = { 
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_A
-	},
-	[AxisReduceOp_Argument_Axis] = { 
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_Axis
-	},
-	[AxisReduceOp_Argument_Out] = {
-		.type = FJS_VariableType_Int32,
-		.name = FJS_StringVariable_Out
-	}
-};
-
-static void parseBinaryOp(PP_Instance instance, struct PP_Var message, const BinaryOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(binaryOpDescriptors)];
-	enum FJS_Error error = FJS_Error_Ok;
-
-	error = FJS_Message_Parse(FJS_COUNT_OF(binaryOpDescriptors), binaryOpDescriptors, variables, message);
-	if (error != FJS_Error_Ok) {
-		FJS_LOG_ERROR("Parse error");
-		goto cleanup;
-	}
-
-	error = executeBinaryOp(instance,
-		variables[BinaryOp_Argument_A].parsedValue.asInt32,
-		variables[BinaryOp_Argument_B].parsedValue.asInt32,
-		variables[BinaryOp_Argument_Out].parsedValue.asInt32,
-		computeFunctions);
-	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
-
-	FJS_Message_RemoveStatus(FJS_ResponseVariable);
-cleanup:
-	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
-}
-
-static void parseBinaryConstOp(PP_Instance instance, struct PP_Var message, const BinaryConstOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(binaryConstOpDescriptors)];
-	enum FJS_Error error = FJS_Error_Ok;
-
-	error = FJS_Message_Parse(FJS_COUNT_OF(binaryConstOpDescriptors), binaryConstOpDescriptors, variables, message);
-	if (error != FJS_Error_Ok) {
-		FJS_LOG_ERROR("Parse error");
-		goto cleanup;
-	}
-
-	error = executeBinaryConstOp(instance,
-		variables[BinaryOp_Argument_A].parsedValue.asInt32,
-		variables[BinaryOp_Argument_B].parsedValue.asFloat64,
-		variables[BinaryOp_Argument_Out].parsedValue.asInt32,
-		computeFunctions);
-	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
-
-	FJS_Message_RemoveStatus(FJS_ResponseVariable);
-cleanup:
-	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
-}
-
-static void parseUnaryOp(PP_Instance instance, struct PP_Var message, const UnaryOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(reduceOpDescriptors)];
-	enum FJS_Error error = FJS_Error_Ok;
-
-	error = FJS_Message_Parse(FJS_COUNT_OF(reduceOpDescriptors), reduceOpDescriptors, variables, message);
-	if (error != FJS_Error_Ok) {
-		FJS_LOG_ERROR("Parse error");
-		goto cleanup;
-	}
-
-	error = executeUnaryOp(instance,
-		variables[UnaryOp_Argument_A].parsedValue.asInt32,
-		variables[UnaryOp_Argument_Out].parsedValue.asInt32,
-		computeFunctions);
-	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
-
-	FJS_Message_RemoveStatus(FJS_ResponseVariable);
-cleanup:
-	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
-}
-
-static void parseReduceOp(PP_Instance instance, struct PP_Var message, const ReduceOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(reduceOpDescriptors)];
-	enum FJS_Error error = FJS_Error_Ok;
-
-	error = FJS_Message_Parse(FJS_COUNT_OF(reduceOpDescriptors), reduceOpDescriptors, variables, message);
-	if (error != FJS_Error_Ok) {
-		FJS_LOG_ERROR("Parse error");
-		goto cleanup;
-	}
-
-	error = executeReduceOp(instance,
-		variables[ReduceOp_Argument_A].parsedValue.asInt32,
-		variables[ReduceOp_Argument_Out].parsedValue.asInt32,
-		computeFunctions);
-	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
-
-	FJS_Message_RemoveStatus(FJS_ResponseVariable);
-cleanup:
-	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
-}
-
-static void parseAxisReduceOp(PP_Instance instance, struct PP_Var message, const AxisReduceOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(axisReduceOpDescriptors)];
-	enum FJS_Error error = FJS_Error_Ok;
-
-	error = FJS_Message_Parse(FJS_COUNT_OF(axisReduceOpDescriptors), axisReduceOpDescriptors, variables, message);
-	if (error != FJS_Error_Ok) {
-		FJS_LOG_ERROR("Parse error");
-		goto cleanup;
-	}
-
-	error = executeAxisReduceOp(instance,
-		variables[AxisReduceOp_Argument_A].parsedValue.asInt32,
-		variables[AxisReduceOp_Argument_Axis].parsedValue.asInt32,
-		variables[AxisReduceOp_Argument_Out].parsedValue.asInt32,
-		computeFunctions);
-	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
-
-	FJS_Message_RemoveStatus(FJS_ResponseVariable);
-cleanup:
-	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
-}
-
-static void parseDotOp(PP_Instance instance, struct PP_Var message, const DotOpFunction computeFunctions[static 1]) {
-	struct FJS_Variable variables[FJS_COUNT_OF(binaryOpDescriptors)];
-	enum FJS_Error error = FJS_Error_Ok;
-
-	error = FJS_Message_Parse(FJS_COUNT_OF(binaryOpDescriptors), binaryOpDescriptors, variables, message);
-	if (error != FJS_Error_Ok) {
-		FJS_LOG_ERROR("Parse error");
-		goto cleanup;
-	}
-
-	error = executeDotOp(instance,
-		variables[BinaryOp_Argument_A].parsedValue.asInt32,
-		variables[BinaryOp_Argument_B].parsedValue.asInt32,
-		variables[BinaryOp_Argument_Out].parsedValue.asInt32,
-		computeFunctions);
-	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
-		goto cleanup;
-	}
-
-	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
-
-	FJS_Message_RemoveStatus(FJS_ResponseVariable);
-cleanup:
-	FJS_Message_FreeVariables(FJS_COUNT_OF(variables), variables);
-}
-
-static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const BinaryOpFunction computeFunctions[static 1]) {
 	/* Validate the id for input array A and get NDArray object for array A */
+	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
 	/* Validate the id for input array B and get NDArray object for array B */
+	const int32_t idB = arguments->idB;
 	struct NDArray* arrayB = FJS_GetPointerFromId(instance, idB);
 	if (arrayB == NULL) {
 		return FJS_Error_InvalidId;
@@ -585,6 +332,7 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t
 
 	/* Short-cut: do additional checks only if a and out are actually different arrays */
 	void* dataOut = (void*) dataA;
+	const int32_t idOut = arguments->idOut;
 	if (idA != idOut) {
 		/* Short-cut: do additional checks only if b and out are actually different arrays */
 		dataOut = (void*) dataB;
@@ -645,8 +393,13 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance, int32_t idA, int32_t
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, double valueB, int32_t idOut, const BinaryConstOpFunction computeFunctions[static 1]) {
+static enum FJS_Error executeBinaryConstOp(PP_Instance instance,
+	const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1],
+	struct PP_Var response[static 1],
+	const BinaryConstOpFunction computeFunctions[static 1])
+{
 	/* Validate input array id and get NDArray object for this id */
+	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -673,6 +426,7 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, do
 
 	/* Short-cut: do additional checks only if a and out are actually different arrays */
 	void* dataOut = (void*) dataA;
+	const int32_t idOut = arguments->idOut;
 	if (idA != idOut) {
 		/*
 		 * Try to get NDArray for the provided output id.
@@ -724,13 +478,18 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance, int32_t idA, do
 	}
 
 	/* Do the binary operation with constant */
-	computeFunction(lengthA, dataA, valueB, dataOut);
+	computeFunction(lengthA, dataA, arguments->valueB, dataOut);
 
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t idOut, const UnaryOpFunction computeFunctions[static 1]) {
+static enum FJS_Error executeUnaryOp(PP_Instance instance,
+	const struct FJS_UnaryOp_Command_Arguments arguments[static 1],
+	struct PP_Var response[static 1],
+	const UnaryOpFunction computeFunctions[static 1])
+{
 	/* Validate input array id and get NDArray object for this id */
+	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -757,6 +516,7 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t 
 
 	/* Short-cut: do additional checks only if a and out are actually different arrays */
 	void* dataOut = (void*) dataA;
+	const int32_t idOut = arguments->idOut;
 	if (idA != idOut) {
 		/*
 		 * Try to get NDArray for the provided output id.
@@ -808,8 +568,13 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance, int32_t idA, int32_t 
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t idOut, const ReduceOpFunction computeFunctions[static 1]) {
+static enum FJS_Error executeReduceOp(PP_Instance instance,
+	const struct FJS_ReduceOp_Command_Arguments arguments[static 1],
+	struct PP_Var response[static 1],
+	const ReduceOpFunction computeFunctions[static 1])
+{
 	/* Validate input array id and get NDArray object for this id */
+	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -838,6 +603,7 @@ static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t
 	 * If there is an NDArray associated with the supplied id, validate it.
 	 * Otherwise, create an NDArray and associate it with the provided id.
 	 */
+	const int32_t idOut = arguments->idOut;
 	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	if (arrayOut == NULL) {
 		/* Define parameters for the output array */
@@ -876,8 +642,13 @@ static enum FJS_Error executeReduceOp(PP_Instance instance, int32_t idA, int32_t
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int32_t axis, int32_t idOut, const AxisReduceOpFunction computeFunctions[static 1]) {
+static enum FJS_Error executeAxisReduceOp(PP_Instance instance,
+	const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1],
+	struct PP_Var response[static 1],
+	const AxisReduceOpFunction computeFunctions[static 1])
+{
 	/* Validate input array id and get NDArray object for this id */
+	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -891,6 +662,7 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int
 	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
 	/* Validate axis. Note that this check always fails if dimensionsA == 0. */
+	const int32_t axis = arguments->axis;
 	if ((axis < 0) || (axis >= dimensionsA)) {
 		return FJS_Error_AxisOutOfRange;
 	}
@@ -923,6 +695,7 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int
 	 * If there is an NDArray associated with the supplied id, validate it.
 	 * Otherwise, create an NDArray and associate it with the provided id.
 	 */
+	const int32_t idOut = arguments->idOut;
 	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	if (arrayOut == NULL) {
 		/* Initialize the shape for the output array and compute strides for reduction */
@@ -971,14 +744,16 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance, int32_t idA, int
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeDotOp(PP_Instance instance, int32_t idA, int32_t idB, int32_t idOut, const DotOpFunction computeFunctions[static 1]) {
+enum FJS_Error FJS_Execute_Dot(PP_Instance instance, const struct FJS_Dot_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
 	/* Validate the id for input array A and get NDArray object for array A */
+	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
 	/* Validate the id for input array B and get NDArray object for array B */
+	const int32_t idB = arguments->idB;
 	struct NDArray* arrayB = FJS_GetPointerFromId(instance, idB);
 	if (arrayB == NULL) {
 		return FJS_Error_InvalidId;
@@ -1021,7 +796,7 @@ static enum FJS_Error executeDotOp(PP_Instance instance, int32_t idA, int32_t id
 	switch (dataTypeA) {
 		case FJS_DataType_F64:
 		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataTypeA];
+			computeFunction = dotFunctions[dataTypeA];
 			break;
 		case FJS_DataType_Invalid:
 		default:
@@ -1038,6 +813,7 @@ static enum FJS_Error executeDotOp(PP_Instance instance, int32_t idA, int32_t id
 		return FJS_Error_MismatchingShape;
 	}
 
+	const int32_t idOut = arguments->idOut;
 	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	if (arrayOut != NULL) {
 		FJS_LOG_ERROR("TODO [executeDotOp]: implement in-place operation");
