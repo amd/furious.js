@@ -187,6 +187,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var request) {
 				commandDescriptor.cleanupEntries,
 				commandDescriptor.cleanupNames,
 				request,
+				FJS_ResponseVariable,
 				commandDescriptor.executeFunction);
 			break;
 		}

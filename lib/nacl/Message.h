@@ -36,9 +36,8 @@ enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
 	size_t cleanupEntries,
 	const enum FJS_StringVariable cleanupNames[static cleanupEntries],
 	struct PP_Var request,
+	struct PP_Var response,
 	FJS_Execute_Function executeFunction);
 
 bool FJS_Message_SetStatus(PP_Instance instance, struct PP_Var response, enum FJS_Error error);
-inline static void FJS_Message_RemoveStatus(struct PP_Var response) {
-	dictionaryInterface->Delete(response, FJS_StringVariables[FJS_StringVariable_Status]);
-}
+void FJS_Message_ClearStatus(struct PP_Var response, enum FJS_Error error);

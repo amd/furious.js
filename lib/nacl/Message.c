@@ -14,6 +14,7 @@ enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
 	size_t cleanupEntries,
 	const enum FJS_StringVariable cleanupNames[static cleanupEntries],
 	struct PP_Var request,
+	struct PP_Var response,
 	FJS_Execute_Function executeFunction)
 {
 	enum FJS_Error error = FJS_Error_Ok;
@@ -125,25 +126,25 @@ enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
 				__builtin_unreachable();
 		}
 	}
-	error = executeFunction(instance, arguments, &FJS_ResponseVariable);
+	error = executeFunction(instance, arguments, &response);
 	if (error == FJS_Error_Ok) {
 		cleanupResponse = true;
 	}
 
 reply:
-	if (!FJS_Message_SetStatus(instance, FJS_ResponseVariable, error)) {
+	if (!FJS_Message_SetStatus(instance, response, error)) {
 		goto cleanup;
 	}
 
-	messagingInterface->PostMessage(instance, FJS_ResponseVariable);
+	messagingInterface->PostMessage(instance, response);
 
 	if (cleanupResponse) {
 		for (size_t entryIndex = 0; entryIndex < cleanupEntries; entryIndex++) {
 			const enum FJS_StringVariable cleanupName = cleanupNames[entryIndex];
-			dictionaryInterface->Delete(FJS_ResponseVariable, FJS_StringVariables[cleanupName]);
+			dictionaryInterface->Delete(response, FJS_StringVariables[cleanupName]);
 		}
 	}
-	FJS_Message_RemoveStatus(FJS_ResponseVariable);
+	FJS_Message_ClearStatus(response, error);
 
 cleanup:
 	for (uint32_t variableIndex = 0; variableIndex < variablesCount; variableIndex++) {
@@ -184,4 +185,11 @@ bool FJS_Message_SetStatus(PP_Instance instance, struct PP_Var responseVar, enum
 		}
 	}
 	return true;
+}
+
+void FJS_Message_ClearStatus(struct PP_Var response, enum FJS_Error error) {
+	dictionaryInterface->Delete(response, FJS_StringVariables[FJS_StringVariable_Status]);
+	if (error != FJS_Error_Ok) {
+		dictionaryInterface->Delete(response, FJS_StringVariables[FJS_StringVariable_Description]);
+	}
 }
