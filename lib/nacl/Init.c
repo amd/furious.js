@@ -102,19 +102,19 @@ static struct PPP_Instance_1_1 pluginInstanceInterface = {
 	.HandleDocumentLoad = onDocumentLoad
 };
 
-static void handleMessage(PP_Instance instance, struct PP_Var request) {
+static void handleMessage(PP_Instance instance, struct PP_Var requestVar) {
 	struct PP_Var commandVar = PP_MakeUndefined();
 	struct PP_Var idVar = PP_MakeUndefined();
 
-	if (request.type == PP_VARTYPE_UNDEFINED) {
+	if (requestVar.type == PP_VARTYPE_UNDEFINED) {
 		FJS_LOG_ERROR("Request not specified");
 		goto cleanup;
-	} else if (request.type != PP_VARTYPE_DICTIONARY) {
+	} else if (requestVar.type != PP_VARTYPE_DICTIONARY) {
 		FJS_LOG_ERROR("Unsupported request type: dictionary expected");
 		goto cleanup;
 	}
 
-	idVar = dictionaryInterface->Get(request, FJS_StringVariables[FJS_StringVariable_Id]);
+	idVar = dictionaryInterface->Get(requestVar, FJS_StringVariables[FJS_StringVariable_Id]);
 	if (idVar.type == PP_VARTYPE_UNDEFINED) {
 		FJS_LOG_ERROR("Id not specified");
 		goto cleanup;
@@ -127,7 +127,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var request) {
 		goto cleanup;
 	}
 
-	commandVar = dictionaryInterface->Get(request, FJS_StringVariables[FJS_StringVariable_Command]);
+	commandVar = dictionaryInterface->Get(requestVar, FJS_StringVariables[FJS_StringVariable_Command]);
 	if (commandVar.type == PP_VARTYPE_UNDEFINED) {
 		FJS_LOG_ERROR("Command not specified");
 		goto cleanup;
@@ -186,7 +186,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var request) {
 				commandDescriptor.argumentsDescriptors,
 				commandDescriptor.cleanupEntries,
 				commandDescriptor.cleanupNames,
-				request,
+				requestVar,
 				FJS_ResponseVariable,
 				commandDescriptor.executeFunction);
 			break;
@@ -203,6 +203,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var request) {
 cleanup:
 	varInterface->Release(commandVar);
 	varInterface->Release(idVar);
+	varInterface->Release(requestVar);
 }
 
 static struct PPP_Messaging_1_0 pluginMessagingInterface = {
