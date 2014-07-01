@@ -264,10 +264,11 @@ describe("NDArray", function(){
 		});
 		describe("Along an axis", function(){
 			it("Correct shape for 3-dimensional arrays", function(){
-				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
+				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]).lock();
 				expect(x.min(0).shape).to.deep.equal([3, 4]);
 				expect(x.min(1).shape).to.deep.equal([2, 4]);
 				expect(x.min(2).shape).to.deep.equal([2, 3]);
+				x.invalidate();
 			});
 			it("Correct result for 3-dimensional arrays, axis 0", function(done){
 				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
@@ -315,10 +316,11 @@ describe("NDArray", function(){
 		});
 		describe("Along an axis", function(){
 			it("Correct shape for 3-dimensional arrays", function(){
-				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
+				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]).lock();
 				expect(x.max(0).shape).to.deep.equal([3, 4]);
 				expect(x.max(1).shape).to.deep.equal([2, 4]);
 				expect(x.max(2).shape).to.deep.equal([2, 3]);
+				x.invalidate();
 			});
 			it("Correct result for 3-dimensional arrays, axis 0", function(done){
 				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
@@ -366,10 +368,11 @@ describe("NDArray", function(){
 		});
 		describe("Along an axis", function(){
 			it("Correct shape for 3-dimensional arrays", function(){
-				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
+				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]).lock();
 				expect(x.sum(0).shape).to.deep.equal([3, 4]);
 				expect(x.sum(1).shape).to.deep.equal([2, 4]);
 				expect(x.sum(2).shape).to.deep.equal([2, 3]);
+				x.invalidate();
 			});
 			it("Correct result for 3-dimensional arrays, axis 0", function(done){
 				var x = context.linspace(1, 24, 24).reshape([2, 3, 4]);
