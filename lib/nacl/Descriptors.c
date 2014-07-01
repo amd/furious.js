@@ -122,12 +122,12 @@ static const struct FJS_ArgumentDescriptor repeatArguments[] =
 	}
 };
 
-static const struct FJS_ArgumentDescriptor releaseArguments[] = 
+static const struct FJS_ArgumentDescriptor freeArguments[] = 
 {
 	{
 		.type = FJS_ArgumentType_Int32,
 		.name = FJS_StringVariable_In,
-		.offset = offsetof(struct FJS_Release_Command_Arguments, idA)
+		.offset = offsetof(struct FJS_Free_Command_Arguments, idA)
 	}
 };
 
@@ -279,11 +279,11 @@ const struct FJS_Command_Descriptor FJS_Command_Descriptors[] = {
 		.argumentsDescriptors = repeatArguments,
 		.executeFunction = (FJS_Execute_Function) FJS_Execute_Repeat
 	},
-	[FJS_Command_Release] = {
-		.argumentsSize = sizeof(struct FJS_Release_Command_Arguments),
-		.argumentsCount = FJS_COUNT_OF(releaseArguments),
-		.argumentsDescriptors = releaseArguments,
-		.executeFunction = (FJS_Execute_Function) FJS_Execute_Release
+	[FJS_Command_Free] = {
+		.argumentsSize = sizeof(struct FJS_Free_Command_Arguments),
+		.argumentsCount = FJS_COUNT_OF(freeArguments),
+		.argumentsDescriptors = freeArguments,
+		.executeFunction = (FJS_Execute_Function) FJS_Execute_Free
 	},
 	[FJS_Command_Get] = {
 		.argumentsSize = sizeof(struct FJS_Get_Command_Arguments),

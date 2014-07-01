@@ -374,7 +374,7 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_Release(PP_Instance instance, const struct FJS_Release_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+enum FJS_Error FJS_Execute_Free(PP_Instance instance, const struct FJS_Free_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
 	const int32_t idA = arguments->idA;
 	struct NDArray* array = FJS_GetPointerFromId(instance, idA);
 	if (array == NULL) {
