@@ -7,12 +7,13 @@
 
 struct NDArray {
 	enum FJS_DataType dataType;
+	void* data;
 	uint32_t length;
 	uint32_t dimensions;
-	uint32_t size;
 };
 
 struct NDArray* FJS_NDArray_Create(uint32_t dimensions, uint32_t length, const uint32_t shape[static dimensions], enum FJS_DataType dataType);
+struct NDArray* FJS_NDArray_ReShape(struct NDArray* array, uint32_t newDimensions, const uint32_t newShape[static newDimensions]);
 void FJS_NDArray_Delete(struct NDArray* array);
 
 inline static uint32_t* FJS_NDArray_GetShape(struct NDArray* array) {
@@ -27,7 +28,6 @@ inline static void* FJS_NDArray_GetData(struct NDArray* array) {
 	if (array == NULL) {
 		return NULL;
 	} else {
-		const uint32_t paddedDimensions = (array->dimensions + 1) & -2;
-		return (void*)(((uint32_t*)(array + 1)) + paddedDimensions);
+		return array->data;
 	}
 }

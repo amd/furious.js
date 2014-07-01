@@ -181,67 +181,67 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 		return FJS_Error_MismatchingLength;
 	}
 
-	/*
-	 * Pointer to the old output array.
-	 * If it is non-null, the output array must be deleted and de-associated from id if the function finishes successfully
-	 */
-	struct NDArray* arrayOutOld = NULL;
-
-	/* Short-cut: if input and output arrays and the number of dimensions are the same, only change array shape */
+	/* Try short-cut: if input and output arrays are the same, only change array shape */
 	const int32_t idOut = arguments->idOut;
 	if (idOut == idA) {
-		if (shapeOut.dimensions == dimensionsA) {
-			memcpy(shapeA, shapeOut.buffer, dimensionsA * sizeof(uint32_t));
-			return FJS_Error_Ok;
-		} else {
-			arrayOutOld = arrayA;
+		struct NDArray* arrayOut = FJS_NDArray_ReShape(arrayA, shapeOut.dimensions, shapeOut.buffer);
+		if (arrayOut == NULL) {
+			/* If re-allocation failed, then arrayA (associated with idA) is not a valid pointer */
+			FJS_ReleaseId(instance, idA);
+			return FJS_Error_OutOfMemory;
 		}
-	} else {
-		/*
-		 * Try to get NDArray for the provided output id.
-		 * If there is an NDArray associated with the supplied id, validate it.
-		 * Note that currently this array is not used for output, but recreated again with target parameters.
-		 */
-		arrayOutOld = FJS_GetPointerFromId(instance, idOut);
-		if (arrayOutOld != NULL) {
-			/* Check that the output array has expected length */
-			if (arrayOutOld->length != lengthOut) {
-				return FJS_Error_MismatchingLength;
-			}
-
-			/* Check that the output array matches the data type of the input array */
-			if (arrayOutOld->dataType != dataTypeA) {
-				return FJS_Error_MismatchingDataType;
-			}
-		}
+		return FJS_Error_Ok;
 	}
-
-	/* Create an output array with the required parameters */
-	const enum FJS_DataType dataTypeOut = dataTypeA;
-	struct NDArray* arrayOut = FJS_NDArray_Create(shapeOut.dimensions, lengthOut, shapeOut.buffer, dataTypeOut);
-	if (arrayOut == NULL) {
-		return FJS_Error_OutOfMemory;
-	}
-
-	/* Copy data to the output array */
-	void* dataOut = FJS_NDArray_GetData(arrayOut);
-	memcpy(dataOut, dataA, lengthA * elementSizeA);
 
 	/*
-	 * At this point the command cannot fail.
-	 * If needed, delete the old output array.
-	 * Note that it may be the same as input array
-	 * (thus we should not delete it before we copy the data, as in previous statement).
+	 * Try to get NDArray for the provided output id.
+	 * If there is an NDArray associated with the supplied id, validate it, reshape, and use the data buffer.
 	 */
-	if (arrayOutOld != NULL) {
+	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
+	if (arrayOut != NULL) {
+		/* Check that the output array has expected length */
+		if (arrayOut->length != lengthOut) {
+			return FJS_Error_MismatchingLength;
+		}
+
+		/* Check that the output array matches the data type of the input array */
+		if (arrayOut->dataType != dataTypeA) {
+			return FJS_Error_MismatchingDataType;
+		}
+
+		arrayOut = FJS_NDArray_ReShape(arrayOut, shapeOut.dimensions, shapeOut.buffer);
+		if (arrayOut == NULL) {
+			/* If re-allocation failed, then arrayOut (associated with idOut) is not a valid pointer */
+			FJS_ReleaseId(instance, idOut);
+			return FJS_Error_OutOfMemory;
+		}
+
+		/* Replace pointer associated with idOut */
 		FJS_ReleaseId(instance, idOut);
-		FJS_NDArray_Delete(arrayOutOld);
+		FJS_AllocateId(instance, idOut, arrayOut);
+
+		/* Copy data to the output array */
+		void* dataOut = FJS_NDArray_GetData(arrayOut);
+		memcpy(dataOut, dataA, lengthA * elementSizeA);
+
+		return FJS_Error_Ok;
+	} else {
+		/* Create an output array with the required parameters */
+		const enum FJS_DataType dataTypeOut = dataTypeA;
+		arrayOut = FJS_NDArray_Create(shapeOut.dimensions, lengthOut, shapeOut.buffer, dataTypeOut);
+		if (arrayOut == NULL) {
+			return FJS_Error_OutOfMemory;
+		}
+
+		/* Copy data to the output array */
+		void* dataOut = FJS_NDArray_GetData(arrayOut);
+		memcpy(dataOut, dataA, lengthA * elementSizeA);
+
+		/* Associate the (new) output array with output id */
+		FJS_AllocateId(instance, idOut, arrayOut);
+
+		return FJS_Error_Ok;
 	}
-
-	/* Associate the (new) output array with output id */
-	FJS_AllocateId(instance, idOut, arrayOut);
-
-	return FJS_Error_Ok;
 }
 
 enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
