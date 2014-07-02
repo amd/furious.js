@@ -3,6 +3,8 @@
 
 	"camelcase"     : true,
 	"quotmark"      : "double",
+	"loopfunc"      : true,
+	"shadow"        : true,
 	"expr"          : true,
 
 	"browser"       : true,
