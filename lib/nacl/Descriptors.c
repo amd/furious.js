@@ -21,6 +21,44 @@ static const struct FJS_ArgumentDescriptor emptyArguments[] =
 	}
 };
 
+static const struct FJS_ArgumentDescriptor zerosArguments[] =
+{
+	{ 
+		.type = FJS_ArgumentType_Int32,
+		.name = FJS_StringVariable_Out,
+		.offset = offsetof(struct FJS_Zeros_Command_Arguments, idOut)
+	},
+	{
+		.type = FJS_ArgumentType_DataType,
+		.name = FJS_StringVariable_Datatype,
+		.offset = offsetof(struct FJS_Zeros_Command_Arguments, dataType)
+	},
+	{
+		.type = FJS_ArgumentType_Shape,
+		.name = FJS_StringVariable_Shape,
+		.offset = offsetof(struct FJS_Zeros_Command_Arguments, shape)
+	}
+};
+
+static const struct FJS_ArgumentDescriptor onesArguments[] =
+{
+	{ 
+		.type = FJS_ArgumentType_Int32,
+		.name = FJS_StringVariable_Out,
+		.offset = offsetof(struct FJS_Ones_Command_Arguments, idOut)
+	},
+	{
+		.type = FJS_ArgumentType_DataType,
+		.name = FJS_StringVariable_Datatype,
+		.offset = offsetof(struct FJS_Ones_Command_Arguments, dataType)
+	},
+	{
+		.type = FJS_ArgumentType_Shape,
+		.name = FJS_StringVariable_Shape,
+		.offset = offsetof(struct FJS_Ones_Command_Arguments, shape)
+	}
+};
+
 static const struct FJS_ArgumentDescriptor arrayArguments[] =
 {
 	{ 
@@ -254,6 +292,18 @@ const struct FJS_Command_Descriptor FJS_Command_Descriptors[] = {
 		.argumentsCount = FJS_COUNT_OF(emptyArguments),
 		.argumentsDescriptors = emptyArguments,
 		.executeFunction = (FJS_Execute_Function) FJS_Execute_Empty
+	},
+	[FJS_Command_Zeros] = {
+		.argumentsSize = sizeof(struct FJS_Zeros_Command_Arguments),
+		.argumentsCount = FJS_COUNT_OF(zerosArguments),
+		.argumentsDescriptors = zerosArguments,
+		.executeFunction = (FJS_Execute_Function) FJS_Execute_Zeros
+	},
+	[FJS_Command_Ones] = {
+		.argumentsSize = sizeof(struct FJS_Ones_Command_Arguments),
+		.argumentsCount = FJS_COUNT_OF(onesArguments),
+		.argumentsDescriptors = onesArguments,
+		.executeFunction = (FJS_Execute_Function) FJS_Execute_Ones
 	},
 	[FJS_Command_Array] = {
 		.argumentsSize = sizeof(struct FJS_Array_Command_Arguments),

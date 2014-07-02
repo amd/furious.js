@@ -151,6 +151,8 @@ static void handleMessage(PP_Instance instance, struct PP_Var requestVar) {
 			break;
 		}
 		case FJS_Command_Empty:
+		case FJS_Command_Zeros:
+		case FJS_Command_Ones:
 		case FJS_Command_Array:
 		case FJS_Command_LinSpace:
 		case FJS_Command_ReShape:

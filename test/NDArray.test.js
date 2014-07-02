@@ -441,20 +441,99 @@ describe("NDArray", function(){
 	});
 });
 describe("empty", function(){
-	it("No error with integer shape", function(){
-		expect(function (){context.empty(100);}).to.not.throw(Error);
+	it("Creates array with specified shape", function() {
+		var x = context.empty(42);
+		var y = context.empty([42]);
+		var z = context.empty([4, 2]);
+		expect(x.shape).to.deep.equal([42]);
+		expect(y.shape).to.deep.equal([42]);
+		expect(z.shape).to.deep.equal([4, 2]);
+		x.invalidate();
+		y.invalidate();
+		z.invalidate();
 	});
-	it("No error with integer array shape", function(){
-		expect(function (){context.empty([100]);}).to.not.throw(Error);
+	it("Creates array with specified data type (F64 by default)", function() {
+		var x = context.empty([4, 2]);
+		var y = context.empty([4, 2], new furious.DataType("f64"));
+		var z = context.empty([4, 2], new furious.DataType("f32"));
+		expect(x.dataType.equals(new furious.DataType("f64"))).to.be.true;
+		expect(y.dataType.equals(new furious.DataType("f64"))).to.be.true;
+		expect(z.dataType.equals(new furious.DataType("f32"))).to.be.true;
+		x.invalidate();
+		y.invalidate();
+		z.invalidate();
 	});
-	it("No error with multi-dimensional integer array shape", function(){
-		expect(function (){context.empty([2, 5, 1]);}).to.not.throw(Error);
+});
+describe("zeros", function(){
+	it("Creates array with specified shape", function() {
+		var x = context.zeros(42);
+		var y = context.zeros([42]);
+		var z = context.zeros([4, 2]);
+		expect(x.shape).to.deep.equal([42]);
+		expect(y.shape).to.deep.equal([42]);
+		expect(z.shape).to.deep.equal([4, 2]);
+		x.invalidate();
+		y.invalidate();
+		z.invalidate();
 	});
-	it("No error with explicit F64 data type", function(){
-		expect(function (){context.empty([2, 5, 1], furious.DataType("f64"));}).to.not.throw(Error);
+	it("Creates array with specified data type (F64 by default)", function() {
+		var x = context.zeros([4, 2]);
+		var y = context.zeros([4, 2], new furious.DataType("f64"));
+		var z = context.zeros([4, 2], new furious.DataType("f32"));
+		expect(x.dataType.equals(new furious.DataType("f64"))).to.be.true;
+		expect(y.dataType.equals(new furious.DataType("f64"))).to.be.true;
+		expect(z.dataType.equals(new furious.DataType("f32"))).to.be.true;
+		x.invalidate();
+		y.invalidate();
+		z.invalidate();
 	});
-	it("No error with F32 data type", function(){
-		expect(function (){context.empty([2, 5, 1], furious.DataType("f32"));}).to.not.throw(Error);
+	it("Creates array with all elements initialized to zero", function(done) {
+		var x = context.zeros([3, 2], new furious.DataType("f64"));
+		var y = context.zeros([2, 3], new furious.DataType("f32"));
+		context.get(x, y, function(x, y) {
+			expect(x).to.deep.equal([[0.0, 0.0],
+			                         [0.0, 0.0],
+			                         [0.0, 0.0]]);
+			expect(y).to.deep.equal([[0.0, 0.0, 0.0],
+			                         [0.0, 0.0, 0.0]]);
+			done();
+		});
+	});
+});
+describe("ones", function(){
+	it("Creates array with specified shape", function() {
+		var x = context.ones(42);
+		var y = context.ones([42]);
+		var z = context.ones([4, 2]);
+		expect(x.shape).to.deep.equal([42]);
+		expect(y.shape).to.deep.equal([42]);
+		expect(z.shape).to.deep.equal([4, 2]);
+		x.invalidate();
+		y.invalidate();
+		z.invalidate();
+	});
+	it("Creates array with specified data type (F64 by default)", function() {
+		var x = context.ones([4, 2]);
+		var y = context.ones([4, 2], new furious.DataType("f64"));
+		var z = context.ones([4, 2], new furious.DataType("f32"));
+		expect(x.dataType.equals(new furious.DataType("f64"))).to.be.true;
+		expect(y.dataType.equals(new furious.DataType("f64"))).to.be.true;
+		expect(z.dataType.equals(new furious.DataType("f32"))).to.be.true;
+		x.invalidate();
+		y.invalidate();
+		z.invalidate();
+	});
+	it("Creates array with all elements initialized to one", function(done) {
+		var x = context.ones([3, 2], new furious.DataType("f64"));
+		var y = context.ones([2, 3], new furious.DataType("f32"));
+		context.get(x, y, function(x, y) {
+			expect(x).to.deep.equal([[1.0, 1.0],
+			                         [1.0, 1.0],
+			                         [1.0, 1.0]]);
+			expect(y).to.deep.equal([[1.0, 1.0, 1.0],
+			                         [1.0, 1.0, 1.0]]);
+			done();
+		});
 	});
 });
 describe("array", function(){

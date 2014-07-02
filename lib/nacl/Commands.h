@@ -14,6 +14,10 @@ enum FJS_Command {
 	FJS_Command_Init,
 	/* Create empty NDArray */
 	FJS_Command_Empty,
+	/* Create NDArray with zero elements */
+	FJS_Command_Zeros,
+	/* Create NDArray with identity elements */
+	FJS_Command_Ones,
 	/* Create NDArray from ArrayBuffer */
 	FJS_Command_Array,
 	/* Create NDArray the specified number on points evenly distributed on an interval */
@@ -87,6 +91,18 @@ struct FJS_Shape {
 };
 
 struct FJS_Empty_Command_Arguments {
+	int32_t idOut;
+	struct FJS_Shape shape;
+	enum FJS_DataType dataType;
+};
+
+struct FJS_Zeros_Command_Arguments {
+	int32_t idOut;
+	struct FJS_Shape shape;
+	enum FJS_DataType dataType;
+};
+
+struct FJS_Ones_Command_Arguments {
 	int32_t idOut;
 	struct FJS_Shape shape;
 	enum FJS_DataType dataType;
@@ -173,6 +189,8 @@ enum FJS_Command FJS_Command_Parse(const char* string, uint32_t size);
 typedef enum FJS_Error (*FJS_Execute_Function)(PP_Instance instance, const void* arguments, struct PP_Var response[static 1]);
 
 enum FJS_Error FJS_Execute_Empty(PP_Instance instance, const struct FJS_Empty_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Zeros(PP_Instance instance, const struct FJS_Zeros_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Ones(PP_Instance instance, const struct FJS_Ones_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_Array(PP_Instance instance, const struct FJS_Array_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, const struct FJS_LinSpace_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShape_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);

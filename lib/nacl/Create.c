@@ -23,9 +23,37 @@ static const StepInitFunction stepInitFunctions[] = {
 
 enum FJS_Error FJS_Execute_Empty(PP_Instance instance, const struct FJS_Empty_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
 	const struct FJS_Shape shape = arguments->shape;
-	if (shape.dimensions == 0) {
-		return FJS_Error_EmptyShape;
+	const uint32_t elementSize = FJS_DataType_GetSize(arguments->dataType);
+	if (elementSize == 0) {
+		return FJS_Error_InvalidDataType;
 	}
+	uint32_t length = 1;
+	for (uint32_t dimension = 0; dimension < shape.dimensions; dimension++) {
+		const uint32_t measure = shape.buffer[dimension];
+		if (measure < 1) {
+			return FJS_Error_DegenerateShape;
+		}
+		/* This multiplication can easily overflow */
+		if (!FJS_Util_Mul32u(length, measure, &length)) {
+			return FJS_Error_LengthOverflow;
+		}
+	}
+	uint32_t size;
+	if (!FJS_Util_Mul32u(length, elementSize, &size)) {
+		return FJS_Error_SizeOverflow;
+	}
+
+	struct NDArray* array = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, arguments->dataType);
+	if (array == NULL) {
+		return FJS_Error_OutOfMemory;
+	}
+
+	FJS_AllocateId(instance, arguments->idOut, array);
+	return FJS_Error_Ok;
+}
+
+enum FJS_Error FJS_Execute_Zeros(PP_Instance instance, const struct FJS_Zeros_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	const struct FJS_Shape shape = arguments->shape;
 	const uint32_t elementSize = FJS_DataType_GetSize(arguments->dataType);
 	if (elementSize == 0) {
 		return FJS_Error_InvalidDataType;
@@ -52,6 +80,56 @@ enum FJS_Error FJS_Execute_Empty(PP_Instance instance, const struct FJS_Empty_Co
 	}
 
 	memset(FJS_NDArray_GetData(array), 0, size);
+
+	FJS_AllocateId(instance, arguments->idOut, array);
+	return FJS_Error_Ok;
+}
+
+enum FJS_Error FJS_Execute_Ones(PP_Instance instance, const struct FJS_Ones_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+	const struct FJS_Shape shape = arguments->shape;
+	const uint32_t elementSize = FJS_DataType_GetSize(arguments->dataType);
+	if (elementSize == 0) {
+		return FJS_Error_InvalidDataType;
+	}
+	uint32_t length = 1;
+	for (uint32_t dimension = 0; dimension < shape.dimensions; dimension++) {
+		const uint32_t measure = shape.buffer[dimension];
+		if (measure < 1) {
+			return FJS_Error_DegenerateShape;
+		}
+		/* This multiplication can easily overflow */
+		if (!FJS_Util_Mul32u(length, measure, &length)) {
+			return FJS_Error_LengthOverflow;
+		}
+	}
+	uint32_t size;
+	if (!FJS_Util_Mul32u(length, elementSize, &size)) {
+		return FJS_Error_SizeOverflow;
+	}
+
+	const enum FJS_DataType dataType = arguments->dataType;
+	struct NDArray* array = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, dataType);
+	if (array == NULL) {
+		return FJS_Error_OutOfMemory;
+	}
+
+	void* data = FJS_NDArray_GetData(array);
+	switch (dataType) {
+	case FJS_DataType_F32:
+		for (size_t i = 0; i < length; i++) {
+			*((float*)data) = 1.0f;
+			data += sizeof(float);
+		}
+		break;
+	case FJS_DataType_F64:
+		for (size_t i = 0; i < length; i++) {
+			*((double*)data) = 1.0;
+			data += sizeof(double);
+		}
+		break;
+	default:
+		__builtin_unreachable();
+	}
 
 	FJS_AllocateId(instance, arguments->idOut, array);
 	return FJS_Error_Ok;
