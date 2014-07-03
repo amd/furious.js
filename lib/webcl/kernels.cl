@@ -1,3 +1,24 @@
+kernel void setF32(
+	uint length,
+	global float* out,
+	float value)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = value;
+	}
+}
+kernel void setF64(
+	uint length,
+	global double* out,
+	double value)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = value;
+	}
+}
+
 kernel void addF32(
 	uint length,
 	global float* a,
