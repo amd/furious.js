@@ -26,6 +26,7 @@ module.exports = function(grunt) {
 		browserify: {
 			furious: {
 				options: {
+					transform: ["brfs"],
 					bundleOptions : {
 						debug: false,
 						standalone: "furious"
@@ -37,6 +38,7 @@ module.exports = function(grunt) {
 			},
 			test: {
 				options: {
+					transform: ["brfs"],
 					bundleOptions : {
 						debug: true
 					}

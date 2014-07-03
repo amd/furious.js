@@ -37,6 +37,7 @@
   ],
   "dependencies": {},
   "devDependencies": {
+    "brfs": "^1.1.2",
     "browserify": "^4.1.6",
     "chai": "^1.9.1",
     "grunt-browserify": "^2.1.0",
