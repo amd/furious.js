@@ -35,7 +35,9 @@
     "mathematics",
     "statistics"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "node-webcl": "^0.8.3"
+  },
   "devDependencies": {
     "brfs": "^1.1.2",
     "browserify": "^4.1.6",

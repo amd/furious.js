@@ -26,6 +26,7 @@ module.exports = function(grunt) {
 		browserify: {
 			furious: {
 				options: {
+					exclude: ["node-webcl"],
 					transform: ["brfs"],
 					bundleOptions : {
 						debug: false,
@@ -38,6 +39,7 @@ module.exports = function(grunt) {
 			},
 			test: {
 				options: {
+					exclude: ["node-webcl"],
 					transform: ["brfs"],
 					bundleOptions : {
 						debug: true
