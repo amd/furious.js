@@ -271,14 +271,14 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance,
 {
 	/* Validate the id for input array A and get NDArray object for array A */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
 	/* Validate the id for input array B and get NDArray object for array B */
 	const int32_t idB = arguments->idB;
-	struct NDArray* arrayB = FJS_GetPointerFromId(instance, idB);
+	struct NDArray* arrayB = FJS_GetPointerFromId(instance, __builtin_abs(idB));
 	if (arrayB == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -390,6 +390,16 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance,
 	/* Do the binary operation with constant */
 	computeFunction(lengthA, dataA, dataB, dataOut);
 
+	/* De-allocate input arrays if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
+	if (idB < 0) {
+		FJS_NDArray_Delete(arrayB);
+		FJS_ReleaseId(instance, __builtin_abs(idB));
+	}
+
 	return FJS_Error_Ok;
 }
 
@@ -400,7 +410,7 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance,
 {
 	/* Validate input array id and get NDArray object for this id */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -480,6 +490,12 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance,
 	/* Do the binary operation with constant */
 	computeFunction(lengthA, dataA, arguments->valueB, dataOut);
 
+	/* De-allocate the input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
+
 	return FJS_Error_Ok;
 }
 
@@ -490,7 +506,7 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance,
 {
 	/* Validate input array id and get NDArray object for this id */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -564,6 +580,12 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance,
 
 	/* Do the unary operation */
 	computeFunction(lengthA, dataA, dataOut);
+
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
 
 	return FJS_Error_Ok;
 }

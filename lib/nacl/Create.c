@@ -459,6 +459,7 @@ enum FJS_Error FJS_Execute_Free(PP_Instance instance, const struct FJS_Free_Comm
 		return FJS_Error_InvalidId;
 	} else {
 		FJS_NDArray_Delete(array);
+		FJS_ReleaseId(instance, idA);
 		return FJS_Error_Ok;
 	}
 }
@@ -469,7 +470,7 @@ enum FJS_Error FJS_Execute_Get(PP_Instance instance, const struct FJS_Get_Comman
 	void* bufferPointer = NULL;
 
 	const int32_t idA = arguments->idA;
-	struct NDArray* array = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* array = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (array == NULL) {
 		error = FJS_Error_InvalidId;
 		goto cleanup;
@@ -493,6 +494,12 @@ enum FJS_Error FJS_Execute_Get(PP_Instance instance, const struct FJS_Get_Comman
 	if (dictionaryInterface->Set(*response, FJS_StringVariables[FJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
 		FJS_LOG_ERROR("Failed to set buffer");
 		goto cleanup;
+	}
+
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(array);
+		FJS_ReleaseId(instance, idA);
 	}
 
 cleanup:
