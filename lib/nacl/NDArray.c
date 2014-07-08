@@ -56,17 +56,10 @@ struct NDArray* FJS_NDArray_ReShape(struct NDArray* array, uint32_t newDimension
 		return NULL;
 	}
 
-	/* Copy header */
-	newArray->dataType = array->dataType;
-	newArray->data = array->data;
-	newArray->length = array->length;
-
 	/* Copy shape */
 	newArray->dimensions = newDimensions;
 	memcpy(FJS_NDArray_GetShape(newArray), newShape, newDimensions * sizeof(uint32_t));
 
-	/* De-allocate old array header & shape (but not data!) and return */
-	free(array);
 	return newArray;
 }
 

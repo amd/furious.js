@@ -227,7 +227,7 @@ enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, const struct FJS_LinSp
 enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShape_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
 	/* Validate the id for input array A and get NDArray object for array A */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -268,6 +268,14 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 			FJS_ReleaseId(instance, idA);
 			return FJS_Error_OutOfMemory;
 		}
+
+		/* If array was moved to a new address, we have to re-bind the id */
+		if (arrayOut != arrayA) {
+			FJS_ReleaseId(instance, idA);
+			FJS_AllocateId(instance, idOut, arrayOut);
+		}
+
+		/* Input array never needs to be de-allocated in this case */
 		return FJS_Error_Ok;
 	}
 
@@ -301,8 +309,6 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 		/* Copy data to the output array */
 		void* dataOut = FJS_NDArray_GetData(arrayOut);
 		memcpy(dataOut, dataA, lengthA * elementSizeA);
-
-		return FJS_Error_Ok;
 	} else {
 		/* Create an output array with the required parameters */
 		const enum FJS_DataType dataTypeOut = dataTypeA;
@@ -317,15 +323,21 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 
 		/* Associate the (new) output array with output id */
 		FJS_AllocateId(instance, idOut, arrayOut);
-
-		return FJS_Error_Ok;
 	}
+
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
+
+	return FJS_Error_Ok;
 }
 
 enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
 	/* Validate the id for input array A and get NDArray object for array A */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -449,6 +461,12 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 		}
 	}
 
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
+
 	return FJS_Error_Ok;
 }
 
@@ -499,7 +517,7 @@ enum FJS_Error FJS_Execute_Get(PP_Instance instance, const struct FJS_Get_Comman
 	/* De-allocate input array if needed */
 	if (idA < 0) {
 		FJS_NDArray_Delete(array);
-		FJS_ReleaseId(instance, idA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
 	}
 
 cleanup:

@@ -597,7 +597,7 @@ static enum FJS_Error executeReduceOp(PP_Instance instance,
 {
 	/* Validate input array id and get NDArray object for this id */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -661,6 +661,12 @@ static enum FJS_Error executeReduceOp(PP_Instance instance,
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	computeFunction(lengthA, dataA, dataOut);
 
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
+
 	return FJS_Error_Ok;
 }
 
@@ -671,7 +677,7 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance,
 {
 	/* Validate input array id and get NDArray object for this id */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -763,20 +769,26 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance,
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	computeFunction(outerStride, reductionLength, innerStride, dataA, dataOut);
 
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
+
 	return FJS_Error_Ok;
 }
 
 enum FJS_Error FJS_Execute_Dot(PP_Instance instance, const struct FJS_Dot_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
 	/* Validate the id for input array A and get NDArray object for array A */
 	const int32_t idA = arguments->idA;
-	struct NDArray* arrayA = FJS_GetPointerFromId(instance, idA);
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
 	/* Validate the id for input array B and get NDArray object for array B */
 	const int32_t idB = arguments->idB;
-	struct NDArray* arrayB = FJS_GetPointerFromId(instance, idB);
+	struct NDArray* arrayB = FJS_GetPointerFromId(instance, __builtin_abs(idB));
 	if (arrayB == NULL) {
 		return FJS_Error_InvalidId;
 	}
@@ -881,6 +893,16 @@ enum FJS_Error FJS_Execute_Dot(PP_Instance instance, const struct FJS_Dot_Comman
 	/* Do the dot product operation */
 	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	computeFunction(aStride, bOuterStride, bInnerStride, reductionLength, dataA, dataB, dataOut);
+
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, __builtin_abs(idA));
+	}
+	if (idB < 0) {
+		FJS_NDArray_Delete(arrayB);
+		FJS_ReleaseId(instance, __builtin_abs(idB));
+	}
 
 	return FJS_Error_Ok;
 }
