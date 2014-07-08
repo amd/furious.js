@@ -28,6 +28,7 @@ function DataType(type) {
 	if (["f32", "f64"].indexOf(type) >= 0) {
 		this.type = type;
 		this.size = {"f32": 4, "f64": 8}[type];
+		this.epsilon = {"f32": 1.1920928955078125e-7, "f64": 2.2204460492503131e-16}[type];
 		this.arrayType = {"f32": Float32Array, "f64": Float64Array}[type];
 	} else {
 		throw new RangeError("Type " + type + " is not supported");
@@ -52,6 +53,7 @@ module.exports = DataType;
 var NDArray = _dereq_("./NDArray");
 var DataType = _dereq_("./DataType");
 var util = _dereq_("./util");
+var jsmath = _dereq_("./jsmath");
 
 /**
  * Provides methods for creation, manipulation, and destruction of N-dimensional arrays.
@@ -72,6 +74,18 @@ function JSContext(callback) {
  * @param {DataType} dataType - the type of elements in the array.
  */
 JSContext.prototype.empty = function(shape, dataType) {
+	/* The is no way to create uninitialized typed array in JavaScript */
+	return this.zeros(shape, dataType);
+};
+
+/**
+ * Constructs an N-dimensional array with elements initialized to zero.
+ *
+ * @method zeros
+ * @param {Number} shape - the dimensions of the array
+ * @param {DataType} dataType - the type of elements in the array.
+ */
+JSContext.prototype.zeros = function(shape, dataType) {
 	shape = util.checkShape(shape);
 	if (typeof dataType === "undefined") {
 		dataType = new DataType("f64");
@@ -80,6 +94,20 @@ JSContext.prototype.empty = function(shape, dataType) {
 	}
 	var array = new NDArray(shape, dataType, this);
 	array._data = new dataType.arrayType(array.length);
+	return array;
+};
+
+/**
+ * Constructs an N-dimensional array with elements initialized to one.
+ *
+ * @method ones
+ * @param {Number} shape - the dimensions of the array
+ * @param {DataType} dataType - the type of elements in the array.
+ */
+JSContext.prototype.ones = function(shape, dataType) {
+	/* The is no way to create uninitialized typed array in JavaScript */
+	var array = this.zeros(shape, dataType);
+	jsmath.fill(array._data, 1.0);
 	return array;
 };
 
@@ -98,7 +126,7 @@ JSContext.prototype.array = function(data, dataType) {
 	}
 	var shape = [];
 	util.discoverArrayShapeRecursive(data, shape, 0);
-	var array = this.empty(shape, dataType, this);
+	var array = this.empty(shape, dataType);
 	util.copyArrayDataRecursive(array._data, data, shape, 0, 0);
 	return array;
 };
@@ -165,7 +193,7 @@ JSContext.prototype.get = function() {
  * @param {(NDArray|Number)} shape - dimensions of the new array.
  */
 JSContext.prototype.reshape = function(array, shape) {
-	util.checkShape(shape);
+	shape = util.checkShape(shape);
 	if (util.computeLength(shape) !== array.length) {
 		throw new RangeError("The shape is not compatible with the array");
 	}
@@ -208,23 +236,8 @@ JSContext.prototype.repeat = function(a, repeats, axis, out) {
 			out._incRef();
 		}
 		var outerStride = util.computeOuterStride(shapeA, axis);
-		var innerStride = 1;
-		for (var i = axis + 1; i < shapeA.length; i++) {
-			innerStride *= shapeA[i];
-		}
-		var repeatLengthA = shapeA[axis];
-		var dataA = a._data;
-		var dataOut = out._data;
-		for (var i = 0; i < outerStride; i++) {
-			for (var j = 0; j < repeatLengthA; j++) {
-				for (var k = 0; k < innerStride; k++) {
-					var valueA = dataA[(i * repeatLengthA + j) * innerStride + k];
-					for (var c = 0; c < repeats; c++) {
-						dataOut[((i * repeatLengthA + j) * repeats + c) * innerStride + k] = valueA;
-					}
-				}
-			}
-		}
+		var innerStride = util.computeInnerStride(shapeA, axis);
+		jsmath.repeat(a._data, out._data, outerStride, innerStride, shapeA[axis], repeats);
 	} catch (e) {
 		a._incRef();
 		throw e;
@@ -233,17 +246,7 @@ JSContext.prototype.repeat = function(a, repeats, axis, out) {
 	return out;
 };
 
-/**
- * Adds one number or array with another number or array.
- * Addition is performed element-by-element.
- *
- * @method mul
- * @param {(NDArray|Number)} a - one number or array to add. If **b** is a *Number*, **a** must be an *NDArray*.
- * @param {(NDArray|Number)} b - another number or array to add. If **a** is a *Number*, **b** must be an *NDArray*.
- * @param {NDArray} [out] - the array where the result is to be stored. If provided, must match the shape and data type of input arrays.
- * @return {NDArray} - the result of element-wise addition of **a** and **b**.
- */
-JSContext.prototype.add = function(a, b, out) {
+var binaryArithOp = function(a, b, out, context, operation, operationConst, operationRevConst) {
 	var shapeOut = null, dataTypeOut = null;
 	if (a instanceof NDArray) {
 		shapeOut = a.shape;
@@ -269,7 +272,7 @@ JSContext.prototype.add = function(a, b, out) {
 	}
 	try {
 		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, dataTypeOut, this);
+			out = new NDArray(shapeOut, dataTypeOut, context);
 			if ((a instanceof NDArray) && !a._hasRefs()) {
 				out._data = a._data;
 			} else if ((b instanceof NDArray) && !b._hasRefs()) {
@@ -285,21 +288,12 @@ JSContext.prototype.add = function(a, b, out) {
 		}
 		if (a instanceof NDArray) {
 			if (b instanceof NDArray) {
-				var dataA = a._data, dataB = b._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] + dataB[i];
-				}
+				operation(a._data, b._data, out._data);
 			} else {
-				var dataA = a._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] + b;
-				}
+				operationConst(a._data, +b, out._data);
 			}
 		} else {
-			var dataB = b._data, dataOut = out._data, n = out.length;
-			for (var i = 0; i < n; ++i) {
-				dataOut[i] = a + dataB[i];
-			}
+			operationRevConst(b._data, +a, out._data);
 		}
 	} catch (e) {
 		/* Restore the previous state */
@@ -318,6 +312,81 @@ JSContext.prototype.add = function(a, b, out) {
 		b._tryInvalidate();
 	}
 	return out;
+};
+
+var unaryArithOp = function(a, out, context, operation) {
+	util.checkNDArray(a, "a");
+	a._decRef();
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(a.shape, a.dataType, context);
+			if ((a instanceof NDArray) && !a._hasRefs()) {
+				out._data = a._data;
+			} else {
+				out._data = new a.dataType.arrayType(out.length);
+			}
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(a.shape, out.shape);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		operation(a._data, out._data);
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		throw e;
+	}
+	a._tryInvalidate();
+	return out;
+};
+
+var axisReduceOp = function(a, axis, out, context, operation, axisOperation) {
+	util.checkNDArray(a, "a");
+	if (typeof axis === "undefined") {
+		if (typeof out === "undefined") {
+			out = context.empty([], a.dataType);
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility([], out.shape);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		operation(a._data, out._data);
+		a._tryRelease();
+		return out;
+	} else {
+		axis = util.checkAxis(axis, a.shape.length);
+		var shapeOut = util.computeAxisReductionOutShape(a.shape, axis);
+		if (typeof out === "undefined") {
+			var out = context.empty(shapeOut, a.dataType);
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility([], out.shape);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		axisOperation(a._data, out._data,
+			util.computeOuterStride(a.shape, axis),
+			util.computeInnerStride(a.shape, axis),
+			a.shape[axis]);
+		a._tryRelease();
+		return out;
+	}
+};
+
+/**
+ * Adds one number or array with another number or array.
+ * Addition is performed element-by-element.
+ *
+ * @method add
+ * @param {(NDArray|Number)} a - one number or array to add. If **b** is a *Number*, **a** must be an *NDArray*.
+ * @param {(NDArray|Number)} b - another number or array to add. If **a** is a *Number*, **b** must be an *NDArray*.
+ * @param {NDArray} [out] - the array where the result is to be stored. If provided, must match the shape and data type of input arrays.
+ * @return {NDArray} - the result of element-wise addition of **a** and **b**.
+ */
+JSContext.prototype.add = function(a, b, out) {
+	return binaryArithOp(a, b, out, this, jsmath.add, jsmath.addConst, jsmath.addConst);
 };
 
 /**
@@ -331,80 +400,7 @@ JSContext.prototype.add = function(a, b, out) {
  * @return {NDArray} - the result of element-wise subtraction of **b** from **a**.
  */
 JSContext.prototype.sub = function(a, b, out) {
-	var shapeOut = null, dataTypeOut = null;
-	if (a instanceof NDArray) {
-		shapeOut = a.shape;
-		dataTypeOut = a.dataType;
-		if (b instanceof NDArray) {
-			util.checkShapesCompatibility(a.shape, b.shape);
-			util.checkDataTypesCompatibility(a.dataType, b.dataType);
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else if (util.isNumber(a)) {
-		shapeOut = b.shape;
-		dataTypeOut = b.dataType;
-		util.checkNDArray(b, "b");
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (a instanceof NDArray) {
-		a._decRef();
-	}
-	if (b instanceof NDArray) {
-		b._decRef();
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, dataTypeOut, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else if ((b instanceof NDArray) && !b._hasRefs()) {
-				out._data = b._data;
-			} else {
-				out._data = new dataTypeOut.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(shapeOut, out.shape);
-			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
-			out._incRef();
-		}
-		if (a instanceof NDArray) {
-			if (b instanceof NDArray) {
-				var dataA = a._data, dataB = b._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] - dataB[i];
-				}
-			} else {
-				var dataA = a._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] - b;
-				}
-			}
-		} else {
-			var dataB = b._data, dataOut = out._data, n = out.length;
-			for (var i = 0; i < n; ++i) {
-				dataOut[i] = a - dataB[i];
-			}
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		if (a instanceof NDArray) {
-			a._incRef();
-		}
-		if (b instanceof NDArray) {
-			b._incRef();
-		}
-		throw e;
-	}
-	if (a instanceof NDArray) {
-		a._tryInvalidate();
-	}
-	if (b instanceof NDArray) {
-		b._tryInvalidate();
-	}
-	return out;
+	return binaryArithOp(a, b, out, this, jsmath.sub, jsmath.subConst, jsmath.subRevConst);
 };
 
 /**
@@ -418,80 +414,7 @@ JSContext.prototype.sub = function(a, b, out) {
  * @return {NDArray} - the result of element-wise multiplication of **a** and **b**.
  */
 JSContext.prototype.mul = function(a, b, out) {
-	var shapeOut = null, dataTypeOut = null;
-	if (a instanceof NDArray) {
-		shapeOut = a.shape;
-		dataTypeOut = a.dataType;
-		if (b instanceof NDArray) {
-			util.checkShapesCompatibility(a.shape, b.shape);
-			util.checkDataTypesCompatibility(a.dataType, b.dataType);
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else if (util.isNumber(a)) {
-		shapeOut = b.shape;
-		dataTypeOut = b.dataType;
-		util.checkNDArray(b, "b");
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (a instanceof NDArray) {
-		a._decRef();
-	}
-	if (b instanceof NDArray) {
-		b._decRef();
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, dataTypeOut, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else if ((b instanceof NDArray) && !b._hasRefs()) {
-				out._data = b._data;
-			} else {
-				out._data = new dataTypeOut.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(shapeOut, out.shape);
-			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
-			out._incRef();
-		}
-		if (a instanceof NDArray) {
-			if (b instanceof NDArray) {
-				var dataA = a._data, dataB = b._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] * dataB[i];
-				}
-			} else {
-				var dataA = a._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] * b;
-				}
-			}
-		} else {
-			var dataB = b._data, dataOut = out._data, n = out.length;
-			for (var i = 0; i < n; ++i) {
-				dataOut[i] = a * dataB[i];
-			}
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		if (a instanceof NDArray) {
-			a._incRef();
-		}
-		if (b instanceof NDArray) {
-			b._incRef();
-		}
-		throw e;
-	}
-	if (a instanceof NDArray) {
-		a._tryInvalidate();
-	}
-	if (b instanceof NDArray) {
-		b._tryInvalidate();
-	}
-	return out;
+	return binaryArithOp(a, b, out, this, jsmath.mul, jsmath.mulConst, jsmath.mulConst);
 };
 
 /**
@@ -505,197 +428,19 @@ JSContext.prototype.mul = function(a, b, out) {
  * @return {NDArray} - the result of element-wise division of **a** by **b**.
  */
 JSContext.prototype.div = function(a, b, out) {
-	var shapeOut = null, dataTypeOut = null;
-	if (a instanceof NDArray) {
-		shapeOut = a.shape;
-		dataTypeOut = a.dataType;
-		if (b instanceof NDArray) {
-			util.checkShapesCompatibility(a.shape, b.shape);
-			util.checkDataTypesCompatibility(a.dataType, b.dataType);
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else if (util.isNumber(a)) {
-		shapeOut = b.shape;
-		dataTypeOut = b.dataType;
-		util.checkNDArray(b, "b");
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (a instanceof NDArray) {
-		a._decRef();
-	}
-	if (b instanceof NDArray) {
-		b._decRef();
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, dataTypeOut, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else if ((b instanceof NDArray) && !b._hasRefs()) {
-				out._data = b._data;
-			} else {
-				out._data = new dataTypeOut.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(shapeOut, out.shape);
-			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
-			out._incRef();
-		}
-		if (a instanceof NDArray) {
-			if (b instanceof NDArray) {
-				var dataA = a._data, dataB = b._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] / dataB[i];
-				}
-			} else {
-				var dataA = a._data, dataOut = out._data, n = out.length;
-				for (var i = 0; i < n; ++i) {
-					dataOut[i] = dataA[i] / b;
-				}
-			}
-		} else {
-			var dataB = b._data, dataOut = out._data, n = out.length;
-			for (var i = 0; i < n; ++i) {
-				dataOut[i] = a / dataB[i];
-			}
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		if (a instanceof NDArray) {
-			a._incRef();
-		}
-		if (b instanceof NDArray) {
-			b._incRef();
-		}
-		throw e;
-	}
-	if (a instanceof NDArray) {
-		a._tryInvalidate();
-	}
-	if (b instanceof NDArray) {
-		b._tryInvalidate();
-	}
-	return out;
+	return binaryArithOp(a, b, out, this, jsmath.div, jsmath.divConst, jsmath.divRevConst);
 };
 
-JSContext.prototype.min = function(inArray, axis) {
-	if (typeof axis === "undefined") {
-		var output = this.empty([], inArray.dataType);
-
-		/* Computation of all-array min */
-		var result = inArray._data[0];
-		for (var i = 1; i < inArray.length; ++i) {
-			result = Math.min(result, inArray._data[i]);
-		}
-		output._data[0] = result;
-
-		return output;
-	} else if (util.isInt(axis)) {
-		axis = util.checkAxis(axis, inArray.shape.length);
-		var outShape = util.computeAxisReductionOutShape(inArray.shape, axis);
-		var outArray = this.empty(outShape, inArray.dataType);
-
-		/* Computation of min along axis */
-		var outerStride = util.computeOuterStride(inArray.shape, axis);
-		var innerStride = util.computeInnerStride(inArray.shape, axis);
-		var reductionDim = inArray.shape[axis];
-		for (var i = 0; i < outerStride; ++i) {
-			for (var k = 0; k < innerStride; ++k) {
-				var offset = i * reductionDim * innerStride + k;
-				var currentMin = inArray._data[offset];
-				for (var j = 1; j < reductionDim; ++j) {
-					offset += innerStride;
-					currentMin = Math.min(currentMin, inArray._data[offset]);
-				}
-				outArray._data[i * innerStride + k] = currentMin;
-			}
-		}
-
-		return outArray;
-	} else {
-		throw new TypeError("Unsupported axis type");
-	}
+JSContext.prototype.min = function(a, axis, out) {
+	return axisReduceOp(a, axis, out, this, jsmath.min, jsmath.axisMin);
 };
 
-JSContext.prototype.max = function(inArray, axis) {
-	if (typeof axis === "undefined") {
-		var output = this.empty([], inArray.dataType);
-
-		/* Computation of all-array max */
-		var result = inArray._data[0];
-		for (var i = 1; i < inArray.length; ++i) {
-			result = Math.max(result, inArray._data[i]);
-		}
-		output._data[0] = result;
-
-		return output;
-	} else if (util.isInt(axis)) {
-		axis = util.checkAxis(axis, inArray.shape.length);
-		var outShape = util.computeAxisReductionOutShape(inArray.shape, axis);
-		var outArray = this.empty(outShape, inArray.dataType);
-
-		/* Computation of max along axis */
-		var outerStride = util.computeOuterStride(inArray.shape, axis);
-		var innerStride = util.computeInnerStride(inArray.shape, axis);
-		var reductionDim = inArray.shape[axis];
-		for (var i = 0; i < outerStride; ++i) {
-			for (var k = 0; k < innerStride; ++k) {
-				var offset = i * reductionDim * innerStride + k;
-				var currentMax = inArray._data[offset];
-				for (var j = 1; j < reductionDim; ++j) {
-					offset += innerStride;
-					currentMax = Math.max(currentMax, inArray._data[offset]);
-				}
-				outArray._data[i * innerStride + k] = currentMax;
-			}
-		}
-
-		return outArray;
-	} else {
-		throw new TypeError("Unsupported axis type");
-	}
+JSContext.prototype.max = function(a, axis, out) {
+	return axisReduceOp(a, axis, out, this, jsmath.max, jsmath.axisMax);
 };
 
-JSContext.prototype.sum = function(inArray, axis) {
-	if (typeof axis === "undefined") {
-		var output = this.empty([], inArray.dataType);
-
-		/* Computation of all-array sum */
-		var result = inArray._data[0];
-		for (var i = 1; i < inArray.length; ++i) {
-			result += inArray._data[i];
-		}
-		output._data[0] = result;
-
-		return output;
-	} else if (util.isInt(axis)) {
-		axis = util.checkAxis(axis, inArray.shape.length);
-		var outShape = util.computeAxisReductionOutShape(inArray.shape, axis);
-		var outArray = this.empty(outShape, inArray.dataType);
-
-		/* Computation of sum along axis */
-		var outerStride = util.computeOuterStride(inArray.shape, axis);
-		var innerStride = util.computeInnerStride(inArray.shape, axis);
-		var reductionDim = inArray.shape[axis];
-		for (var i = 0; i < outerStride; ++i) {
-			for (var k = 0; k < innerStride; ++k) {
-				var offset = i * reductionDim * innerStride + k;
-				var currentSum = inArray._data[offset];
-				for (var j = 1; j < reductionDim; ++j) {
-					offset += innerStride;
-					currentSum += inArray._data[offset];
-				}
-				outArray._data[i * innerStride + k] = currentSum;
-			}
-		}
-
-		return outArray;
-	} else {
-		throw new TypeError("Unsupported axis type");
-	}
+JSContext.prototype.sum = function(a, axis, out) {
+	return axisReduceOp(a, axis, out, this, jsmath.sum, jsmath.axisSum);
 };
 
 /**
@@ -706,33 +451,7 @@ JSContext.prototype.sum = function(inArray, axis) {
  * @param {NDArray} [out] - the array for negated elements. If supplied, must match the dimensions and data type of the **a** array.
  */
 JSContext.prototype.neg = function(a, out) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else {
-				out._data = new a.dataType.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var dataA = a._data, dataOut = out._data, n = a.length;
-		for (var i = 0; i < n; ++i) {
-			dataOut[i] = -dataA[i];
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
+	return unaryArithOp(a, out, this, jsmath.neg);
 };
 
 /**
@@ -743,33 +462,7 @@ JSContext.prototype.neg = function(a, out) {
  * @param {NDArray} [out] - the array for computed absolute values. If supplied, must match the dimensions and data type of the **a** array.
  */
 JSContext.prototype.abs = function(a, out) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else {
-				out._data = new a.dataType.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var dataA = a._data, dataOut = out._data, n = a.length;
-		for (var i = 0; i < n; ++i) {
-			dataOut[i] = Math.abs(dataA[i]);
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
+	return unaryArithOp(a, out, this, jsmath.abs);
 };
 
 /**
@@ -780,33 +473,7 @@ JSContext.prototype.abs = function(a, out) {
  * @param {NDArray} [out] - the array for exponentiated elements. If supplied, must match the dimensions and data type of the **a** array.
  */
 JSContext.prototype.exp = function(a, out) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else {
-				out._data = new a.dataType.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var dataA = a._data, dataOut = out._data, n = a.length;
-		for (var i = 0; i < n; ++i) {
-			dataOut[i] = Math.exp(dataA[i]);
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
+	return unaryArithOp(a, out, this, jsmath.exp);
 };
 
 /**
@@ -817,33 +484,7 @@ JSContext.prototype.exp = function(a, out) {
  * @param {NDArray} [out] - the array for computed logarithm values. If supplied, must match the dimensions and data type of the **a** array.
  */
 JSContext.prototype.log = function(a, out) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else {
-				out._data = new a.dataType.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var dataA = a._data, dataOut = out._data, n = a.length;
-		for (var i = 0; i < n; ++i) {
-			dataOut[i] = Math.log(dataA[i]);
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
+	return unaryArithOp(a, out, this, jsmath.log);
 };
 
 /**
@@ -854,33 +495,7 @@ JSContext.prototype.log = function(a, out) {
  * @param {NDArray} [out] - the array for computed square root values. If supplied, must match the dimensions and data type of the **a** array.
  */
 JSContext.prototype.sqrt = function(a, out) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else {
-				out._data = new a.dataType.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var dataA = a._data, dataOut = out._data, n = a.length;
-		for (var i = 0; i < n; ++i) {
-			dataOut[i] = Math.sqrt(dataA[i]);
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
+	return unaryArithOp(a, out, this, jsmath.sqrt);
 };
 
 /**
@@ -891,34 +506,7 @@ JSContext.prototype.sqrt = function(a, out) {
  * @param {NDArray} [out] - the array for squared elements. If supplied, must match the dimensions and data type of the **a** array.
  */
 JSContext.prototype.square = function(a, out) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, this);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else {
-				out._data = new a.dataType.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var dataA = a._data, dataOut = out._data, n = a.length;
-		for (var i = 0; i < n; ++i) {
-			var valueA = dataA[i];
-			dataOut[i] = valueA * valueA;
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
+	return unaryArithOp(a, out, this, jsmath.square);
 };
 
 /**
@@ -927,7 +515,7 @@ JSContext.prototype.square = function(a, out) {
  * @method dot
  * @param {NDArray} a - the first input array.
  * @param {NDArray} b - the second input array.
- * @param {NDArray} [out] - the output array. If supplied, must match the data type of **a** and **b** arrays and have the expected shape.
+ * @param {NDArray} [out] - the output array. If supplied, must match the data type of **a** and **b** arrays and have the expected shape. Can not be the same array as **a** or **b**.
  * @return {NDArray} - the array with the dot product of **a** and **b**.
  */
 JSContext.prototype.dot = function(a, b, out) {
@@ -938,8 +526,8 @@ JSContext.prototype.dot = function(a, b, out) {
 	/* The axis of b used in reduction: axis 0 for 1D array, second-to-last axis for ND array */
 	var aAxis = Math.max(a.shape.length - 1, 0);
 	var bAxis = Math.max(b.shape.length - 2, 0);
-	var reductionLength = a.shape[aAxis];
-	if (reductionLength !== b.shape[bAxis]) {
+	var reductionDim = a.shape[aAxis];
+	if (reductionDim !== b.shape[bAxis]) {
 		throw new RangeError("Arrays have incompatible reduction dimensions");
 	}
 	var shapeOut = [], strideA = 1, outerStrideB = 1, innerStrideB = 1;
@@ -963,17 +551,13 @@ JSContext.prototype.dot = function(a, b, out) {
 		util.checkNDArray(out, "out");
 		util.checkShapesCompatibility(out.shape, shapeOut);
 		util.checkDataTypesCompatibility(out.dataType, a.dataType);
+		util.checkDifferentNDArrays(a, out, "a", "out");
+		util.checkDifferentNDArrays(b, out, "b", "out");
+		out._incRef();
 	}
-	var dataA = a._data, dataB = b._data, dataOut = out._data;
-	for (var i = 0; i < strideA; i++) {
-		for (var j = 0; j < reductionLength; j++) {
-			for (var k = 0; k < outerStrideB; k++) {
-				for (var l = 0; l < innerStrideB; l++) {
-					dataOut[(i*outerStrideB + k) * innerStrideB + l] += dataA[i*reductionLength+j] * dataB[(k*reductionLength+j)*innerStrideB+l];
-				}
-			}
-		}
-	}
+	jsmath.dot(a._data, b._data, out._data, strideA, outerStrideB, innerStrideB, reductionDim);
+	a._tryRelease();
+	b._tryRelease();
 	return out;
 };
 
@@ -984,9 +568,9 @@ JSContext.prototype.dot = function(a, b, out) {
  * @param {Number} start - the starting endpoint of the sequence. Must be a finite number.
  * @param {Number} stop - the final endpoint of the sequence. Must be a finite number.
  * @param {Number} [samples=50] - the number of samples in the sequency. Must be a positive integer.
- * @param {Boolean} [includeStop=true] - an indicator of whether the final endpoint (`stop` argument) should be included in the sequence.
+ * @param {Boolean} [closed=true] - an indicator of whether the final endpoint (`stop` argument) should be included in the sequence.
  */
-JSContext.prototype.linspace = function(start, stop, samples, includeStop) {
+JSContext.prototype.linspace = function(start, stop, samples, closed) {
 	if (!util.isReal(start)) {
 		throw new TypeError(start + " is not a real number");
 	}
@@ -1001,16 +585,16 @@ JSContext.prototype.linspace = function(start, stop, samples, includeStop) {
 	} else if (samples <= 0) {
 		throw new RangeError("The number of samples must be positive");
 	}
-	if (typeof includeStop === "undefined") {
-		includeStop = true;
+	if (typeof closed === "undefined") {
+		closed = true;
 	}
-	if (includeStop && (samples === 1)) {
+	if (closed && (samples === 1)) {
 		throw new RangeError("The number of samples must be a least 2 (for start and end points)");
 	}
 	var array = this.empty(samples, new DataType("f64"));
 	var data = array._data;
 	var range = stop - start;
-	var n = (includeStop) ? samples - 1 : samples;
+	var n = (closed) ? samples - 1 : samples;
 	var step = range / n;
 	for (var i = 0; i < samples; i++) {
 		data[i] = start + step * i;
@@ -1020,7 +604,7 @@ JSContext.prototype.linspace = function(start, stop, samples, includeStop) {
 
 module.exports = JSContext;
 
-},{"./DataType":1,"./NDArray":3,"./util":9}],3:[function(_dereq_,module,exports){
+},{"./DataType":1,"./NDArray":3,"./jsmath":7,"./util":8}],3:[function(_dereq_,module,exports){
 "use strict";
 
 var util = _dereq_("./util");
@@ -1148,7 +732,7 @@ NDArray.prototype.retain = function() {
 };
 
 /**
- * Decrements the array reference count. If the reference count achieves zero, the array becomes invalid and its data buffer is deallocated.
+ * Decrements the array reference count. If the reference count turns zero, the array becomes invalid and its data buffer is deallocated.
  * If the array is invalid or locked, this operation will fail with an error.
  *
  * @method release
@@ -1162,7 +746,43 @@ NDArray.prototype.release = function() {
 		throw new Error("Attempted to release a locked array");
 	}
 	if (--this._refCount === 0) {
-		this._context.invalidate(this);
+		this._context._invalidate(this);
+	}
+	return this;
+};
+
+/**
+ * For a non-locked array, decrements the array reference count. If the reference count turns zero, the array becomes invalid and its data buffer is deallocated.
+ * If the array is invalid, this operation will fail with an error.
+ *
+ * @method tryRelease
+ * @chainable
+ */
+NDArray.prototype.tryRelease = function() {
+	if (!this.isValid()) {
+		throw new Error("Attempted to release an invalidated array");
+	}
+	if (!this.isLocked()) {
+		if (--this._refCount === 0) {
+			this._context._invalidate(this);
+		}
+	}
+	return this;
+};
+
+/**
+ * For a non-locked array, decrements the array reference count. If the reference count turns zero, the array becomes invalid and its data buffer is deallocated.
+ * The array must be valid to perform this operation.
+ *
+ * @private
+ * @method _tryRelease
+ * @chainable
+ */
+NDArray.prototype._tryRelease = function() {
+	if (!this.isLocked()) {
+		if (--this._refCount === 0) {
+			this._context._invalidate(this);
+		}
 	}
 	return this;
 };
@@ -1212,6 +832,7 @@ NDArray.prototype._decRef = function(array) {
 	if (this._lockCount === 0) {
 		--this._refCount;
 	}
+	return this._refCount !== 0;
 };
 
 /**
@@ -1379,7 +1000,7 @@ NDArray.prototype.get = function(callback) {
 
 module.exports = NDArray;
 
-},{"./DataType":1,"./util":9}],4:[function(_dereq_,module,exports){
+},{"./DataType":1,"./util":8}],4:[function(_dereq_,module,exports){
 "use strict";
 
 var NDArray = _dereq_("./NDArray");
@@ -1403,26 +1024,6 @@ try {
 	}
 } catch (e) {
 }
-
-var shapeToLength = function(shape) {
-	var length = 1;
-	for (var i = 0; i < shape.length; i++) {
-		length *= shape[i];
-	}
-	return length;
-};
-
-var isCompatibleShape = function(shape1, shape2) {
-	if (shape1.length !== shape2.length) {
-		return false;
-	}
-	for (var i = 0; i < shape1.length; i++) {
-		if (shape1[i] !== shape2[i]) {
-			return false;
-		}
-	}
-	return true;
-};
 
 var messageCallbacks = {};
 
@@ -1475,6 +1076,44 @@ PNaClContext.prototype.empty = function(shape, dataType) {
 	this._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "empty",
+		"shape": new Uint32Array(shape).buffer,
+		"datatype": dataType.type,
+		"out": array._id
+	});
+	return array;
+};
+
+PNaClContext.prototype.zeros = function(shape, dataType) {
+	shape = util.checkShape(shape);
+	if (typeof dataType === "undefined") {
+		dataType = new DataType("f64");
+	} else if (!(dataType instanceof DataType)) {
+		throw new TypeError(dataType + " is not an instance of DataType");
+	}
+	var array = new NDArray(shape, dataType, this);
+	array._id = allocator.newArrayId();
+	this._pnaclObject.postMessage({
+		"id": allocator.newMessageId(),
+		"command": "zeros",
+		"shape": new Uint32Array(shape).buffer,
+		"datatype": dataType.type,
+		"out": array._id
+	});
+	return array;
+};
+
+PNaClContext.prototype.ones = function(shape, dataType) {
+	shape = util.checkShape(shape);
+	if (typeof dataType === "undefined") {
+		dataType = new DataType("f64");
+	} else if (!(dataType instanceof DataType)) {
+		throw new TypeError(dataType + " is not an instance of DataType");
+	}
+	var array = new NDArray(shape, dataType, this);
+	array._id = allocator.newArrayId();
+	this._pnaclObject.postMessage({
+		"id": allocator.newMessageId(),
+		"command": "ones",
 		"shape": new Uint32Array(shape).buffer,
 		"datatype": dataType.type,
 		"out": array._id
@@ -1542,23 +1181,28 @@ PNaClContext.prototype.linspace = function(start, stop, samples, includeStop) {
 	return array;
 };
 
-PNaClContext.prototype.reshape = function(array, shape) {
-	if (!util.isPositiveIntArray(shape) && !util.isPositiveInt(shape)) {
-		throw new TypeError(shape + " is not a valid array shape");
+PNaClContext.prototype.reshape = function(a, shape) {
+	util.checkNDArray(a, "a");
+	shape = util.checkShape(shape);
+	if (util.computeLength(shape) !== a.length) {
+		throw new RangeError("The shape is not compatible with the array");
 	}
-	if (shapeToLength(shape) !== array.length) {
-		throw new RangeError(shape + " is not compatible with the array");
+	var releaseArray = !a._decRef();
+	var out = new NDArray(shape, a.dataType, this);
+	if (releaseArray) {
+		out._id = a._id;
+		releaseArray = false;
+	} else {
+		out._id = allocator.newArrayId();
 	}
-	var output = new NDArray(shape, array.dataType, this);
-	output._id = allocator.newArrayId();
 	this._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "reshape",
-		"a": array._id,
-		"out": output._id,
+		"a": (releaseArray ? -a._id : a._id),
+		"out": out._id,
 		"shape": new Uint32Array(shape).buffer
 	});
-	return output;
+	return out;
 };
 
 PNaClContext.prototype.repeat = function(a, repeats, axis, out) {
@@ -1575,11 +1219,13 @@ PNaClContext.prototype.repeat = function(a, repeats, axis, out) {
 		util.checkNDArray(out, "out");
 		util.checkShapesCompatibility(out.shape, shapeOut);
 		util.checkDataTypesCompatibility(a.dataType, out.dataType);
+		out._incRef();
 	}
+	var releaseA = !a._decRef();
 	this._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "repeat",
-		"a": a._id,
+		"a": (releaseA ? -a._id : a._id),
 		"out": out._id,
 		"repeats": repeats,
 		"axis": axis
@@ -1591,7 +1237,7 @@ PNaClContext.prototype._invalidate = function(array) {
 	if (array._id !== 0) {
 		this._pnaclObject.postMessage({
 			"id": allocator.newMessageId(),
-			"command": "release",
+			"command": "free",
 			"in": array._id
 		});
 	}
@@ -1606,10 +1252,12 @@ PNaClContext.prototype.get = function() {
 	if (arguments.length === 1) {
 		throw new Error("At least one NDArray argument expected");
 	}
-	for (var i = 0; i < arguments.length - 1; i++) {
-		if (!(arguments[i] instanceof NDArray)) {
-			throw new TypeError("Argument " + i + " is not an NDArray");
-		}
+	for (var i = 0; i < arguments.length - 1; ++i) {
+		util.checkNDArray(arguments[i], "argument " + i);
+	}
+	var release = new Array(arguments.length - 1);
+	for (var i = 0; i < arguments.length - 1; ++i) {
+		release[i] = !arguments[i]._decRef();
 	}
 	var callbackWaitArguments = arguments.length - 1;
 	var callbackArguments = new Array(callbackWaitArguments);
@@ -1617,50 +1265,47 @@ PNaClContext.prototype.get = function() {
 		var array = arguments[i];
 		var messageId = allocator.newMessageId();
 		if (array.shape.length === 0) {
-			messageCallbacks[messageId] = (function(i) {
+			messageCallbacks[messageId] = (function(i, ArrayType) {
 				return function(buffer) {
-					var typedArray = new array.dataType.arrayType(buffer);
+					var typedArray = new ArrayType(buffer);
 					callbackArguments[i] = typedArray[0];
 					if (--callbackWaitArguments === 0) {
 						callback.apply(null, callbackArguments);
 					}
 				};
-			})(i);
+			})(i, array.dataType.arrayType);
 		} else {
-			messageCallbacks[messageId] = (function(i) {
+			messageCallbacks[messageId] = (function(i, ArrayType, shape) {
 				return function(buffer) {
-					var jsarray = new Array(array.shape[0]);
-					util.createArrayRecursive(new array.dataType.arrayType(buffer), jsarray, array.shape, 0, 0);
+					var jsarray = new Array(shape[0]);
+					util.createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
 					callbackArguments[i] = jsarray;
 					if (--callbackWaitArguments === 0) {
 						callback.apply(null, callbackArguments);
 					}
 				};
-			})(i);
+			})(i, array.dataType.arrayType, array.shape);
 		}
 		this._pnaclObject.postMessage({
 			"id": messageId,
 			"command": "get",
-			"in": array._id
+			"in": (release[i] ? -array._id : array._id)
 		});
 	}
 };
 
 var binaryArithOp = function(a, b, out, context, operation) {
-	var shapeOut = null, dataTypeOut = null, idA = 0, idB = 0;
+	var shapeOut = null, dataTypeOut = null, releaseA = false, releaseB = false;
 	if (a instanceof NDArray) {
-		idA = a._id;
 		shapeOut = a.shape;
 		dataTypeOut = a.dataType;
 		if (b instanceof NDArray) {
-			idB = b._id;
 			util.checkShapesCompatibility(a.shape, b.shape);
 			util.checkDataTypesCompatibility(a.dataType, b.dataType);
 		} else if (!util.isNumber(b)) {
 			throw new TypeError("Unsupported type of b");
 		}
 	} else if (util.isNumber(a)) {
-		idB = b._id;
 		shapeOut = b.shape;
 		dataTypeOut = b.dataType;
 		util.checkNDArray(b, "b");
@@ -1668,20 +1313,20 @@ var binaryArithOp = function(a, b, out, context, operation) {
 		throw new TypeError("Unsupported type of a");
 	}
 	if (a instanceof NDArray) {
-		a._decRef();
+		releaseA = !a._decRef();
 	}
 	if (b instanceof NDArray) {
-		b._decRef();
+		releaseB = !b._decRef();
 	}
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray(shapeOut, dataTypeOut, context);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
+			if (releaseA) {
 				out._id = a._id;
-				a._id = 0;
-			} else if ((b instanceof NDArray) && !b._hasRefs()) {
+				releaseA = false;
+			} else if (releaseB) {
 				out._id = b._id;
-				b._id = 0;
+				releaseB = false;
 			} else {
 				out._id = allocator.newArrayId();
 			}
@@ -1696,15 +1341,15 @@ var binaryArithOp = function(a, b, out, context, operation) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation,
-					"a": idA,
-					"b": idB,
+					"a": (releaseA ? -a._id : a._id),
+					"b": (releaseB ? -b._id : b._id),
 					"out": out._id
 				});
 			} else {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation + "c",
-					"a": idA,
+					"a": (releaseA ? -a._id : a._id),
 					"b": b,
 					"out": out._id
 				});
@@ -1715,7 +1360,7 @@ var binaryArithOp = function(a, b, out, context, operation) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation + "c",
-					"a": idB,
+					"a": (releaseB ? -b._id : b._id),
 					"b": a,
 					"out": out._id
 				});
@@ -1723,8 +1368,8 @@ var binaryArithOp = function(a, b, out, context, operation) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": "r" + operation + "c",
-					"a": idA,
-					"b": b,
+					"a": b,
+					"b": (releaseA ? -a._id : a._id),
 					"out": out._id
 				});
 			}
@@ -1739,25 +1384,18 @@ var binaryArithOp = function(a, b, out, context, operation) {
 		}
 		throw e;
 	}
-	if (a instanceof NDArray) {
-		a._tryInvalidate();
-	}
-	if (b instanceof NDArray) {
-		b._tryInvalidate();
-	}
 	return out;
 };
 
 var unaryArithOp = function(a, out, context, operation) {
 	util.checkNDArray(a, "a");
-	var idA = a._id;
-	a._decRef();
+	var releaseA = !a._decRef();
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray(a.shape, a.dataType, context);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
+			if (releaseA) {
 				out._id = a._id;
-				a._id = 0;
+				releaseA = false;
 			} else {
 				out._id = allocator.newArrayId();
 			}
@@ -1775,57 +1413,62 @@ var unaryArithOp = function(a, out, context, operation) {
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": idA,
+		"a": (releaseA ? -a._id : a._id),
 		"out": out._id
 	});
-	a._tryInvalidate();
 	return out;
 };
 
 var reduceArithOp = function(a, out, context, operation) {
-	var dataType = null;
-	if (a instanceof NDArray) {
-		dataType = a.dataType;
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (typeof out === "undefined") {
-		out = new NDArray([], dataType, context);
-		out._id = allocator.newArrayId();
-	} else if (out instanceof NDArray) {
-		util.checkShapesCompatibility(out.shape, []);
-	} else {
-		throw new TypeError("out is not an NDArray");
+	util.checkNDArray(a, "a");
+	var releaseA = !a._decRef();
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray([], a.dataType, context);
+			out._id = allocator.newArrayId();
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(out.shape, []);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": a._id,
+		"a": (releaseA ? -a._id : a._id),
 		"out": out._id
 	});
 	return out;
 };
 
 var axisReduceArithOp = function(a, axis, out, context, operation) {
-	var dataType = null;
-	if (a instanceof NDArray) {
-		dataType = a.dataType;
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	util.checkAxis(axis);
-	if (typeof out === "undefined") {
-		out = new NDArray(util.computeAxisReductionOutShape(a.shape, axis), dataType, context);
-		out._id = allocator.newArrayId();
-	} else if (out instanceof NDArray) {
-		util.checkAxisReductionOutShape(a.shape, out.shape, axis);
-	} else {
-		throw new TypeError("out is not an NDArray");
+	util.checkNDArray(a, "a");
+	var releaseA = !a._decRef();
+	try {
+		util.checkAxis(axis);
+		if (typeof out === "undefined") {
+			out = new NDArray(util.computeAxisReductionOutShape(a.shape, axis), a.dataType, context);
+			out._id = allocator.newArrayId();
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(out.shape, []);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": a._id,
+		"a": (releaseA ? -a._id : a._id),
 		"axis": axis|0,
 		"out": out._id
 	});
@@ -1833,47 +1476,48 @@ var axisReduceArithOp = function(a, axis, out, context, operation) {
 };
 
 var dotArithOp = function(a, b, out, context) {
-	var dataType = null;
-	if (a instanceof NDArray) {
-		dataType = a.dataType;
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (b instanceof NDArray) {
-		util.checkDataTypesCompatibility(dataType, b.dataType);
-	} else {
-		throw new TypeError("Unsupported type of b");
-	}
-	if (typeof out === "undefined") {
-		var shapeA = a.shape;
-		var shapeB = b.shape;
-		var axisA = Math.max(shapeA.length - 1, 0);
-		var axisB = Math.max(shapeB.length - 2, 0);
-		if (shapeA[axisA] != shapeB[axisB]) {
-			throw new TypeError("Mismatch in reduction dimensions");
-		}
-		var shapeOut = [];
-		for (var i = 0; i < axisA; i++) {
-			shapeOut.push(shapeA[i]);
-		}
-		if (shapeB.length > 1) {
-			for (var i = 0; i < axisB; i++) {
-				shapeOut.push(shapeB[i]);
+	util.checkNDArray(a, "a");
+	util.checkNDArray(b, "b");
+	util.checkDataTypesCompatibility(a.dataType, b.dataType);
+	var releaseA = !a._decRef();
+	var releaseB = !b._decRef();
+	try {
+		if (typeof out === "undefined") {
+			var shapeA = a.shape;
+			var shapeB = b.shape;
+			var axisA = Math.max(shapeA.length - 1, 0);
+			var axisB = Math.max(shapeB.length - 2, 0);
+			if (shapeA[axisA] != shapeB[axisB]) {
+				throw new TypeError("Mismatch in reduction dimensions");
 			}
-			shapeOut.push(shapeB[shapeB.length - 1]);
+			var shapeOut = [];
+			for (var i = 0; i < axisA; i++) {
+				shapeOut.push(shapeA[i]);
+			}
+			if (shapeB.length > 1) {
+				for (var i = 0; i < axisB; i++) {
+					shapeOut.push(shapeB[i]);
+				}
+				shapeOut.push(shapeB[shapeB.length - 1]);
+			}
+			out = new NDArray(shapeOut, a.dataType, context);
+			out._id = allocator.newArrayId();
+		} else if (out instanceof NDArray) {
+			util.checkNDArray(out, "out");
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			throw new Error("Not implemented");
 		}
-		out = new NDArray(shapeOut, dataType, context);
-		out._id = allocator.newArrayId();
-	} else if (out instanceof NDArray) {
-		throw new Error("Not implemented");
-	} else {
-		throw new TypeError("out is not an NDArray");
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		b._incRef();
+		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "dot",
-		"a": a._id,
-		"b": b._id,
+		"a": (releaseA ? -a._id : a._id),
+		"b": (releaseB ? -b._id : b._id),
 		"out": out._id
 	});
 	return out;
@@ -1955,577 +1599,7 @@ PNaClContext.prototype.dot = function(a, b, out) {
 
 module.exports = PNaClContext;
 
-},{"./DataType":1,"./NDArray":3,"./allocator":7,"./util":9}],5:[function(_dereq_,module,exports){
-"use strict";
-
-var NDArray = _dereq_("./NDArray");
-var DataType = _dereq_("./DataType");
-var util = _dereq_("./util");
-var source = _dereq_("./WebCLKernels.js");
-
-var shapeToLength = function(shape) {
-	var length = 1;
-	for (var i = 0; i < shape.length; i++) {
-		length *= shape[i];
-	}
-	return length;
-};
-
-var isCompatibleShape = function(shape1, shape2) {
-	if (shape1.length !== shape2.length) {
-		return false;
-	}
-	for (var i = 0; i < shape1.length; i++) {
-		if (shape1[i] !== shape2[i]) {
-			return false;
-		}
-	}
-	return true;
-};
-
-var context = null;
-var queue = null;
-var program = null;
-var messageCallbacks = {};
-var cl = null;
-
-var binaryOpKernels = {
-	add: {},
-	sub: {},
-	mul: {},
-	div: {}
-};
-var binaryConstOpKernels = {
-	add: {},
-	sub: {},
-	mul: {},
-	div: {}
-};
-var unaryOpKernels = {
-	neg: {},
-	abs: {},
-	exp: {},
-	log: {},
-	sqrt: {},
-	square: {}
-};
-
-function WebCLContext(callback) {
-	if (cl === null) {
-		if (typeof webcl === "undefined") {
-			cl = new WebCL();
-		} else {
-			cl = webcl;
-		}
-		context = cl.createContext();
-		queue = context.createCommandQueue();
-		program = context.createProgram(source);
-		program.build();
-		binaryOpKernels.add.f32 = program.createKernel("addF32");
-		binaryOpKernels.add.f64 = program.createKernel("addF64");
-		binaryOpKernels.sub.f32 = program.createKernel("subF32");
-		binaryOpKernels.sub.f64 = program.createKernel("subF64");
-		binaryOpKernels.mul.f32 = program.createKernel("mulF32");
-		binaryOpKernels.mul.f64 = program.createKernel("mulF64");
-		binaryOpKernels.div.f32 = program.createKernel("divF32");
-		binaryOpKernels.div.f64 = program.createKernel("divF64");
-		binaryConstOpKernels.add.f32 = program.createKernel("addConstF32");
-		binaryConstOpKernels.add.f64 = program.createKernel("addConstF64");
-		binaryConstOpKernels.sub.f32 = program.createKernel("subConstF32");
-		binaryConstOpKernels.sub.f64 = program.createKernel("subConstF64");
-		binaryConstOpKernels.mul.f32 = program.createKernel("mulConstF32");
-		binaryConstOpKernels.mul.f64 = program.createKernel("mulConstF64");
-		binaryConstOpKernels.div.f32 = program.createKernel("divConstF32");
-		binaryConstOpKernels.div.f64 = program.createKernel("divConstF64");
-		unaryOpKernels.neg.f32 = program.createKernel("negF32");
-		unaryOpKernels.neg.f64 = program.createKernel("negF64");
-		unaryOpKernels.abs.f32 = program.createKernel("absF32");
-		unaryOpKernels.abs.f64 = program.createKernel("absF64");
-		unaryOpKernels.exp.f32 = program.createKernel("expF32");
-		unaryOpKernels.exp.f64 = program.createKernel("expF64");
-		unaryOpKernels.log.f32 = program.createKernel("logF32");
-		unaryOpKernels.log.f64 = program.createKernel("logF64");
-		unaryOpKernels.sqrt.f32 = program.createKernel("sqrtF32");
-		unaryOpKernels.sqrt.f64 = program.createKernel("sqrtF64");
-		unaryOpKernels.square.f32 = program.createKernel("squareF32");
-		unaryOpKernels.square.f64 = program.createKernel("squareF64");
-	}
-	callback(this);
-}
-
-WebCLContext.prototype.empty = function(shape, dataType) {
-	if (!util.isPositiveIntArray(shape) && !util.isPositiveInt(shape)) {
-		throw new TypeError(shape + " is not a valid array shape");
-	}
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
-	}
-	var ndarray = new NDArray(shape, dataType, this);
-	ndarray._buffer = context.createBuffer(cl.MEM_READ_WRITE, ndarray.length * dataType.size);
-	return ndarray;
-};
-
-WebCLContext.prototype.array = function(data, dataType) {
-	var shape = [];
-	util.discoverArrayShapeRecursive(data, shape, 0);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
-	}
-	var ndarray = new NDArray(shape, dataType, this);
-	var buffer = new dataType.arrayType(ndarray.length);
-	util.copyArrayDataRecursive(buffer, data, shape, 0, 0);
-	ndarray._buffer = context.createBuffer(cl.MEM_READ_WRITE, ndarray.length * dataType.size);
-	queue.enqueueWriteBuffer(ndarray._buffer, false, 0, ndarray.length * dataType.size, buffer);
-	return ndarray;
-};
-
-WebCLContext.prototype._invalidate = function(array) {
-	util.checkNDArray(array, "array");
-	array._buffer.release();
-};
-
-WebCLContext.prototype.get = function(ndarray, callback) {
-	if (!(ndarray instanceof NDArray)) {
-		throw new TypeError(ndarray + " is not an NDArray");
-	}
-	/*
-	var readFinishEvent = new WebCLEvent();
-	var buffer = new ndarray.dataType.arrayType(ndarray.length);
-	queue.enqueueReadBuffer(ndarray._buffer, false, 0, ndarray.length * ndarray.dataType.size, buffer, null, readFinishEvent);
-	readFinishEvent.setCallback(cl.COMPLETE, function() {
-		readFinishEvent.release();
-		var jsarray = new Array(ndarray.shape[0]);
-		createArrayRecursive(new ndarray.dataType.arrayType(buffer), jsarray, ndarray.shape, 0, 0);
-		callback(jsarray);
-	});*/
-	var readFinishEvent = new WebCLEvent();
-	var buffer = new ndarray.dataType.arrayType(ndarray.length);
-	queue.enqueueReadBuffer(ndarray._buffer, true, 0, ndarray.length * ndarray.dataType.size, buffer);
-	var jsarray = new Array(ndarray.shape[0]);
-	util.createArrayRecursive(new ndarray.dataType.arrayType(buffer), jsarray, ndarray.shape, 0, 0);
-	callback(jsarray);
-};
-
-var binaryArithOp = function(a, b, out, context, operation) {
-	var shape = null, dataType = null;
-	if (a instanceof NDArray) {
-		shape = a.shape;
-		dataType = a.dataType;
-		if (b instanceof NDArray) {
-			if (!isCompatibleShape(shape, b.shape)) {
-				throw new Error("The a and b arrays have incompatible shapes");
-			}
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (typeof out === "undefined") {
-		out = context.empty(shape, dataType);
-	} else if (out instanceof NDArray) {
-		if (!isCompatibleShape(shape, out.shape)) {
-			throw new Error("The out array has incompatible shape");
-		}
-	} else {
-		throw new TypeError("out is not an NDArray");
-	}
-	if (a instanceof NDArray) {
-		if (b instanceof NDArray) {
-			var kernel = binaryOpKernels[operation][dataType.type];
-			kernel.setArg(0, new Uint32Array([out.length]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, b._buffer);
-			kernel.setArg(3, out._buffer);
-			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-		} else {
-			var kernel = binaryConstOpKernels[operation][dataType.type];
-			kernel.setArg(0, new Uint32Array([out.length]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, new a.dataType.arrayType([b]));
-			kernel.setArg(3, out._buffer);
-			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-		}
-	}
-	return out;
-};
-
-var unaryArithOp = function(a, out, context, operation) {
-	var shape = null, dataType = null;
-	if (a instanceof NDArray) {
-		shape = a.shape;
-		dataType = a.dataType;
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (typeof out === "undefined") {
-		out = context.empty(shape, dataType);
-	} else if (out instanceof NDArray) {
-		if (!isCompatibleShape(shape, out.shape)) {
-			throw new Error("The out array has incompatible shape");
-		}
-	} else {
-		throw new TypeError("out is not an NDArray");
-	}
-	var kernel = unaryOpKernels[operation][dataType.type];
-	kernel.setArg(0, new Uint32Array([out.length]));
-	kernel.setArg(1, a._buffer);
-	kernel.setArg(2, out._buffer);
-	queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-	return out;
-};
-
-WebCLContext.prototype.add = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "add");
-};
-
-WebCLContext.prototype.sub = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "sub");
-};
-
-WebCLContext.prototype.mul = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "mul");
-};
-
-WebCLContext.prototype.div = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "div");
-};
-
-WebCLContext.prototype.neg = function(a, out) {
-	return unaryArithOp(a, out, this, "neg");
-};
-
-WebCLContext.prototype.abs = function(a, out) {
-	return unaryArithOp(a, out, this, "abs");
-};
-
-WebCLContext.prototype.exp = function(a, out) {
-	return unaryArithOp(a, out, this, "exp");
-};
-
-WebCLContext.prototype.log = function(a, out) {
-	return unaryArithOp(a, out, this, "log");
-};
-
-WebCLContext.prototype.sqrt = function(a, out) {
-	return unaryArithOp(a, out, this, "sqrt");
-};
-
-WebCLContext.prototype.square = function(a, out) {
-	return unaryArithOp(a, out, this, "square");
-};
-
-module.exports = WebCLContext;
-
-},{"./DataType":1,"./NDArray":3,"./WebCLKernels.js":6,"./util":9}],6:[function(_dereq_,module,exports){
-"use strict";
-
-module.exports = [
-	"kernel void addF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] + b[id];",
-	"	}",
-	"}",
-	"kernel void addF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] + b[id];",
-	"	}",
-	"}",
-	"kernel void subF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] - b[id];",
-	"	}",
-	"}",
-	"kernel void subF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] - b[id];",
-	"	}",
-	"}",
-	"kernel void mulF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] * b[id];",
-	"	}",
-	"}",
-	"kernel void mulF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] * b[id];",
-	"	}",
-	"}",
-	"kernel void divF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] / b[id];",
-	"	}",
-	"}",
-	"kernel void divF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] / b[id];",
-	"	}",
-	"}",
-	"kernel void addConstF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	float b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] + b;",
-	"	}",
-	"}",
-	"kernel void addConstF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	double b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] + b;",
-	"	}",
-	"}",
-	"kernel void subConstF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	float b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] - b;",
-	"	}",
-	"}",
-	"kernel void subConstF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	double b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] - b;",
-	"	}",
-	"}",
-	"kernel void mulConstF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	float b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] * b;",
-	"	}",
-	"}",
-	"kernel void mulConstF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	double b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] * b;",
-	"	}",
-	"}",
-	"kernel void divConstF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	float b,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] / b;",
-	"	}",
-	"}",
-	"kernel void divConstF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	double b,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = a[id] / b;",
-	"	}",
-	"}",
-	"kernel void negF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = -a[id];",
-	"	}",
-	"}",
-	"kernel void negF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = -a[id];",
-	"	}",
-	"}",
-	"kernel void absF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = fabs(a[id]);",
-	"	}",
-	"}",
-	"kernel void absF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = fabs(a[id]);",
-	"	}",
-	"}",
-	"kernel void expF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = exp(a[id]);",
-	"	}",
-	"}",
-	"kernel void expF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = exp(a[id]);",
-	"	}",
-	"}",
-	"kernel void logF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = log(a[id]);",
-	"	}",
-	"}",
-	"kernel void logF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = log(a[id]);",
-	"	}",
-	"}",
-	"kernel void sqrtF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = sqrt(a[id]);",
-	"	}",
-	"}",
-	"kernel void sqrtF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		out[id] = sqrt(a[id]);",
-	"	}",
-	"}",
-	"kernel void squareF32(",
-	"	uint length,",
-	"	global float* a,",
-	"	global float* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		const float aVal = a[id]; ",
-	"		out[id] = aVal * aVal;",
-	"	}",
-	"}",
-	"kernel void squareF64(",
-	"	uint length,",
-	"	global double* a,",
-	"	global double* out)",
-	"{",
-	"	const uint id = get_global_id(0);",
-	"	if (id < length) {",
-	"		const double aVal = a[id];",
-	"		out[id] = aVal * aVal;",
-	"	}",
-	"}"
-].join("\n");
-
-},{}],7:[function(_dereq_,module,exports){
+},{"./DataType":1,"./NDArray":3,"./allocator":5,"./util":8}],5:[function(_dereq_,module,exports){
 "use strict";
 
 var messageId = 1;
@@ -2543,7 +1617,7 @@ exports.newArrayId = function () {
 	return id;
 };
 
-},{}],8:[function(_dereq_,module,exports){
+},{}],6:[function(_dereq_,module,exports){
 "use strict";
 
 /**
@@ -2555,7 +1629,7 @@ exports.newArrayId = function () {
 var DataType = _dereq_("./DataType");
 var JSContext = _dereq_("./JSContext");
 var PNaClContext = _dereq_("./PNaClContext");
-var WebCLContext = _dereq_("./WebCLContext");
+var WebCLContext = _dereq_("./webcl/WebCLContext");
 
 /**
  * Initializes a computational context.
@@ -2781,10 +1855,10 @@ var hasFeature = function(name) {
 				} catch (e) {
 					return false;
 				}
-			} else if (typeof WebCL !== "undefined") {
+			} else {
 				try {
-					var webcl = new WebCL();
-					var platforms = webcl.getPlatforms();
+					var cl = _dereq_("node-webcl");
+					var platforms = cl.getPlatforms();
 					return platforms.length >= 1;
 				} catch (e) {
 					return false;
@@ -2814,7 +1888,522 @@ exports.getDefaultBackend = getDefaultBackend;
 exports.getSupportedBackends = getSupportedBackends;
 exports.DataType = DataType;
 
-},{"./DataType":1,"./JSContext":2,"./PNaClContext":4,"./WebCLContext":5}],9:[function(_dereq_,module,exports){
+},{"./DataType":1,"./JSContext":2,"./PNaClContext":4,"./webcl/WebCLContext":9}],7:[function(_dereq_,module,exports){
+"use strict";
+
+/**
+ * JavaScript implementation of computational methods
+ *
+ * @private
+ * @class JSMath
+ */
+
+/**
+ * Sets all array elements to the specified value.
+ *
+ * @param {ArrayBufferView} data - the array data buffer.
+ * @param {Number} value - the constant to fill the buffer with.
+ *
+ * @private
+ * @static
+ * @method fill
+ */
+exports.fill = function(data, value) {
+	var n = data.length;
+	for (var i = 0; i < n; ++i) {
+		data[i] = value;
+	}
+};
+
+/**
+ * Adds two arrays.
+ *
+ * @param {ArrayBufferView} dataA - the input augend array.
+ * @param {ArrayBufferView} dataB - the input addend array.
+ * @param {ArrayBufferView} dataOut - the output sum array.
+ *
+ * @private
+ * @static
+ * @method add
+ */
+exports.add = function(dataA, dataB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] + dataB[i];
+	}
+};
+
+/**
+ * Adds a constant to an array.
+ *
+ * @param {ArrayBufferView} dataA - the input augend array.
+ * @param {Number} valueB - the addend constant.
+ * @param {ArrayBufferView} dataOut - the output sum array.
+ *
+ * @private
+ * @static
+ * @method addConst
+ */
+exports.addConst = function(dataA, valueB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] + valueB;
+	}
+};
+
+/**
+ * Subtracts two arrays.
+ *
+ * @param {ArrayBufferView} dataA - the input minuend array.
+ * @param {ArrayBufferView} dataB - the input subtrahend array.
+ * @param {ArrayBufferView} dataOut - the output difference array.
+ *
+ * @private
+ * @static
+ * @method sub
+ */
+exports.sub = function(dataA, dataB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] - dataB[i];
+	}
+};
+
+/**
+ * Subtracts a constant from an array.
+ *
+ * @param {ArrayBufferView} dataA - the input minuend array.
+ * @param {Number} valueB - the subtrahend constant.
+ * @param {ArrayBufferView} dataOut - the output difference array.
+ *
+ * @private
+ * @static
+ * @method subConst
+ */
+exports.subConst = function(dataA, valueB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] - valueB;
+	}
+};
+
+/**
+ * Subtracts an array from a constant.
+ *
+ * @param {ArrayBufferView} dataA - the input subtrahend array.
+ * @param {Number} valueB - the minuend constant.
+ * @param {ArrayBufferView} dataOut - the output difference array.
+ *
+ * @private
+ * @static
+ * @method subRevConst
+ */
+exports.subRevConst = function(dataA, valueB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = valueB - dataA[i];
+	}
+};
+
+/**
+ * Multiplies two arrays.
+ *
+ * @param {ArrayBufferView} dataA - the input multiplicand array.
+ * @param {ArrayBufferView} dataB - the input multiplier array.
+ * @param {ArrayBufferView} dataOut - the output product array.
+ *
+ * @private
+ * @static
+ * @method mul
+ */
+exports.mul = function(dataA, dataB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] * dataB[i];
+	}
+};
+
+/**
+ * Multiplies an array by a constant.
+ *
+ * @param {ArrayBufferView} dataA - the input multiplicand array.
+ * @param {Number} valueB - the multiplier constant.
+ * @param {ArrayBufferView} dataOut - the output product array.
+ *
+ * @private
+ * @static
+ * @method mulConst
+ */
+exports.mulConst = function(dataA, valueB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] * valueB;
+	}
+};
+
+/**
+ * Divides two arrays.
+ *
+ * @param {ArrayBufferView} dataA - the input dividend array.
+ * @param {ArrayBufferView} dataB - the input divisor array.
+ * @param {ArrayBufferView} dataOut - the output quotient array.
+ *
+ * @private
+ * @static
+ * @method div
+ */
+exports.div = function(dataA, dataB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] / dataB[i];
+	}
+};
+
+/**
+ * Divides an array by a constant.
+ *
+ * @param {ArrayBufferView} dataA - the input dividend array.
+ * @param {Number} valueB - the divisor constant.
+ * @param {ArrayBufferView} dataOut - the output quotient array.
+ *
+ * @private
+ * @static
+ * @method divConst
+ */
+exports.divConst = function(dataA, valueB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = dataA[i] / valueB;
+	}
+};
+
+/**
+ * Divides a constant by an array.
+ *
+ * @param {ArrayBufferView} dataA - the input divisor array.
+ * @param {Number} valueB - the dividend constant.
+ * @param {ArrayBufferView} dataOut - the output quotient array.
+ *
+ * @private
+ * @static
+ * @method divRevConst
+ */
+exports.divRevConst = function(dataA, valueB, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = valueB / dataA[i];
+	}
+};
+
+/**
+ * Negates an array.
+ *
+ * @param {ArrayBufferView} dataA - the input array.
+ * @param {ArrayBufferView} dataOut - the output array.
+ *
+ * @private
+ * @static
+ * @method neg
+ */
+exports.neg = function(dataA, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = -dataA[i];
+	}
+};
+
+/**
+ * Computes absolute value of array elements.
+ *
+ * @param {ArrayBufferView} dataA - the input array.
+ * @param {ArrayBufferView} dataOut - the output array.
+ *
+ * @private
+ * @static
+ * @method abs
+ */
+exports.abs = function(dataA, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = Math.abs(dataA[i]);
+	}
+};
+
+/**
+ * Exponentiates array elements.
+ *
+ * @param {ArrayBufferView} dataA - the input array.
+ * @param {ArrayBufferView} dataOut - the output array.
+ *
+ * @private
+ * @static
+ * @method exp
+ */
+exports.exp = function(dataA, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = Math.exp(dataA[i]);
+	}
+};
+
+/**
+ * Computes logarithm of array elements.
+ *
+ * @param {ArrayBufferView} dataA - the input array.
+ * @param {ArrayBufferView} dataOut - the output array.
+ *
+ * @private
+ * @static
+ * @method log
+ */
+exports.log = function(dataA, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = Math.log(dataA[i]);
+	}
+};
+
+/**
+ * Computes square root of array elements.
+ *
+ * @param {ArrayBufferView} dataA - the input array.
+ * @param {ArrayBufferView} dataOut - the output array.
+ *
+ * @private
+ * @static
+ * @method sqrt
+ */
+exports.sqrt = function(dataA, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		dataOut[i] = Math.sqrt(dataA[i]);
+	}
+};
+
+/**
+ * Squares array elements.
+ *
+ * @param {ArrayBufferView} dataA - the input array.
+ * @param {ArrayBufferView} dataOut - the output array.
+ *
+ * @private
+ * @static
+ * @method square
+ */
+exports.square = function(dataA, dataOut) {
+	var n = dataOut.length;
+	for (var i = 0; i < n; ++i) {
+		var a = dataA[i];
+		dataOut[i] = a * a;
+	}
+};
+
+/**
+ * Computes the minimum value of elements in an array.
+ *
+ * @param {ArrayBufferView} dataA - the input array to compute minimum on.
+ * @param {ArrayBufferView} dataOut - the output array to store the minimum at.
+ *
+ * @private
+ * @static
+ * @method min
+ */
+exports.min = function(dataA, dataOut) {
+	/* Computation of all-array min */
+	var lengthA = dataA.length;
+	var result = dataA[0];
+	for (var i = 1; i < lengthA; ++i) {
+		result = Math.min(result, dataA[i]);
+	}
+	dataOut[0] = result;
+};
+
+/**
+ * Computes the maximum value of elements in an array.
+ *
+ * @param {ArrayBufferView} dataA - the input array to compute maximum on.
+ * @param {ArrayBufferView} dataOut - the output array to store the maximum at.
+ *
+ * @private
+ * @static
+ * @method max
+ */
+exports.max = function(dataA, dataOut) {
+	/* Computation of all-array min */
+	var lengthA = dataA.length;
+	var result = dataA[0];
+	for (var i = 1; i < lengthA; ++i) {
+		result = Math.max(result, dataA[i]);
+	}
+	dataOut[0] = result;
+};
+
+/**
+ * Computes the sum of elements in an array.
+ *
+ * @param {ArrayBufferView} dataA - the input array with elements to sum up.
+ * @param {ArrayBufferView} dataOut - the output array to store the sum at.
+ *
+ * @private
+ * @static
+ * @method min
+ */
+exports.sum = function(dataA, dataOut) {
+	var lengthA = dataA.length;
+	var result = 0.0;
+	for (var i = 0; i < lengthA; ++i) {
+		result += dataA[i];
+	}
+	dataOut[0] = result;
+};
+
+/**
+ * Computes the minimum value of elements along an axis.
+ *
+ * @param {ArrayBufferView} dataA - the input array to compute minima on.
+ * @param {ArrayBufferView} dataOut - the output array to store the minima at.
+ * @param {Number} outerStride - the product of input array dimensions preceeding the reduction dimension.
+ * @param {Number} innerStride - the product of input array dimensions following the reduction dimension.
+ * @param {Number} reductionDim - the length of input array along the reduction dimension.
+ *
+ * @private
+ * @static
+ * @method axisMin
+ */
+exports.axisMin = function(dataA, dataOut, outerStride, innerStride, reductionDim) {
+	for (var i = 0; i < outerStride; ++i) {
+		for (var k = 0; k < innerStride; ++k) {
+			var offset = i * reductionDim * innerStride + k;
+			var currentMin = dataA[offset];
+			for (var j = 1; j < reductionDim; ++j) {
+				offset += innerStride;
+				currentMin = Math.min(currentMin, dataA[offset]);
+			}
+			dataOut[i * innerStride + k] = currentMin;
+		}
+	}
+};
+
+/**
+ * Computes the maximum value of elements along an axis.
+ *
+ * @param {ArrayBufferView} dataA - the input array to compute maxima on.
+ * @param {ArrayBufferView} dataOut - the output array to store the maxima at.
+ * @param {Number} outerStride - the product of input array dimensions preceeding the reduction dimension.
+ * @param {Number} innerStride - the product of input array dimensions following the reduction dimension.
+ * @param {Number} reductionDim - the length of input array along the reduction dimension.
+ *
+ * @private
+ * @static
+ * @method axisMax
+ */
+exports.axisMax = function(dataA, dataOut, outerStride, innerStride, reductionDim) {
+	for (var i = 0; i < outerStride; ++i) {
+		for (var k = 0; k < innerStride; ++k) {
+			var offset = i * reductionDim * innerStride + k;
+			var currentMax = dataA[offset];
+			for (var j = 1; j < reductionDim; ++j) {
+				offset += innerStride;
+				currentMax = Math.max(currentMax, dataA[offset]);
+			}
+			dataOut[i * innerStride + k] = currentMax;
+		}
+	}
+};
+
+/**
+ * Computes the sum of elements along an axis.
+ *
+ * @param {ArrayBufferView} dataA - the input array to sum up.
+ * @param {ArrayBufferView} dataOut - the output array to store the sums at.
+ * @param {Number} outerStride - the product of input array dimensions preceeding the reduction dimension.
+ * @param {Number} innerStride - the product of input array dimensions following the reduction dimension.
+ * @param {Number} reductionDim - the length of input array along the reduction dimension.
+ *
+ * @private
+ * @static
+ * @method axisSum
+ */
+exports.axisSum = function(dataA, dataOut, outerStride, innerStride, reductionDim) {
+	for (var i = 0; i < outerStride; ++i) {
+		for (var k = 0; k < innerStride; ++k) {
+			var offset = i * reductionDim * innerStride + k;
+			var currentSum = dataA[offset];
+			for (var j = 1; j < reductionDim; ++j) {
+				offset += innerStride;
+				currentSum += dataA[offset];
+			}
+			dataOut[i * innerStride + k] = currentSum;
+		}
+	}
+};
+
+/**
+ * Computes the dot product of two N-dimensional arrays.
+ *
+ * @param {ArrayBufferView} dataA - an input multiplicand array.
+ * @param {ArrayBufferView} dataB - an input multiplier array.
+ * @param {ArrayBufferView} dataOut - the output product array.
+ * @param {Number} strideA - the product of the the multiplicand dimensions preceeding the reduction dimension.
+ * @param {Number} outerStrideB - the product of the multiplier dimensions preceeding the reduction dimension.
+ * @param {Number} innerStrideB - the product of the multiplier dimensions following the reduction dimension.
+ * @param {Number} reductionDim - the length of inputs arrays along the reduction dimension.
+ *
+ * @private
+ * @static
+ * @method dot
+ */
+exports.dot = function(dataA, dataB, dataOut, strideA, outerStrideB, innerStrideB, reductionDim) {
+	for (var i = 0; i < strideA; ++i) {
+		for (var j = 0; j < reductionDim; ++j) {
+			for (var k = 0; k < outerStrideB; ++k) {
+				for (var l = 0; l < innerStrideB; ++l) {
+					dataOut[(i*outerStrideB + k) * innerStrideB + l] += dataA[i*reductionDim+j] * dataB[(k*reductionDim+j)*innerStrideB+l];
+				}
+			}
+		}
+	}
+};
+
+/**
+ * Replicates array elements along an axis.
+ *
+ * @param {ArrayBufferView} dataA - the input array.
+ * @param {ArrayBufferView} dataOut - the output array for repeated elements.
+ * @param {Number} outerStride - the product of input array dimensions preceeding the expansion dimension.
+ * @param {Number} innerStride - the product of input array dimensions following the expansion dimension.
+ * @param {Number} expansionDim - the length of input array along the expansion dimension.
+ * @param {Number} repeats - the number of times each element will be replicated.
+ *
+ * @private
+ * @static
+ * @method repeat
+ */
+exports.repeat = function(dataA, dataOut, outerStride, innerStride, expansionDim, repeats) {
+	if (innerStride < repeats) {
+		for (var i = 0; i < outerStride; ++i) {
+			for (var j = 0; j < expansionDim; ++j) {
+				for (var k = 0; k < innerStride; ++k) {
+					var valueA = dataA[(i * expansionDim + j) * innerStride + k];
+					for (var c = 0; c < repeats; ++c) {
+						dataOut[((i * expansionDim + j) * repeats + c) * innerStride + k] = valueA;
+					}
+				}
+			}
+		}
+	} else {
+		for (var i = 0; i < outerStride; ++i) {
+			for (var j = 0; j < expansionDim; ++j) {
+				var rowA = dataA.subarray((i * expansionDim + j) * innerStride, (i * expansionDim + j + 1) * innerStride);
+				for (var c = 0; c < repeats; ++c) {
+					dataOut.set(rowA, ((i * expansionDim + j) * repeats + c) * innerStride);
+				}
+			}
+		}
+	}
+};
+
+},{}],8:[function(_dereq_,module,exports){
 "use strict";
 
 /**
@@ -3042,6 +2631,29 @@ exports.checkNDArray = function(array, varname) {
 };
 
 /**
+ * Checks that the two arrays are different.
+ * Throws an error if they refer to the same object.
+ * If the arrays are different, the function does nothing.
+ *
+ * @param {NDArray} a - the first array to check. Must be an NDArray object.
+ * @param {NDArray} b - the second array to check. Must be an NDArray object.
+ * @param {String} varnameA - name of the first array variable. This name may be used in an error message.
+ * @param {String} varnameB - name of the second array variable. This name may be used in an error message.
+ *
+ * @example
+ *     util.checkDifferentNDArrays(a, out, "a", "out");
+ *
+ * @private
+ * @static
+ * @method checkDifferentNDArrays
+ */
+exports.checkDifferentNDArrays = function(a, b, varnameA, varnameB) {
+	if (a === b) {
+		throw new Error("The arrays " + varnameA + " and " + varnameB + " must be different");
+	}
+};
+
+/**
  * Validates **repeats** parameter for repeatition/tiling of array along an axis.
  * Throws an error if **repeats** is not an integer or if **repeats** is smaller than 2.
  * If **repeats** is valid, the function does nothing.
@@ -3254,6 +2866,358 @@ var createArrayRecursive = function(dataBuffer, dataArray, shape, level, offset)
 };
 exports.createArrayRecursive = createArrayRecursive;
 
-},{"./DataType":1,"./NDArray":3}]},{},[8])
-(8)
+},{"./DataType":1,"./NDArray":3}],9:[function(_dereq_,module,exports){
+"use strict";
+
+var NDArray = _dereq_("../NDArray");
+var DataType = _dereq_("../DataType");
+var util = _dereq_("../util");
+
+
+var shapeToLength = function(shape) {
+	var length = 1;
+	for (var i = 0; i < shape.length; i++) {
+		length *= shape[i];
+	}
+	return length;
+};
+
+var isCompatibleShape = function(shape1, shape2) {
+	if (shape1.length !== shape2.length) {
+		return false;
+	}
+	for (var i = 0; i < shape1.length; i++) {
+		if (shape1[i] !== shape2[i]) {
+			return false;
+		}
+	}
+	return true;
+};
+
+/* Not supported by Nokia-WebCL, buggy in Chromium-WebCL */
+var useAsyncBufferRead = false;
+/* Buggy in Chromium-WebCL */
+var useBufferCreationWithInit = false;
+
+var cl = (typeof window === "object") ? window.webcl : undefined;
+var context = null;
+var queue = null;
+var messageCallbacks = {};
+
+var binaryOpKernels = {
+	add: {},
+	sub: {},
+	mul: {},
+	div: {}
+};
+var binaryConstOpKernels = {
+	add: {},
+	sub: {},
+	mul: {},
+	div: {}
+};
+var unaryOpKernels = {
+	neg: {},
+	abs: {},
+	exp: {},
+	log: {},
+	sqrt: {},
+	square: {}
+};
+
+var setKernels = {};
+
+function WebCLContext(callback) {
+	if (typeof cl === "undefined") {
+		cl = _dereq_("node-webcl");
+	}
+	if (context === null) {
+		var source = "kernel void setF32(\r\n\tuint length,\r\n\tglobal float* out,\r\n\tfloat value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\nkernel void setF64(\r\n\tuint length,\r\n\tglobal double* out,\r\n\tdouble value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\n\r\nkernel void addF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void addF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void subF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void subF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void mulF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void mulF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void divF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void divF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void addConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void addConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void subConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void subConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void mulConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void mulConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void divConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void divConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void negF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void negF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void absF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void absF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void expF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void expF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void logF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void logF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void sqrtF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void sqrtF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void squareF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst float aVal = a[id]; \r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\nkernel void squareF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst double aVal = a[id];\r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\n";
+
+		var platforms = cl.getPlatforms();
+		var platform = platforms[0];
+		var devices = platform.getDevices(cl.DEVICE_TYPE_ALL);
+		var device = devices[0];
+		context = cl.createContext(device);
+		queue = context.createCommandQueue();
+		var program = context.createProgram(source);
+		try {
+			/* Chromium-WebCL requires a list of devices */
+			program.build([device]);
+		} catch (e) {
+			if (e.name === "INVALID_DEVICE") {
+				/* Nokia-WebCL only works with no arguments to WebCLProgram.build */
+				program.build();
+			} else {
+				throw e;
+			}
+		}
+		setKernels.f32 = program.createKernel("setF32");
+		setKernels.f64 = program.createKernel("setF64");
+		binaryOpKernels.add.f32 = program.createKernel("addF32");
+		binaryOpKernels.add.f64 = program.createKernel("addF64");
+		binaryOpKernels.sub.f32 = program.createKernel("subF32");
+		binaryOpKernels.sub.f64 = program.createKernel("subF64");
+		binaryOpKernels.mul.f32 = program.createKernel("mulF32");
+		binaryOpKernels.mul.f64 = program.createKernel("mulF64");
+		binaryOpKernels.div.f32 = program.createKernel("divF32");
+		binaryOpKernels.div.f64 = program.createKernel("divF64");
+		binaryConstOpKernels.add.f32 = program.createKernel("addConstF32");
+		binaryConstOpKernels.add.f64 = program.createKernel("addConstF64");
+		binaryConstOpKernels.sub.f32 = program.createKernel("subConstF32");
+		binaryConstOpKernels.sub.f64 = program.createKernel("subConstF64");
+		binaryConstOpKernels.mul.f32 = program.createKernel("mulConstF32");
+		binaryConstOpKernels.mul.f64 = program.createKernel("mulConstF64");
+		binaryConstOpKernels.div.f32 = program.createKernel("divConstF32");
+		binaryConstOpKernels.div.f64 = program.createKernel("divConstF64");
+		unaryOpKernels.neg.f32 = program.createKernel("negF32");
+		unaryOpKernels.neg.f64 = program.createKernel("negF64");
+		unaryOpKernels.abs.f32 = program.createKernel("absF32");
+		unaryOpKernels.abs.f64 = program.createKernel("absF64");
+		unaryOpKernels.exp.f32 = program.createKernel("expF32");
+		unaryOpKernels.exp.f64 = program.createKernel("expF64");
+		unaryOpKernels.log.f32 = program.createKernel("logF32");
+		unaryOpKernels.log.f64 = program.createKernel("logF64");
+		unaryOpKernels.sqrt.f32 = program.createKernel("sqrtF32");
+		unaryOpKernels.sqrt.f64 = program.createKernel("sqrtF64");
+		unaryOpKernels.square.f32 = program.createKernel("squareF32");
+		unaryOpKernels.square.f64 = program.createKernel("squareF64");
+	}
+	callback(this);
+}
+
+WebCLContext.prototype.empty = function(shape, dataType) {
+	shape = util.checkShape(shape);
+	if (typeof dataType === "undefined") {
+		dataType = new DataType("f64");
+	} else if (!(dataType instanceof DataType)) {
+		throw new TypeError(dataType + " is not an instance of DataType");
+	}
+	var array = new NDArray(shape, dataType, this);
+	array._buffer = context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
+	return array;
+};
+
+WebCLContext.prototype.zeros = function(shape, dataType) {
+	shape = util.checkShape(shape);
+	if (typeof dataType === "undefined") {
+		dataType = new DataType("f64");
+	} else if (!(dataType instanceof DataType)) {
+		throw new TypeError(dataType + " is not an instance of DataType");
+	}
+	var array = new NDArray(shape, dataType, this);
+	array._buffer = context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
+	var kernel = setKernels[dataType.type];
+	kernel.setArg(0, new Uint32Array([array.length]));
+	kernel.setArg(1, array._buffer);
+	kernel.setArg(2, new dataType.arrayType([0.0]));
+	queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
+	return array;
+};
+
+WebCLContext.prototype.array = function(data, dataType) {
+	if (typeof dataType === "undefined") {
+		dataType = new DataType("f64");
+	} else {
+		dataType = util.checkDataType(dataType);
+	}
+	var shape = [];
+	util.discoverArrayShapeRecursive(data, shape, 0);
+	var array = new NDArray(shape, dataType, this);
+	var buffer = new dataType.arrayType(array.length);
+	util.copyArrayDataRecursive(buffer, data, shape, 0, 0);
+	if (useBufferCreationWithInit) {
+		array._buffer = context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength, buffer);
+	} else {
+		array._buffer = context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength);
+		queue.enqueueWriteBuffer(array._buffer, false, 0, buffer.byteLength, buffer);
+	}
+	return array;
+};
+
+WebCLContext.prototype._invalidate = function(array) {
+	if (array._buffer !== null) {
+		/* Work-around for Chromium-WebCL that currently lacks WebCLMemObject.release method */
+		if (typeof array._buffer.release !== "undefined") {
+			array._buffer.release();
+		}
+		array._buffer = null;
+	}
+};
+
+WebCLContext.prototype.get = function() {
+	if (arguments.length === 0) {
+		throw new Error("Callback argument missing");
+	}
+	var callback = arguments[arguments.length - 1];
+	/* Validate arguments */
+	if (arguments.length === 1) {
+		throw new Error("At least one NDArray argument expected");
+	}
+	for (var i = 0; i < arguments.length - 1; i++) {
+		if (!(arguments[i] instanceof NDArray)) {
+			throw new TypeError("Argument " + i + " is not an NDArray");
+		}
+	}
+	var callbackWaitArguments = arguments.length - 1;
+	var callbackArguments = new Array(callbackWaitArguments);
+	if (useAsyncBufferRead) {
+		/* Async version: doesn't seem to be supported by WebCL implementations */
+		for (var i = 0; i < callbackWaitArguments; i++) {
+			var array = arguments[i];
+			(function(i, shape, ArrayType) {
+				var buffer = new ArrayType(length);
+				var readFinishEvent = new WebCLEvent();
+				queue.enqueueReadBuffer(array._buffer, false, 0, buffer.byteLength, buffer, null, readFinishEvent);
+				if (shape.length === 0) {
+					readFinishEvent.setCallback(cl.COMPLETE, function() {
+						readFinishEvent.release();
+						callbackArguments[i] = typedArray[0];
+						if (--callbackWaitArguments === 0) {
+							callback.apply(null, callbackArguments);
+						}
+					});
+				} else {
+					readFinishEvent.setCallback(cl.COMPLETE, function() {
+						readFinishEvent.release();
+						var jsarray = new Array(shape[0]);
+						createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
+						callbackArguments[i] = jsarray;
+						if (--callbackWaitArguments === 0) {
+							callback.apply(null, callbackArguments);
+						}
+					});
+				}
+			})(i, array.shape, array.dataType.arrayType);
+		}
+	} else {
+		for (var i = 0; i < callbackWaitArguments; i++) {
+			var array = arguments[i];
+			var buffer = new array.dataType.arrayType(array.length);
+			queue.enqueueReadBuffer(array._buffer, true, 0, buffer.byteLength, buffer);
+			if (array.shape.length === 0) {
+				callbackArguments[i] = typedArray[0];
+			} else {
+				var jsarray = new Array(array.shape[0]);
+				util.createArrayRecursive(new array.dataType.arrayType(buffer), jsarray, array.shape, 0, 0);
+				callbackArguments[i] = jsarray;
+			}
+		}
+		callback.apply(null, callbackArguments);
+	}
+};
+
+var binaryArithOp = function(a, b, out, context, operation) {
+	var shape = null, dataType = null;
+	if (a instanceof NDArray) {
+		shape = a.shape;
+		dataType = a.dataType;
+		if (b instanceof NDArray) {
+			if (!isCompatibleShape(shape, b.shape)) {
+				throw new Error("The a and b arrays have incompatible shapes");
+			}
+		} else if (!util.isNumber(b)) {
+			throw new TypeError("Unsupported type of b");
+		}
+	} else {
+		throw new TypeError("Unsupported type of a");
+	}
+	if (typeof out === "undefined") {
+		out = context.empty(shape, dataType);
+	} else if (out instanceof NDArray) {
+		if (!isCompatibleShape(shape, out.shape)) {
+			throw new Error("The out array has incompatible shape");
+		}
+	} else {
+		throw new TypeError("out is not an NDArray");
+	}
+	if (a instanceof NDArray) {
+		if (b instanceof NDArray) {
+			var kernel = binaryOpKernels[operation][dataType.type];
+			kernel.setArg(0, new Uint32Array([out.length]));
+			kernel.setArg(1, a._buffer);
+			kernel.setArg(2, b._buffer);
+			kernel.setArg(3, out._buffer);
+			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+		} else {
+			var kernel = binaryConstOpKernels[operation][dataType.type];
+			kernel.setArg(0, new Uint32Array([out.length]));
+			kernel.setArg(1, a._buffer);
+			kernel.setArg(2, new a.dataType.arrayType([b]));
+			kernel.setArg(3, out._buffer);
+			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+		}
+	}
+	return out;
+};
+
+var unaryArithOp = function(a, out, context, operation) {
+	var shape = null, dataType = null;
+	if (a instanceof NDArray) {
+		shape = a.shape;
+		dataType = a.dataType;
+	} else {
+		throw new TypeError("Unsupported type of a");
+	}
+	if (typeof out === "undefined") {
+		out = context.empty(shape, dataType);
+	} else if (out instanceof NDArray) {
+		if (!isCompatibleShape(shape, out.shape)) {
+			throw new Error("The out array has incompatible shape");
+		}
+	} else {
+		throw new TypeError("out is not an NDArray");
+	}
+	var kernel = unaryOpKernels[operation][dataType.type];
+	kernel.setArg(0, new Uint32Array([out.length]));
+	kernel.setArg(1, a._buffer);
+	kernel.setArg(2, out._buffer);
+	queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+	return out;
+};
+
+WebCLContext.prototype.add = function(a, b, out) {
+	return binaryArithOp(a, b, out, this, "add");
+};
+
+WebCLContext.prototype.sub = function(a, b, out) {
+	return binaryArithOp(a, b, out, this, "sub");
+};
+
+WebCLContext.prototype.mul = function(a, b, out) {
+	return binaryArithOp(a, b, out, this, "mul");
+};
+
+WebCLContext.prototype.div = function(a, b, out) {
+	return binaryArithOp(a, b, out, this, "div");
+};
+
+WebCLContext.prototype.neg = function(a, out) {
+	return unaryArithOp(a, out, this, "neg");
+};
+
+WebCLContext.prototype.abs = function(a, out) {
+	return unaryArithOp(a, out, this, "abs");
+};
+
+WebCLContext.prototype.exp = function(a, out) {
+	return unaryArithOp(a, out, this, "exp");
+};
+
+WebCLContext.prototype.log = function(a, out) {
+	return unaryArithOp(a, out, this, "log");
+};
+
+WebCLContext.prototype.sqrt = function(a, out) {
+	return unaryArithOp(a, out, this, "sqrt");
+};
+
+WebCLContext.prototype.square = function(a, out) {
+	return unaryArithOp(a, out, this, "square");
+};
+
+module.exports = WebCLContext;
+
+},{"../DataType":1,"../NDArray":3,"../util":8}]},{},[6])
+(6)
 });
