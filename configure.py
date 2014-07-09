@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import optparse
 import os
+import sys
 import glob
 import ninja_syntax
 
@@ -17,16 +19,24 @@ if __name__ == '__main__':
 
         # Variables
         ninja.variable('nacl_sdk_dir', os.path.join(options.nacl_sdk))
-        if os.name == 'nt':
+        if sys.platform == 'win32':
             ninja.variable('pnacl_toolchain_dir', '$nacl_sdk_dir/toolchain/win_pnacl')
             ninja.variable('pnacl_cc', '$pnacl_toolchain_dir/bin/pnacl-clang.bat')
             ninja.variable('pnacl_cxx', '$pnacl_toolchain_dir/bin/pnacl-clang++.bat')
             ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize.bat')
-        else:
+        elif sys.platform == 'linux2':
             ninja.variable('pnacl_toolchain_dir', '$nacl_sdk_dir/toolchain/linux_pnacl')
             ninja.variable('pnacl_cc', '$pnacl_toolchain_dir/bin/pnacl-clang')
             ninja.variable('pnacl_cxx', '$pnacl_toolchain_dir/bin/pnacl-clang++')
             ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize')
+        elif sys.platform == 'darwin':
+            ninja.variable('pnacl_toolchain_dir', '$nacl_sdk_dir/toolchain/mac_pnacl')
+            ninja.variable('pnacl_cc', '$pnacl_toolchain_dir/bin/pnacl-clang')
+            ninja.variable('pnacl_cxx', '$pnacl_toolchain_dir/bin/pnacl-clang++')
+            ninja.variable('pnacl_finalize', '$pnacl_toolchain_dir/bin/pnacl-finalize')
+        else:
+            print("Unsupported platform: " + sys.platform, file=sys.stderr)
+            exit(1)
 
         # Rules
         ninja.rule('COMPILE_PNACL_C', '$pnacl_cc -o $out -c $in -MMD -MF $out.d $optflags $cflags',
