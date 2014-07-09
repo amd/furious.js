@@ -31,3 +31,6 @@ inline static void* FJS_NDArray_GetData(struct NDArray* array) {
 		return array->data;
 	}
 }
+
+extern int32_t FJS_NDArray_Allocations;
+extern int32_t FJS_Byte_Allocations;

@@ -25,6 +25,10 @@ enum FJS_StringVariable {
 	FJS_StringVariable_Y,
 	FJS_StringVariable_Z,
 
+	FJS_StringVariable_IDAllocations,
+	FJS_StringVariable_ArrayAllocations,
+	FJS_StringVariable_ByteAllocations,
+
 	FJS_StringVariable_Status,
 	FJS_StringVariable_Error,
 	FJS_StringVariable_Success,

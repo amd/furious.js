@@ -530,6 +530,37 @@ cleanup:
 	return error;
 }
 
+enum FJS_Error FJS_Execute_Info(PP_Instance instance, const void* unused, struct PP_Var response[static 1]) {
+	enum FJS_Error error = FJS_Error_Ok;
+
+	if (dictionaryInterface->Set(*response,
+		FJS_StringVariables[FJS_StringVariable_IDAllocations],
+		PP_MakeInt32(FJS_ID_Allocations)) != PP_TRUE)
+	{
+		FJS_LOG_ERROR("Failed to set idAllocations");
+		goto cleanup;
+	}
+
+	if (dictionaryInterface->Set(*response,
+		FJS_StringVariables[FJS_StringVariable_ArrayAllocations],
+		PP_MakeInt32(FJS_NDArray_Allocations)) != PP_TRUE)
+	{
+		FJS_LOG_ERROR("Failed to set arrayAllocations");
+		goto cleanup;
+	}
+
+	if (dictionaryInterface->Set(*response,
+		FJS_StringVariables[FJS_StringVariable_ByteAllocations],
+		PP_MakeInt32(FJS_Byte_Allocations)) != PP_TRUE)
+	{
+		FJS_LOG_ERROR("Failed to set arrayAllocations");
+		goto cleanup;
+	}
+
+cleanup:
+	return error;
+}
+
 static void initLinearF32(int32_t samples, double start, double step, float dataOut[restrict static samples]) {
 	const float startF32 = start;
 	const float stepF32 = step;

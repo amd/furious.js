@@ -182,6 +182,12 @@ static const struct FJS_ArgumentDescriptor getArguments[] =
 	}
 };
 
+static const enum FJS_StringVariable infoCleanupNames[] = {
+	FJS_StringVariable_IDAllocations,
+	FJS_StringVariable_ArrayAllocations,
+	FJS_StringVariable_ByteAllocations,
+};
+
 static const struct FJS_ArgumentDescriptor binaryOpArguments[] =
 {
 	{
@@ -342,6 +348,14 @@ const struct FJS_Command_Descriptor FJS_Command_Descriptors[] = {
 		.cleanupEntries = FJS_COUNT_OF(getCleanupNames),
 		.cleanupNames = getCleanupNames,
 		.executeFunction = (FJS_Execute_Function) FJS_Execute_Get
+	},
+	[FJS_Command_Info] ={
+		.argumentsSize = 0,
+		.argumentsCount = 0,
+		.argumentsDescriptors = NULL,
+		.cleanupEntries = FJS_COUNT_OF(infoCleanupNames),
+		.cleanupNames = infoCleanupNames,
+		.executeFunction = (FJS_Execute_Function) FJS_Execute_Info
 	},
 	[FJS_Command_Add] = {
 		.argumentsSize = sizeof(struct FJS_BinaryOp_Command_Arguments),

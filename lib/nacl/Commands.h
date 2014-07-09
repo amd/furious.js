@@ -32,6 +32,8 @@ enum FJS_Command {
 	FJS_Command_Get,
 	/* Set data as ArrayBuffer */
 	FJS_Command_Set,
+	/* Get debug/profile information */
+	FJS_Command_Info,
 	/* Add: z[i] <- x[i] + y[i] */
 	FJS_Command_Add,
 	/* Subtract: z[i] <- x[i] - y[i] */
@@ -197,6 +199,7 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_Free(PP_Instance instance, const struct FJS_Free_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_Get(PP_Instance instance, const struct FJS_Get_Command_Arguments[static 1], struct PP_Var response[static 1]);
+enum FJS_Error FJS_Execute_Info(PP_Instance instance, const void*, struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_Add(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_Sub(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);
 enum FJS_Error FJS_Execute_Mul(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]);

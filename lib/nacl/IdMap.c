@@ -10,6 +10,8 @@ struct Entry {
 	void* pointer;
 };
 
+int32_t FJS_ID_Allocations = 0;
+
 static struct Entry* entriesBuffer = NULL;
 static size_t entriesCount = 0;
 static size_t entriesCapacity = 0;
@@ -44,6 +46,7 @@ void FJS_ReleaseId(PP_Instance instance, int32_t id) {
 		const size_t movableEntriesSize = (endMovableEntry - beginMovableEntry) * sizeof(struct Entry);
 		memmove(releasedEntry, beginMovableEntry, movableEntriesSize);
 		entriesCount -= 1;
+		FJS_ID_Allocations -= 1;
 	}
 }
 
@@ -59,4 +62,5 @@ void FJS_AllocateId(PP_Instance instance, int32_t id, void* pointer) {
 	};
 	entriesBuffer[entriesCount] = entry;
 	entriesCount += 1;
+	FJS_ID_Allocations += 1;
 }

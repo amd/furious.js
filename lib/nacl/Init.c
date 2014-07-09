@@ -159,6 +159,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var requestVar) {
 		case FJS_Command_Repeat:
 		case FJS_Command_Free:
 		case FJS_Command_Get:
+		case FJS_Command_Info:
 		case FJS_Command_Add:
 		case FJS_Command_Sub:
 		case FJS_Command_Mul:

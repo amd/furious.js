@@ -40,6 +40,10 @@ static struct StringLiteral strings[FJS_StringVariable_NumberOfEntries] = {
 	[FJS_StringVariable_Success] = FJS_INIT_STRING_LITERAL("success"),
 	[FJS_StringVariable_Description] = FJS_INIT_STRING_LITERAL("description"),
 
+	[FJS_StringVariable_IDAllocations] = FJS_INIT_STRING_LITERAL("idAllocations"),
+	[FJS_StringVariable_ArrayAllocations] = FJS_INIT_STRING_LITERAL("arrayAllocations"),
+	[FJS_StringVariable_ByteAllocations] = FJS_INIT_STRING_LITERAL("byteAllocations"),
+
 	/* Strings for errors */
 	[FJS_StringVariable_Ok] = FJS_INIT_STRING_LITERAL("no error"),
 	[FJS_StringVariable_EmptyShape] = FJS_INIT_STRING_LITERAL("empty shape"),

@@ -5,6 +5,9 @@
 #include "NDArray.h"
 #include "Util.h"
 
+int32_t FJS_NDArray_Allocations = 0;
+int32_t FJS_Byte_Allocations = 0;
+
 struct NDArray* FJS_NDArray_Create(uint32_t dimensions, uint32_t length, const uint32_t shape[static dimensions], enum FJS_DataType dataType) {
 	const uint32_t elementSize = FJS_DataType_GetSize(dataType);
 	/* This multiplication can overflow */
@@ -33,6 +36,9 @@ struct NDArray* FJS_NDArray_Create(uint32_t dimensions, uint32_t length, const u
 	array->length = length;
 	array->dimensions = dimensions;
 	memcpy(FJS_NDArray_GetShape(array), shape, dimensions * sizeof(uint32_t));
+
+	FJS_NDArray_Allocations += 1;
+
 	return array;
 }
 
@@ -53,6 +59,9 @@ struct NDArray* FJS_NDArray_ReShape(struct NDArray* array, uint32_t newDimension
 		/* Out of memory: do clean-up */
 		free(array->data);
 		free(array);
+
+		FJS_NDArray_Allocations -= 1;
+
 		return NULL;
 	}
 
@@ -65,4 +74,5 @@ struct NDArray* FJS_NDArray_ReShape(struct NDArray* array, uint32_t newDimension
 
 void FJS_NDArray_Delete(struct NDArray* array) {
 	free(array);
+	FJS_NDArray_Allocations -= 1;
 }
