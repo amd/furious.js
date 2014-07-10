@@ -1,4 +1,4 @@
-kernel void setF32(
+kernel void set_f32(
 	uint length,
 	global float* out,
 	float value)
@@ -8,7 +8,7 @@ kernel void setF32(
 		out[id] = value;
 	}
 }
-kernel void setF64(
+kernel void set_f64(
 	uint length,
 	global double* out,
 	double value)
@@ -19,7 +19,30 @@ kernel void setF64(
 	}
 }
 
-kernel void addF32(
+kernel void linspace_f32(
+	uint length,
+	global float* out,
+	float start,
+	float step)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = start + step * ((float) id);
+	}
+}
+kernel void linspace_f64(
+	uint length,
+	global double* out,
+	double start,
+	double step)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = start + step * ((double) id);
+	}
+}
+
+kernel void add_f32(
 	uint length,
 	global float* a,
 	global float* b,
@@ -30,7 +53,7 @@ kernel void addF32(
 		out[id] = a[id] + b[id];
 	}
 }
-kernel void addF64(
+kernel void add_f64(
 	uint length,
 	global double* a,
 	global double* b,
@@ -41,7 +64,7 @@ kernel void addF64(
 		out[id] = a[id] + b[id];
 	}
 }
-kernel void subF32(
+kernel void sub_f32(
 	uint length,
 	global float* a,
 	global float* b,
@@ -52,7 +75,7 @@ kernel void subF32(
 		out[id] = a[id] - b[id];
 	}
 }
-kernel void subF64(
+kernel void sub_f64(
 	uint length,
 	global double* a,
 	global double* b,
@@ -63,7 +86,7 @@ kernel void subF64(
 		out[id] = a[id] - b[id];
 	}
 }
-kernel void mulF32(
+kernel void mul_f32(
 	uint length,
 	global float* a,
 	global float* b,
@@ -74,7 +97,7 @@ kernel void mulF32(
 		out[id] = a[id] * b[id];
 	}
 }
-kernel void mulF64(
+kernel void mul_f64(
 	uint length,
 	global double* a,
 	global double* b,
@@ -85,7 +108,7 @@ kernel void mulF64(
 		out[id] = a[id] * b[id];
 	}
 }
-kernel void divF32(
+kernel void div_f32(
 	uint length,
 	global float* a,
 	global float* b,
@@ -96,7 +119,7 @@ kernel void divF32(
 		out[id] = a[id] / b[id];
 	}
 }
-kernel void divF64(
+kernel void div_f64(
 	uint length,
 	global double* a,
 	global double* b,
@@ -107,7 +130,7 @@ kernel void divF64(
 		out[id] = a[id] / b[id];
 	}
 }
-kernel void addConstF32(
+kernel void addc_f32(
 	uint length,
 	global float* a,
 	float b,
@@ -118,7 +141,7 @@ kernel void addConstF32(
 		out[id] = a[id] + b;
 	}
 }
-kernel void addConstF64(
+kernel void addc_f64(
 	uint length,
 	global double* a,
 	double b,
@@ -129,7 +152,7 @@ kernel void addConstF64(
 		out[id] = a[id] + b;
 	}
 }
-kernel void subConstF32(
+kernel void subc_f32(
 	uint length,
 	global float* a,
 	float b,
@@ -140,7 +163,7 @@ kernel void subConstF32(
 		out[id] = a[id] - b;
 	}
 }
-kernel void subConstF64(
+kernel void subc_f64(
 	uint length,
 	global double* a,
 	double b,
@@ -151,7 +174,29 @@ kernel void subConstF64(
 		out[id] = a[id] - b;
 	}
 }
-kernel void mulConstF32(
+kernel void subrc_f32(
+	uint length,
+	global float* a,
+	float b,
+	global float* out)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = b / a[id];
+	}
+}
+kernel void subrc_f64(
+	uint length,
+	global double* a,
+	double b,
+	global double* out)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = b / a[id];
+	}
+}
+kernel void mulc_f32(
 	uint length,
 	global float* a,
 	float b,
@@ -162,7 +207,7 @@ kernel void mulConstF32(
 		out[id] = a[id] * b;
 	}
 }
-kernel void mulConstF64(
+kernel void mulc_f64(
 	uint length,
 	global double* a,
 	double b,
@@ -173,7 +218,7 @@ kernel void mulConstF64(
 		out[id] = a[id] * b;
 	}
 }
-kernel void divConstF32(
+kernel void divc_f32(
 	uint length,
 	global float* a,
 	float b,
@@ -184,7 +229,7 @@ kernel void divConstF32(
 		out[id] = a[id] / b;
 	}
 }
-kernel void divConstF64(
+kernel void divc_f64(
 	uint length,
 	global double* a,
 	double b,
@@ -195,7 +240,29 @@ kernel void divConstF64(
 		out[id] = a[id] / b;
 	}
 }
-kernel void negF32(
+kernel void divrc_f32(
+	uint length,
+	global float* a,
+	float b,
+	global float* out)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = b / a[id];
+	}
+}
+kernel void divrc_f64(
+	uint length,
+	global double* a,
+	double b,
+	global double* out)
+{
+	const uint id = get_global_id(0);
+	if (id < length) {
+		out[id] = b / a[id];
+	}
+}
+kernel void neg_f32(
 	uint length,
 	global float* a,
 	global float* out)
@@ -205,7 +272,7 @@ kernel void negF32(
 		out[id] = -a[id];
 	}
 }
-kernel void negF64(
+kernel void neg_f64(
 	uint length,
 	global double* a,
 	global double* out)
@@ -215,7 +282,7 @@ kernel void negF64(
 		out[id] = -a[id];
 	}
 }
-kernel void absF32(
+kernel void abs_f32(
 	uint length,
 	global float* a,
 	global float* out)
@@ -225,7 +292,7 @@ kernel void absF32(
 		out[id] = fabs(a[id]);
 	}
 }
-kernel void absF64(
+kernel void abs_f64(
 	uint length,
 	global double* a,
 	global double* out)
@@ -235,7 +302,7 @@ kernel void absF64(
 		out[id] = fabs(a[id]);
 	}
 }
-kernel void expF32(
+kernel void exp_f32(
 	uint length,
 	global float* a,
 	global float* out)
@@ -245,7 +312,7 @@ kernel void expF32(
 		out[id] = exp(a[id]);
 	}
 }
-kernel void expF64(
+kernel void exp_f64(
 	uint length,
 	global double* a,
 	global double* out)
@@ -255,7 +322,7 @@ kernel void expF64(
 		out[id] = exp(a[id]);
 	}
 }
-kernel void logF32(
+kernel void log_f32(
 	uint length,
 	global float* a,
 	global float* out)
@@ -265,7 +332,7 @@ kernel void logF32(
 		out[id] = log(a[id]);
 	}
 }
-kernel void logF64(
+kernel void log_f64(
 	uint length,
 	global double* a,
 	global double* out)
@@ -275,7 +342,7 @@ kernel void logF64(
 		out[id] = log(a[id]);
 	}
 }
-kernel void sqrtF32(
+kernel void sqrt_f32(
 	uint length,
 	global float* a,
 	global float* out)
@@ -285,7 +352,7 @@ kernel void sqrtF32(
 		out[id] = sqrt(a[id]);
 	}
 }
-kernel void sqrtF64(
+kernel void sqrt_f64(
 	uint length,
 	global double* a,
 	global double* out)
@@ -295,7 +362,7 @@ kernel void sqrtF64(
 		out[id] = sqrt(a[id]);
 	}
 }
-kernel void squareF32(
+kernel void square_f32(
 	uint length,
 	global float* a,
 	global float* out)
@@ -306,7 +373,7 @@ kernel void squareF32(
 		out[id] = aVal * aVal;
 	}
 }
-kernel void squareF64(
+kernel void square_f64(
 	uint length,
 	global double* a,
 	global double* out)
