@@ -18,7 +18,7 @@ module.exports = function(grunt) {
 			options: {
 				jshintrc: true
 			},
-			furious: ["lib/*.js"],
+			furious: ["lib/**/*.js"],
 			test: ["test/*.test.js"],
 			build: ["Gruntfile.js"]
 		},
