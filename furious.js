@@ -1037,7 +1037,9 @@ var onPNaClMessage = function(message) {
 		if ("buffer" in result) {
 			messageCallbacks[id](result.buffer);
 		} else {
-			messageCallbacks[id]();
+			delete result.status;
+			delete result.id;
+			messageCallbacks[id](result);
 		}
 		delete messageCallbacks[id];
 	}
@@ -1292,6 +1294,15 @@ PNaClContext.prototype.get = function() {
 			"in": (release[i] ? -array._id : array._id)
 		});
 	}
+};
+
+PNaClContext.prototype.info = function(callback) {
+	var messageId = allocator.newMessageId();
+	messageCallbacks[messageId] = callback;
+	this._pnaclObject.postMessage({
+		"id": messageId,
+		"command": "info"
+	});
 };
 
 var binaryArithOp = function(a, b, out, context, operation) {
@@ -1667,14 +1678,14 @@ var init = function(backend, callback) {
 		callback = backend;
 		backend = undefined;
 	}
-	if (typeof backend == "undefined") {
+	if (typeof backend === "undefined") {
 		backend = getDefaultBackend();
 	}
-	if (backend == "javascript") {
+	if (backend === "javascript") {
 		return new JSContext(callback);
-	} else if (backend == "pnacl") {
+	} else if (backend === "pnacl") {
 		return new PNaClContext(callback);
-	} else if (backend == "webcl") {
+	} else if (backend === "webcl") {
 		return new WebCLContext(callback);
 	} else {
 		throw new Error("Unsupported backend: " + backend);
@@ -1816,10 +1827,11 @@ var hasFeature = function(name) {
 				var userAgent = window.navigator.userAgent;
 				var userAgentComponents = userAgent.split(/\s+/);
 				var firefoxRegexp = /[Ff]irefox\/(\d+)/g;
-				for (var component in userAgentComponents) {
+				for (var i = 0; i < userAgentComponents.length; ++i) {
+					var component = userAgentComponents[i];
 					var match = firefoxRegexp.exec(component);
 					if (match !== null) {
-						var firefoxVersion = parseInt(match[0]);
+						var firefoxVersion = parseInt(match[1]);
 						return firefoxVersion >= 29;
 					}
 				}
@@ -1828,7 +1840,9 @@ var hasFeature = function(name) {
 			}
 			return false;
 		case "simd.js":
-			return (typeof SIMD !== "undefined");
+			return (typeof SIMD !== "undefined") &&
+				(typeof Float32x4Array !== "undefined") &&
+				(typeof Int32x4Array !== "undefined");
 		case "webgl":
 			try {
 				var canvas = document.createElement("canvas");
@@ -2904,19 +2918,20 @@ var context = null;
 var queue = null;
 var messageCallbacks = {};
 
-var binaryOpKernels = {
+var kernels = {
+	set: {},
+	linspace: {},
+	repeat: {},
 	add: {},
 	sub: {},
 	mul: {},
-	div: {}
-};
-var binaryConstOpKernels = {
-	add: {},
-	sub: {},
-	mul: {},
-	div: {}
-};
-var unaryOpKernels = {
+	div: {},
+	addc: {},
+	subc: {},
+	subrc: {},
+	mulc: {},
+	divc: {},
+	divrc: {},
 	neg: {},
 	abs: {},
 	exp: {},
@@ -2925,14 +2940,12 @@ var unaryOpKernels = {
 	square: {}
 };
 
-var setKernels = {};
-
 function WebCLContext(callback) {
 	if (typeof cl === "undefined") {
 		cl = _dereq_("node-webcl");
 	}
 	if (context === null) {
-		var source = "kernel void setF32(\r\n\tuint length,\r\n\tglobal float* out,\r\n\tfloat value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\nkernel void setF64(\r\n\tuint length,\r\n\tglobal double* out,\r\n\tdouble value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\n\r\nkernel void addF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void addF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void subF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void subF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void mulF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void mulF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void divF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void divF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void addConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void addConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void subConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void subConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void mulConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void mulConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void divConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void divConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void negF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void negF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void absF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void absF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void expF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void expF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void logF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void logF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void sqrtF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void sqrtF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void squareF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst float aVal = a[id]; \r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\nkernel void squareF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst double aVal = a[id];\r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\n";
+		var source = "kernel void set_f32(\n\tuint length,\n\tglobal float* out,\n\tfloat value)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = value;\n\t}\n}\nkernel void set_f64(\n\tuint length,\n\tglobal double* out,\n\tdouble value)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = value;\n\t}\n}\n\nkernel void linspace_f32(\n\tuint length,\n\tglobal float* out,\n\tfloat start,\n\tfloat step)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = start + step * ((float) id);\n\t}\n}\nkernel void linspace_f64(\n\tuint length,\n\tglobal double* out,\n\tdouble start,\n\tdouble step)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = start + step * ((double) id);\n\t}\n}\nkernel void repeat_f32(\n\tuint expansionDim,\n\tuint innerStride,\n\tuint repeats,\n\tglobal float *restrict a,\n\tglobal float *restrict out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint j = get_global_id(1);\n\tconst uint k = get_global_id(2);\n\tconst float value = a[(i * expansionDim + j) * innerStride + k];\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\n\tfor (uint c = 0; c < repeats; ++c) {\n\t\tout[offsetOut] = value;\n\t\toffsetOut += innerStride;\n\t}\n}\nkernel void repeat_f64(\n\tuint expansionDim,\n\tuint innerStride,\n\tuint repeats,\n\tglobal double *restrict a,\n\tglobal double *restrict out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint j = get_global_id(1);\n\tconst uint k = get_global_id(2);\n\tconst double value = a[(i * expansionDim + j) * innerStride + k];\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\n\tfor (uint c = 0; c < repeats; ++c) {\n\t\tout[offsetOut] = value;\n\t\toffsetOut += innerStride;\n\t}\n}\n\nkernel void add_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b[id];\n\t}\n}\nkernel void add_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b[id];\n\t}\n}\nkernel void sub_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b[id];\n\t}\n}\nkernel void sub_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b[id];\n\t}\n}\nkernel void mul_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b[id];\n\t}\n}\nkernel void mul_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b[id];\n\t}\n}\nkernel void div_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b[id];\n\t}\n}\nkernel void div_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b[id];\n\t}\n}\nkernel void addc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b;\n\t}\n}\nkernel void addc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b;\n\t}\n}\nkernel void subc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b;\n\t}\n}\nkernel void subc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b;\n\t}\n}\nkernel void subrc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void subrc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void mulc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b;\n\t}\n}\nkernel void mulc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b;\n\t}\n}\nkernel void divc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b;\n\t}\n}\nkernel void divc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b;\n\t}\n}\nkernel void divrc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void divrc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void neg_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = -a[id];\n\t}\n}\nkernel void neg_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = -a[id];\n\t}\n}\nkernel void abs_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = fabs(a[id]);\n\t}\n}\nkernel void abs_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = fabs(a[id]);\n\t}\n}\nkernel void exp_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = exp(a[id]);\n\t}\n}\nkernel void exp_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = exp(a[id]);\n\t}\n}\nkernel void log_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = log(a[id]);\n\t}\n}\nkernel void log_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = log(a[id]);\n\t}\n}\nkernel void sqrt_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = sqrt(a[id]);\n\t}\n}\nkernel void sqrt_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = sqrt(a[id]);\n\t}\n}\nkernel void square_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tconst float aVal = a[id]; \n\t\tout[id] = aVal * aVal;\n\t}\n}\nkernel void square_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tconst double aVal = a[id];\n\t\tout[id] = aVal * aVal;\n\t}\n}\n\nkernel void min_f32(\n\tuint length,\n\tglobal float *restrict a,\n\tglobal float *restrict out)\n{\n\t\n}";
 
 		var platforms = cl.getPlatforms();
 		var platform = platforms[0];
@@ -2952,36 +2965,45 @@ function WebCLContext(callback) {
 				throw e;
 			}
 		}
-		setKernels.f32 = program.createKernel("setF32");
-		setKernels.f64 = program.createKernel("setF64");
-		binaryOpKernels.add.f32 = program.createKernel("addF32");
-		binaryOpKernels.add.f64 = program.createKernel("addF64");
-		binaryOpKernels.sub.f32 = program.createKernel("subF32");
-		binaryOpKernels.sub.f64 = program.createKernel("subF64");
-		binaryOpKernels.mul.f32 = program.createKernel("mulF32");
-		binaryOpKernels.mul.f64 = program.createKernel("mulF64");
-		binaryOpKernels.div.f32 = program.createKernel("divF32");
-		binaryOpKernels.div.f64 = program.createKernel("divF64");
-		binaryConstOpKernels.add.f32 = program.createKernel("addConstF32");
-		binaryConstOpKernels.add.f64 = program.createKernel("addConstF64");
-		binaryConstOpKernels.sub.f32 = program.createKernel("subConstF32");
-		binaryConstOpKernels.sub.f64 = program.createKernel("subConstF64");
-		binaryConstOpKernels.mul.f32 = program.createKernel("mulConstF32");
-		binaryConstOpKernels.mul.f64 = program.createKernel("mulConstF64");
-		binaryConstOpKernels.div.f32 = program.createKernel("divConstF32");
-		binaryConstOpKernels.div.f64 = program.createKernel("divConstF64");
-		unaryOpKernels.neg.f32 = program.createKernel("negF32");
-		unaryOpKernels.neg.f64 = program.createKernel("negF64");
-		unaryOpKernels.abs.f32 = program.createKernel("absF32");
-		unaryOpKernels.abs.f64 = program.createKernel("absF64");
-		unaryOpKernels.exp.f32 = program.createKernel("expF32");
-		unaryOpKernels.exp.f64 = program.createKernel("expF64");
-		unaryOpKernels.log.f32 = program.createKernel("logF32");
-		unaryOpKernels.log.f64 = program.createKernel("logF64");
-		unaryOpKernels.sqrt.f32 = program.createKernel("sqrtF32");
-		unaryOpKernels.sqrt.f64 = program.createKernel("sqrtF64");
-		unaryOpKernels.square.f32 = program.createKernel("squareF32");
-		unaryOpKernels.square.f64 = program.createKernel("squareF64");
+
+		kernels.set.f32 = program.createKernel("set_f32");
+		kernels.set.f64 = program.createKernel("set_f64");
+		kernels.linspace.f32 = program.createKernel("linspace_f32");
+		kernels.linspace.f64 = program.createKernel("linspace_f64");
+		kernels.repeat.f32 = program.createKernel("repeat_f32");
+		kernels.repeat.f64 = program.createKernel("repeat_f64");
+		kernels.add.f32 = program.createKernel("add_f32");
+		kernels.add.f64 = program.createKernel("add_f64");
+		kernels.sub.f32 = program.createKernel("sub_f32");
+		kernels.sub.f64 = program.createKernel("sub_f64");
+		kernels.mul.f32 = program.createKernel("mul_f32");
+		kernels.mul.f64 = program.createKernel("mul_f64");
+		kernels.div.f32 = program.createKernel("div_f32");
+		kernels.div.f64 = program.createKernel("div_f64");
+		kernels.addc.f32 = program.createKernel("addc_f32");
+		kernels.addc.f64 = program.createKernel("addc_f64");
+		kernels.subc.f32 = program.createKernel("subc_f32");
+		kernels.subc.f64 = program.createKernel("subc_f64");
+		kernels.subrc.f32 = program.createKernel("subrc_f32");
+		kernels.subrc.f64 = program.createKernel("subrc_f64");
+		kernels.mulc.f32 = program.createKernel("mulc_f32");
+		kernels.mulc.f64 = program.createKernel("mulc_f64");
+		kernels.divc.f32 = program.createKernel("divc_f32");
+		kernels.divc.f64 = program.createKernel("divc_f64");
+		kernels.divrc.f32 = program.createKernel("divrc_f32");
+		kernels.divrc.f64 = program.createKernel("divrc_f64");
+		kernels.neg.f32 = program.createKernel("neg_f32");
+		kernels.neg.f64 = program.createKernel("neg_f64");
+		kernels.abs.f32 = program.createKernel("abs_f32");
+		kernels.abs.f64 = program.createKernel("abs_f64");
+		kernels.exp.f32 = program.createKernel("exp_f32");
+		kernels.exp.f64 = program.createKernel("exp_f64");
+		kernels.log.f32 = program.createKernel("log_f32");
+		kernels.log.f64 = program.createKernel("log_f64");
+		kernels.sqrt.f32 = program.createKernel("sqrt_f32");
+		kernels.sqrt.f64 = program.createKernel("sqrt_f64");
+		kernels.square.f32 = program.createKernel("square_f32");
+		kernels.square.f64 = program.createKernel("square_f64");
 	}
 	callback(this);
 }
@@ -3007,11 +3029,28 @@ WebCLContext.prototype.zeros = function(shape, dataType) {
 	}
 	var array = new NDArray(shape, dataType, this);
 	array._buffer = context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
-	var kernel = setKernels[dataType.type];
+	var kernel = kernels.set[dataType.type];
 	kernel.setArg(0, new Uint32Array([array.length]));
 	kernel.setArg(1, array._buffer);
 	kernel.setArg(2, new dataType.arrayType([0.0]));
-	queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
+	queue.enqueueNDRangeKernel(kernel, 1, null, [array.length], null);
+	return array;
+};
+
+WebCLContext.prototype.ones = function(shape, dataType) {
+	shape = util.checkShape(shape);
+	if (typeof dataType === "undefined") {
+		dataType = new DataType("f64");
+	} else if (!(dataType instanceof DataType)) {
+		throw new TypeError(dataType + " is not an instance of DataType");
+	}
+	var array = new NDArray(shape, dataType, this);
+	array._buffer = context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
+	var kernel = kernels.set[dataType.type];
+	kernel.setArg(0, new Uint32Array([array.length]));
+	kernel.setArg(1, array._buffer);
+	kernel.setArg(2, new dataType.arrayType([1.0]));
+	queue.enqueueNDRangeKernel(kernel, 1, null, [array.length], null);
 	return array;
 };
 
@@ -3032,6 +3071,46 @@ WebCLContext.prototype.array = function(data, dataType) {
 		array._buffer = context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength);
 		queue.enqueueWriteBuffer(array._buffer, false, 0, buffer.byteLength, buffer);
 	}
+	return array;
+};
+
+WebCLContext.prototype.linspace = function(start, stop, samples, closed) {
+	if (!util.isReal(start)) {
+		throw new TypeError(start + " is not a real number");
+	}
+	if (!util.isReal(stop)) {
+		throw new TypeError(stop + " is not a real number");
+	}
+	if (typeof samples === "undefined") {
+		/* Default value in NumPy */
+		samples = 50;
+	} else if (!util.isInt(samples)) {
+		throw new TypeError(samples + " is not an integer");
+	} else if (samples <= 0) {
+		throw new RangeError("The number of samples must be positive");
+	}
+	if (typeof closed === "undefined") {
+		closed = true;
+	}
+	if (closed && (samples === 1)) {
+		throw new RangeError("The number of samples must be a least 2 (for start and end points)");
+	}
+
+	var dataType = new DataType("f64");
+	var array = new NDArray(samples, dataType, this);
+	array._buffer = context.createBuffer(cl.MEM_READ_WRITE, samples * dataType.size);
+
+	var range = stop - start;
+	var n = (closed) ? samples - 1 : samples;
+	var step = range / n;
+
+	var kernel = kernels.linspace[dataType.type];
+	kernel.setArg(0, new Uint32Array([array.length]));
+	kernel.setArg(1, array._buffer);
+	kernel.setArg(2, new dataType.arrayType([start]));
+	kernel.setArg(3, new dataType.arrayType([step]));
+	queue.enqueueNDRangeKernel(kernel, 1, null, [array.length], null);
+
 	return array;
 };
 
@@ -3072,7 +3151,7 @@ WebCLContext.prototype.get = function() {
 				if (shape.length === 0) {
 					readFinishEvent.setCallback(cl.COMPLETE, function() {
 						readFinishEvent.release();
-						callbackArguments[i] = typedArray[0];
+						callbackArguments[i] = buffer[0];
 						if (--callbackWaitArguments === 0) {
 							callback.apply(null, callbackArguments);
 						}
@@ -3081,7 +3160,7 @@ WebCLContext.prototype.get = function() {
 					readFinishEvent.setCallback(cl.COMPLETE, function() {
 						readFinishEvent.release();
 						var jsarray = new Array(shape[0]);
-						createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
+						util.createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
 						callbackArguments[i] = jsarray;
 						if (--callbackWaitArguments === 0) {
 							callback.apply(null, callbackArguments);
@@ -3096,7 +3175,7 @@ WebCLContext.prototype.get = function() {
 			var buffer = new array.dataType.arrayType(array.length);
 			queue.enqueueReadBuffer(array._buffer, true, 0, buffer.byteLength, buffer);
 			if (array.shape.length === 0) {
-				callbackArguments[i] = typedArray[0];
+				callbackArguments[i] = buffer[0];
 			} else {
 				var jsarray = new Array(array.shape[0]);
 				util.createArrayRecursive(new array.dataType.arrayType(buffer), jsarray, array.shape, 0, 0);
@@ -3107,113 +3186,218 @@ WebCLContext.prototype.get = function() {
 	}
 };
 
-var binaryArithOp = function(a, b, out, context, operation) {
-	var shape = null, dataType = null;
-	if (a instanceof NDArray) {
-		shape = a.shape;
-		dataType = a.dataType;
-		if (b instanceof NDArray) {
-			if (!isCompatibleShape(shape, b.shape)) {
-				throw new Error("The a and b arrays have incompatible shapes");
-			}
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else {
-		throw new TypeError("Unsupported type of a");
+WebCLContext.prototype.reshape = function(a, shape) {
+	shape = util.checkShape(shape);
+	if (util.computeLength(shape) !== a.length) {
+		throw new RangeError("The shape is not compatible with the array");
 	}
-	if (typeof out === "undefined") {
-		out = context.empty(shape, dataType);
-	} else if (out instanceof NDArray) {
-		if (!isCompatibleShape(shape, out.shape)) {
-			throw new Error("The out array has incompatible shape");
-		}
+	var out = new NDArray(shape, a.dataType, this);
+	if (a._decRef()) {
+		out._buffer = context.createBuffer(webcl.MEM_READ_WRITE, out.length * out.dataType.size);
+		queue.enqueueCopyBuffer(a._buffer, out._buffer, 0, 0, out.length * out.dataType.size);
 	} else {
-		throw new TypeError("out is not an NDArray");
-	}
-	if (a instanceof NDArray) {
-		if (b instanceof NDArray) {
-			var kernel = binaryOpKernels[operation][dataType.type];
-			kernel.setArg(0, new Uint32Array([out.length]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, b._buffer);
-			kernel.setArg(3, out._buffer);
-			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-		} else {
-			var kernel = binaryConstOpKernels[operation][dataType.type];
-			kernel.setArg(0, new Uint32Array([out.length]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, new a.dataType.arrayType([b]));
-			kernel.setArg(3, out._buffer);
-			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-		}
+		out._buffer = a._buffer;
+		a._buffer = null;
 	}
 	return out;
 };
 
-var unaryArithOp = function(a, out, context, operation) {
-	var shape = null, dataType = null;
+WebCLContext.prototype.repeat = function(a, repeats, axis, out) {
+	util.checkNDArray(a, "a");
+	repeats = util.checkRepeats(repeats);
+	axis = util.checkAxis(axis, a.shape.length);
+	var shapeA = a.shape;
+	var shapeOut = shapeA.slice(0);
+	shapeOut[axis] *= repeats;
+	a._decRef();
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(shapeOut, a.dataType, this);
+			out._buffer = context.createBuffer(webcl.MEM_READ_WRITE, out.length * out.dataType.size);
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(out.shape, shapeOut);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		var outerStride = util.computeOuterStride(shapeA, axis);
+		var expansionDim = shapeA[axis];
+		var innerStride = util.computeInnerStride(shapeA, axis);
+		var kernel = kernels.repeat[a.dataType.type];
+		kernel.setArg(0, new Uint32Array([expansionDim]));
+		kernel.setArg(1, new Uint32Array([innerStride]));
+		kernel.setArg(2, new Uint32Array([repeats]));
+		kernel.setArg(3, a._buffer);
+		kernel.setArg(4, out._buffer);
+		queue.enqueueNDRangeKernel(kernel, 3, null, [outerStride, expansionDim, innerStride], null);
+	} catch (e) {
+		a._incRef();
+		throw e;
+	}
+	a._tryInvalidate();
+	return out;
+};
+
+var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryConstOpKernels, binaryRevConstKernels) {
+	var shapeOut = null, dataTypeOut = null;
+	var bufferA = null, bufferB = null;
 	if (a instanceof NDArray) {
-		shape = a.shape;
-		dataType = a.dataType;
+		bufferA = a._buffer;
+		shapeOut = a.shape;
+		dataTypeOut = a.dataType;
+		if (b instanceof NDArray) {
+			bufferB = b._buffer;
+			util.checkShapesCompatibility(a.shape, b.shape);
+			util.checkDataTypesCompatibility(a.dataType, b.dataType);
+		} else if (!util.isNumber(b)) {
+			throw new TypeError("Unsupported type of b");
+		}
+	} else if (util.isNumber(a)) {
+		util.checkNDArray(b, "b");
+		bufferB = b._buffer;
+		shapeOut = b.shape;
+		dataTypeOut = b.dataType;
 	} else {
 		throw new TypeError("Unsupported type of a");
 	}
-	if (typeof out === "undefined") {
-		out = context.empty(shape, dataType);
-	} else if (out instanceof NDArray) {
-		if (!isCompatibleShape(shape, out.shape)) {
-			throw new Error("The out array has incompatible shape");
-		}
-	} else {
-		throw new TypeError("out is not an NDArray");
+	if (a instanceof NDArray) {
+		a._decRef();
 	}
-	var kernel = unaryOpKernels[operation][dataType.type];
-	kernel.setArg(0, new Uint32Array([out.length]));
-	kernel.setArg(1, a._buffer);
-	kernel.setArg(2, out._buffer);
-	queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+	if (b instanceof NDArray) {
+		b._decRef();
+	}
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(shapeOut, dataTypeOut, furiousContext);
+			if ((a instanceof NDArray) && !a._hasRefs()) {
+				out._buffer = a._buffer;
+				a._buffer = null;
+			} else if ((b instanceof NDArray) && !b._hasRefs()) {
+				out._buffer = b._buffer;
+				b._buffer = null;
+			} else {
+				out._buffer = context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
+			}
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(shapeOut, out.shape);
+			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
+			out._incRef();
+		}
+		if (a instanceof NDArray) {
+			if (b instanceof NDArray) {
+				var kernel = binaryOpKernels[dataTypeOut.type];
+				kernel.setArg(0, new Uint32Array([out.length]));
+				kernel.setArg(1, bufferA);
+				kernel.setArg(2, bufferB);
+				kernel.setArg(3, out._buffer);
+				queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+			} else {
+				var kernel = binaryConstOpKernels[dataTypeOut.type];
+				kernel.setArg(0, new Uint32Array([out.length]));
+				kernel.setArg(1, bufferA);
+				kernel.setArg(2, new dataTypeOut.arrayType([b]));
+				kernel.setArg(3, out._buffer);
+				queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+			}
+		} else {
+			var kernel = binaryRevConstKernels[dataTypeOut.type];
+			kernel.setArg(0, new Uint32Array([out.length]));
+			kernel.setArg(1, bufferB);
+			kernel.setArg(2, new dataTypeOut.arrayType([a]));
+			kernel.setArg(3, out._buffer);
+			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		if (a instanceof NDArray) {
+			a._incRef();
+		}
+		if (b instanceof NDArray) {
+			b._incRef();
+		}
+		throw e;
+	}
+	if (a instanceof NDArray) {
+		a._tryInvalidate();
+	}
+	if (b instanceof NDArray) {
+		b._tryInvalidate();
+	}
+	return out;
+};
+
+var unaryArithOp = function(a, out, furiousContext, unaryOpKernels) {
+	util.checkNDArray(a, "a");
+	a._decRef();
+	var bufferA = a._buffer;
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(a.shape, a.dataType, furiousContext);
+			if ((a instanceof NDArray) && !a._hasRefs()) {
+				out._buffer = a._buffer;
+				a._buffer = null;
+			} else {
+				out._buffer = context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
+			}
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(a.shape, out.shape);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		var kernel = unaryOpKernels[a.dataType.type];
+		kernel.setArg(0, new Uint32Array([out.length]));
+		kernel.setArg(1, bufferA);
+		kernel.setArg(2, out._buffer);
+		queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		throw e;
+	}
+	a._tryInvalidate();
 	return out;
 };
 
 WebCLContext.prototype.add = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "add");
+	return binaryArithOp(a, b, out, this, kernels.add, kernels.addc, kernels.addc);
 };
 
 WebCLContext.prototype.sub = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "sub");
+	return binaryArithOp(a, b, out, this, kernels.sub, kernels.subc, kernels.subrc);
 };
 
 WebCLContext.prototype.mul = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "mul");
+	return binaryArithOp(a, b, out, this, kernels.mul, kernels.mulc, kernels.mulc);
 };
 
 WebCLContext.prototype.div = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "div");
+	return binaryArithOp(a, b, out, this, kernels.div, kernels.divc, kernels.divrc);
 };
 
 WebCLContext.prototype.neg = function(a, out) {
-	return unaryArithOp(a, out, this, "neg");
+	return unaryArithOp(a, out, this, kernels.neg);
 };
 
 WebCLContext.prototype.abs = function(a, out) {
-	return unaryArithOp(a, out, this, "abs");
+	return unaryArithOp(a, out, this, kernels.abs);
 };
 
 WebCLContext.prototype.exp = function(a, out) {
-	return unaryArithOp(a, out, this, "exp");
+	return unaryArithOp(a, out, this, kernels.exp);
 };
 
 WebCLContext.prototype.log = function(a, out) {
-	return unaryArithOp(a, out, this, "log");
+	return unaryArithOp(a, out, this, kernels.log);
 };
 
 WebCLContext.prototype.sqrt = function(a, out) {
-	return unaryArithOp(a, out, this, "sqrt");
+	return unaryArithOp(a, out, this, kernels.sqrt);
 };
 
 WebCLContext.prototype.square = function(a, out) {
-	return unaryArithOp(a, out, this, "square");
+	return unaryArithOp(a, out, this, kernels.square);
 };
 
 module.exports = WebCLContext;
