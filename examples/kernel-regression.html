@@ -77,6 +77,8 @@
 			var linePlot = null;
 			var unemploymentArray = null;
 			var gdpGrowthArray = null;
+			var x = null;
+			var XmX = null;
 
 			if ((typeof performance !== "undefined") && (typeof performance.now !== "undefined")) {
 				function getTimerTicks() {
@@ -108,6 +110,11 @@
 				if (unemployment && gdpGrowth) {
 					unemploymentArray = context.array(unemployment).lock();
 					gdpGrowthArray = context.array(gdpGrowth).lock();
+					var interpolationPoints = 1000;
+					var dataPoints = gdpGrowthArray.length;
+					x = context.linspace(unemploymentMin, unemploymentMax, interpolationPoints).lock();
+					XmX = unemploymentArray.reshape([1, dataPoints]).repeat(interpolationPoints, 0)
+						.sub(x.reshape([interpolationPoints, 1]).repeat(dataPoints, 1)).lock();
 				}
 			}
 
@@ -115,8 +122,12 @@
 				if (unemploymentArray && gdpGrowthArray) {
 					unemploymentArray.invalidate();
 					gdpGrowthArray.invalidate();
+					XmX.invalidate();
+					x.invalidate();
 					unemploymentArray = null;
 					gdpGrowthArray = null;
+					XmX = null;
+					x = null;
 				}
 			}
 
@@ -127,13 +138,7 @@
 						furiousAllocate();
 					}
 					
-					var interpolation_points = 1000;
-					var data_points = gdpGrowthArray.length;
-
-					var x = context.linspace(unemploymentMin, unemploymentMax, interpolation_points).retain();
-
-					var XmX = unemploymentArray.div(h).reshape([1, data_points]).repeat(interpolation_points, 0).sub(x.div(h).reshape([interpolation_points, 1]).repeat(data_points, 1));
-					var K = context.exp(context.square(XmX).mul(-0.5));
+					var K = context.exp(context.square(XmX.div(h)).mul(-0.5));
 					var y = context.dot(K.retain(), gdpGrowthArray).div(context.sum(K, 1));
 					context.get(x, y, function(xVal, yVal) {
 						var endTime = getTimerTicks();
