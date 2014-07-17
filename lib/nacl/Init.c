@@ -144,6 +144,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var requestVar) {
 	const enum FJS_Command command = FJS_Command_Parse(commandString, commandLength);
 	switch (command) {
 		case FJS_Command_Init:
+		case FJS_Command_Barrier:
 		{
 			if (FJS_Message_SetStatus(instance, FJS_ResponseVariable, FJS_Error_Ok)) {
 				messagingInterface->PostMessage(instance, FJS_ResponseVariable);
@@ -184,6 +185,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var requestVar) {
 		{
 			const struct FJS_Command_Descriptor commandDescriptor = FJS_Command_Descriptors[command];
 			FJS_Message_Dispatch(instance,
+				command,
 				commandDescriptor.argumentsSize,
 				commandDescriptor.argumentsCount,
 				commandDescriptor.argumentsDescriptors,

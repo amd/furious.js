@@ -1,6 +1,7 @@
 #include <alloca.h>
 #include <string.h>
 
+#include "Commands.h"
 #include "Message.h"
 #include "Strings.h"
 #include "Interfaces.h"
@@ -8,6 +9,7 @@
 struct PP_Var FJS_ResponseVariable = { PP_VARTYPE_UNDEFINED, 0, {PP_FALSE} };
 
 enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
+	enum FJS_Command command,
 	size_t variableSize,
 	size_t variablesCount,
 	const struct FJS_ArgumentDescriptor descriptors[static variablesCount],
@@ -132,19 +134,32 @@ enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
 	}
 
 reply:
+	if (error == FJS_Error_Ok) {
+		/* Only few operations need to report back when there is not error */
+		switch (command) {
+			case FJS_Command_Init:
+			case FJS_Command_Get:
+			case FJS_Command_Info:
+			case FJS_Command_Barrier:
+				break;
+			default:
+				goto msgclean;
+		}
+	}
 	if (!FJS_Message_SetStatus(instance, response, error)) {
 		goto cleanup;
 	}
 
 	messagingInterface->PostMessage(instance, response);
+	FJS_Message_ClearStatus(response, error);
 
+msgclean:
 	if (cleanupResponse) {
 		for (size_t entryIndex = 0; entryIndex < cleanupEntries; entryIndex++) {
 			const enum FJS_StringVariable cleanupName = cleanupNames[entryIndex];
 			dictionaryInterface->Delete(response, FJS_StringVariables[cleanupName]);
 		}
 	}
-	FJS_Message_ClearStatus(response, error);
 
 cleanup:
 	for (uint32_t variableIndex = 0; variableIndex < variablesCount; variableIndex++) {

@@ -34,6 +34,8 @@ enum FJS_Command {
 	FJS_Command_Set,
 	/* Get debug/profile information */
 	FJS_Command_Info,
+	/* Execution barrier */
+	FJS_Command_Barrier,
 	/* Add: z[i] <- x[i] + y[i] */
 	FJS_Command_Add,
 	/* Subtract: z[i] <- x[i] - y[i] */

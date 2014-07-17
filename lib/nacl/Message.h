@@ -30,6 +30,7 @@ struct FJS_ArgumentDescriptor {
 };
 
 enum FJS_Error FJS_Message_Dispatch(PP_Instance instance,
+	enum FJS_Command command,
 	size_t variablesSize,
 	size_t variablesCount,
 	const struct FJS_ArgumentDescriptor descriptors[static variablesCount],

@@ -29,6 +29,8 @@ enum FJS_Command FJS_Command_Parse(const char* commandString, uint32_t commandLe
 			command = FJS_Command_Set;
 		} else if (strncmp(commandString, "info", commandLength) == 0) {
 			command = FJS_Command_Info;
+		} else if (strncmp(commandString, "barrier", commandLength) == 0) {
+			command = FJS_Command_Barrier;
 		} else if (strncmp(commandString, "add", commandLength) == 0) {
 			command = FJS_Command_Add;
 		} else if (strncmp(commandString, "sub", commandLength) == 0) {
