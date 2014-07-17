@@ -10,6 +10,35 @@ before(function(done) {
 });
 
 describe("Context", function(){
+	describe("barrier", function() {
+		it("Calls the callback", function(done) {
+			context.barrier(function () {
+				done();
+			});
+		});
+		it("Executes after preceeding commands have finished", function(done) {
+			var x = context.zeros([3, 3]);
+			var getHasFinished = false;
+			x.get(function(data) {
+				getHasFinished = true;
+			});
+			context.barrier(function (){
+				expect(getHasFinished).to.be.true;
+				done();
+			});
+		});
+		it("Executes before subsequent commands have started", function(done) {
+			var x = context.zeros([3, 3]);
+			var barrierHasFinished = false;
+			context.barrier(function (){
+				barrierHasFinished = true;
+			});
+			x.get(function(x) {
+				expect(barrierHasFinished).to.be.true;
+				done();
+			});
+		});
+	});
 	describe("empty", function(){
 		it("Creates array with specified shape", function() {
 			var x = context.empty(42);
