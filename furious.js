@@ -3030,7 +3030,7 @@ var defaultDeviceIndex = -1;
 var initWebCL = function() {
 	if (typeof cl === "undefined") {
 		if (typeof window === "object") {
-			cl = window.webcl;
+			cl = (typeof window.webcl !== "undefined") ? window.webcl : null;
 		} else {
 			try {
 				cl = _dereq_("node-webcl");
