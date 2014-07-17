@@ -1201,21 +1201,24 @@ PNaClContext.prototype.reshape = function(a, shape) {
 	if (util.computeLength(shape) !== a.length) {
 		throw new RangeError("The shape is not compatible with the array");
 	}
-	var releaseArray = !a._decRef();
+	var idA = a._id;
+	var releaseA = !a._decRef();
 	var out = new NDArray(shape, a.dataType, this);
-	if (releaseArray) {
-		out._id = a._id;
-		releaseArray = false;
+	if (releaseA) {
+		out._id = idA;
+		a._id = 0;
+		releaseA = false;
 	} else {
 		out._id = allocator.newArrayId();
 	}
 	this._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "reshape",
-		"a": (releaseArray ? -a._id : a._id),
+		"a": (releaseA ? -idA : idA),
 		"out": out._id,
 		"shape": new Uint32Array(shape).buffer
 	});
+	a._tryInvalidate();
 	return out;
 };
 
@@ -1235,15 +1238,20 @@ PNaClContext.prototype.repeat = function(a, repeats, axis, out) {
 		util.checkDataTypesCompatibility(a.dataType, out.dataType);
 		out._incRef();
 	}
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	if (!a._decRef()) {
+		idA = -idA;
+		a._id = 0;
+	}
 	this._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "repeat",
-		"a": (releaseA ? -a._id : a._id),
+		"a": idA,
 		"out": out._id,
 		"repeats": repeats,
 		"axis": axis
 	});
+	a._tryInvalidate();
 	return out;
 };
 
@@ -1300,10 +1308,16 @@ PNaClContext.prototype.get = function() {
 				};
 			})(i, array.dataType.arrayType, array.shape);
 		}
+		var arrayId = array._id;
+		if (release[i]) {
+			array._id = 0;
+			arrayId = -arrayId;
+			array._tryInvalidate();
+		}
 		this._pnaclObject.postMessage({
 			"id": messageId,
 			"command": "get",
-			"in": (release[i] ? -array._id : array._id)
+			"in": arrayId
 		});
 	}
 };
@@ -1318,38 +1332,48 @@ PNaClContext.prototype.info = function(callback) {
 };
 
 var binaryArithOp = function(a, b, out, context, operation) {
-	var shapeOut = null, dataTypeOut = null, releaseA = false, releaseB = false;
+	var shapeOut = null, dataTypeOut = null, releaseIdA = false, releaseIdB = false, idA = 0, idB = 0;
 	if (a instanceof NDArray) {
+		idA = a._id;
 		shapeOut = a.shape;
 		dataTypeOut = a.dataType;
 		if (b instanceof NDArray) {
+			idB = b._id;
 			util.checkShapesCompatibility(a.shape, b.shape);
 			util.checkDataTypesCompatibility(a.dataType, b.dataType);
 		} else if (!util.isNumber(b)) {
 			throw new TypeError("Unsupported type of b");
 		}
 	} else if (util.isNumber(a)) {
+		idB = b._id;
 		shapeOut = b.shape;
 		dataTypeOut = b.dataType;
 		util.checkNDArray(b, "b");
 	} else {
 		throw new TypeError("Unsupported type of a");
 	}
-	if (a instanceof NDArray) {
-		releaseA = !a._decRef();
+	/* The IDs of a and b must be invalidated before we assign ID to out because a/b and out may be the same arrays */
+	if (idA !== 0) {
+		releaseIdA = !a._decRef();
+		if (releaseIdA) {
+			a._id = 0;
+		}
 	}
-	if (b instanceof NDArray) {
-		releaseB = !b._decRef();
+	if (idB !== 0) {
+		releaseIdB = !b._decRef();
+		if (releaseIdB) {
+			b._id = 0;
+		}
 	}
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray(shapeOut, dataTypeOut, context);
-			if (releaseA) {
-				out._id = a._id;
-				releaseA = false;
-			} else if (releaseB) {
-				out._id = b._id;
-				releaseB = false;
+			if (releaseIdA) {
+				out._id = idA;
+				releaseIdA = false;
+			} else if (releaseIdB) {
+				out._id = idB;
+				releaseIdB = false;
 			} else {
 				out._id = allocator.newArrayId();
 			}
@@ -1359,20 +1383,20 @@ var binaryArithOp = function(a, b, out, context, operation) {
 			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
 			out._incRef();
 		}
-		if (a instanceof NDArray) {
-			if (b instanceof NDArray) {
+		if (idA !== 0) {
+			if (idB !== 0) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation,
-					"a": (releaseA ? -a._id : a._id),
-					"b": (releaseB ? -b._id : b._id),
+					"a": (releaseIdA ? -idA : idA),
+					"b": (releaseIdB ? -idB : idB),
 					"out": out._id
 				});
 			} else {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation + "c",
-					"a": (releaseA ? -a._id : a._id),
+					"a": (releaseIdA ? -idA : idA),
 					"b": b,
 					"out": out._id
 				});
@@ -1383,7 +1407,7 @@ var binaryArithOp = function(a, b, out, context, operation) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation + "c",
-					"a": (releaseB ? -b._id : b._id),
+					"a": (releaseIdB ? -idB : idB),
 					"b": a,
 					"out": out._id
 				});
@@ -1391,34 +1415,51 @@ var binaryArithOp = function(a, b, out, context, operation) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": "r" + operation + "c",
-					"a": b,
-					"b": (releaseA ? -a._id : a._id),
+					"a": (releaseIdB ? -idB : idB),
+					"b": a,
 					"out": out._id
 				});
 			}
 		}
 	} catch (e) {
 		/* Restore the previous state */
-		if (a instanceof NDArray) {
+		if (idA !== 0) {
+			a._id = idA;
 			a._incRef();
 		}
-		if (b instanceof NDArray) {
+		if (idB !== 0) {
+			b._id = idB;
 			b._incRef();
 		}
 		throw e;
+	}
+	/*
+	 * If a or b are arrays, invalidate them as needed.
+	 * If a/b and out are the same, their ref count is non-zero at this point, so they will stay valid.
+	 */
+	if (idA !== 0) {
+		a._tryInvalidate();
+	}
+	if (idB !== 0) {
+		b._tryInvalidate();
 	}
 	return out;
 };
 
 var unaryArithOp = function(a, out, context, operation) {
 	util.checkNDArray(a, "a");
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	/* The ID of a must be invalidated before we assign ID to out because a and out may be the same arrays */
+	if (releaseIdA) {
+		a._id = 0;
+	}
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray(a.shape, a.dataType, context);
-			if (releaseA) {
-				out._id = a._id;
-				releaseA = false;
+			if (releaseIdA) {
+				out._id = idA;
+				releaseIdA = false;
 			} else {
 				out._id = allocator.newArrayId();
 			}
@@ -1430,21 +1471,28 @@ var unaryArithOp = function(a, out, context, operation) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": (releaseA ? -a._id : a._id),
+		"a": (releaseIdA ? -idA : idA),
 		"out": out._id
 	});
+	/* If a and out are the same, their ref count is non-zero at this point, so they will stay valid. */
+	a._tryInvalidate();
 	return out;
 };
 
 var reduceArithOp = function(a, out, context, operation) {
 	util.checkNDArray(a, "a");
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray([], a.dataType, context);
@@ -1457,21 +1505,27 @@ var reduceArithOp = function(a, out, context, operation) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": (releaseA ? -a._id : a._id),
+		"a": (releaseIdA ? -idA : idA),
 		"out": out._id
 	});
+	a._tryInvalidate();
 	return out;
 };
 
 var axisReduceArithOp = function(a, axis, out, context, operation) {
 	util.checkNDArray(a, "a");
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
 	try {
 		util.checkAxis(axis);
 		if (typeof out === "undefined") {
@@ -1485,16 +1539,18 @@ var axisReduceArithOp = function(a, axis, out, context, operation) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": (releaseA ? -a._id : a._id),
+		"a": (releaseIdA ? -idA : idA),
 		"axis": axis|0,
 		"out": out._id
 	});
+	a._tryInvalidate();
 	return out;
 };
 
@@ -1502,8 +1558,16 @@ var dotArithOp = function(a, b, out, context) {
 	util.checkNDArray(a, "a");
 	util.checkNDArray(b, "b");
 	util.checkDataTypesCompatibility(a.dataType, b.dataType);
-	var releaseA = !a._decRef();
-	var releaseB = !b._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
+	var idB = b._id;
+	var releaseIdB = !b._decRef();
+	if (releaseIdB) {
+		b._id = 0;
+	}
 	try {
 		if (typeof out === "undefined") {
 			var shapeA = a.shape;
@@ -1532,17 +1596,21 @@ var dotArithOp = function(a, b, out, context) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
+		b._id = idB;
 		b._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "dot",
-		"a": (releaseA ? -a._id : a._id),
-		"b": (releaseB ? -b._id : b._id),
+		"a": (releaseIdA ? -idA : idA),
+		"b": (releaseIdB ? -idB : idB),
 		"out": out._id
 	});
+	a._tryInvalidate();
+	b._tryInvalidate();
 	return out;
 };
 
@@ -1748,9 +1816,9 @@ var init = function(backend, options, callback) {
  *     </table>
  */
 var getDefaultBackend = function() {
-	if (hasFeature("webcl")) {
+	if (WebCLContext.isUsable()) {
 		return "webcl";
-	} else if (hasFeature("pnacl")) {
+	} else if (PNaClContext.isSupported()) {
 		return "pnacl";
 	} else {
 		return "javascript";
@@ -1790,10 +1858,10 @@ var getDefaultBackend = function() {
  */
 var getSupportedBackends = function() {
 	var backends = [];
-	if (hasFeature("webcl")) {
+	if (WebCLContext.isUsable()) {
 		backends.push("webcl");
 	}
-	if (hasFeature("pnacl")) {
+	if (PNaClContext.isSupported()) {
 		backends.push("pnacl");
 	}
 	if (hasFeature("asm.js")) {
@@ -1928,6 +1996,10 @@ var getDefaultBackendOptions = function(backend) {
  *             <th>Interpretation</th>
  *         </tr>
  *         <tr>
+ *             <td>"webworkers"</td>
+ *             <td>Detect if the JavaScript engine can spawn dedicated Web Workers.</td>
+ *         </tr>
+ *         <tr>
  *             <td>"asm.js"</td>
  *             <td>Detect if the JavaScript engine recognizes Asm.js directive.</td>
  *         </tr>
@@ -1978,6 +2050,8 @@ var hasFeature = function(name) {
 			return (typeof SIMD !== "undefined") &&
 				(typeof Float32x4Array !== "undefined") &&
 				(typeof Int32x4Array !== "undefined");
+		case "webworkers":
+			return (typeof Worker !== "undefined");
 		case "webgl":
 			try {
 				var canvas = document.createElement("canvas");
@@ -3476,14 +3550,25 @@ WebCLContext.getDefaultDevice = function() {
 };
 
 /**
+ * Checks if WebCL is supported by the environment.
+ *
+ * @static
+ * @method isSupported
+ * @return {Boolean} - true if WebCL is supported on this system and false otherwise.
+ */
+WebCLContext.isSupported = function() {
+	return initWebCL() !== null;
+};
+
+/**
  * Checks if WebCL can be used for computation.
  * WebCL is usable for computations if it is supported by JS engine (or Node.js) and there is at least one CPU or GPU device with KHR_fp64 extension.
  *
  * @static
- * @method isSupported
+ * @method isUsable
  * @return {Boolean} - true if WebCL is usable on this system and false otherwise.
  */
-WebCLContext.isSupported = function() {
+WebCLContext.isUsable = function() {
 	var webcl = initWebCL();
 	if (webcl === null) {
 		return false;
@@ -3517,7 +3602,7 @@ WebCLContext.prototype.zeros = function(shape, dataType) {
 	kernel.setArg(0, new Uint32Array([array.length]));
 	kernel.setArg(1, array._buffer);
 	kernel.setArg(2, new dataType.arrayType([0.0]));
-	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length], null);
+	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
 	return array;
 };
 
@@ -3534,7 +3619,7 @@ WebCLContext.prototype.ones = function(shape, dataType) {
 	kernel.setArg(0, new Uint32Array([array.length]));
 	kernel.setArg(1, array._buffer);
 	kernel.setArg(2, new dataType.arrayType([1.0]));
-	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length], null);
+	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
 	return array;
 };
 
@@ -3593,7 +3678,7 @@ WebCLContext.prototype.linspace = function(start, stop, samples, closed) {
 	kernel.setArg(1, array._buffer);
 	kernel.setArg(2, new dataType.arrayType([start]));
 	kernel.setArg(3, new dataType.arrayType([step]));
-	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length], null);
+	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
 
 	return array;
 };
@@ -3716,7 +3801,7 @@ WebCLContext.prototype.repeat = function(a, repeats, axis, out) {
 		kernel.setArg(2, new Uint32Array([repeats]));
 		kernel.setArg(3, a._buffer);
 		kernel.setArg(4, out._buffer);
-		this.queue.enqueueNDRangeKernel(kernel, 3, null, [outerStride, expansionDim, innerStride], null);
+		this.queue.enqueueNDRangeKernel(kernel, 3, null, [outerStride, expansionDim, innerStride]);
 	} catch (e) {
 		a._incRef();
 		throw e;
@@ -3778,14 +3863,14 @@ var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryC
 				kernel.setArg(1, bufferA);
 				kernel.setArg(2, bufferB);
 				kernel.setArg(3, out._buffer);
-				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
 			} else {
 				var kernel = binaryConstOpKernels[dataTypeOut.type];
 				kernel.setArg(0, new Uint32Array([out.length]));
 				kernel.setArg(1, bufferA);
 				kernel.setArg(2, new dataTypeOut.arrayType([b]));
 				kernel.setArg(3, out._buffer);
-				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
 			}
 		} else {
 			var kernel = binaryRevConstKernels[dataTypeOut.type];
@@ -3793,7 +3878,7 @@ var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryC
 			kernel.setArg(1, bufferB);
 			kernel.setArg(2, new dataTypeOut.arrayType([a]));
 			kernel.setArg(3, out._buffer);
-			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
 		}
 	} catch (e) {
 		/* Restore the previous state */
@@ -3837,7 +3922,7 @@ var unaryArithOp = function(a, out, furiousContext, unaryOpKernels) {
 		kernel.setArg(0, new Uint32Array([out.length]));
 		kernel.setArg(1, bufferA);
 		kernel.setArg(2, out._buffer);
-		furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length], null);
+		furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
 	} catch (e) {
 		/* Restore the previous state */
 		a._incRef();
@@ -3924,7 +4009,7 @@ var axisReduceOp = function(a, axis, out, furiousContext, reduceKernels, axisRed
 		kernel.setArg(1, a._buffer);
 		kernel.setArg(2, out._buffer);
 		furiousContext.queue.enqueueNDRangeKernel(kernel, 2, null,
-			[outerStride, innerStride], null);
+			[outerStride, innerStride]);
 		a._tryRelease();
 		return out;
 	}
@@ -4026,7 +4111,7 @@ WebCLContext.prototype.dot = function(a, b, out) {
 	kernel.setArg(2, b._buffer);
 	kernel.setArg(3, out._buffer);
 	this.queue.enqueueNDRangeKernel(kernel, 3, null,
-		[strideA, outerStrideB, innerStrideB], null);
+		[strideA, outerStrideB, innerStrideB]);
 	a._tryRelease();
 	b._tryRelease();
 	return out;
