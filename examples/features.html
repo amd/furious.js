@@ -64,6 +64,13 @@
 					$("#NaClBlock").removeClass('panel-default').addClass('panel-danger')
 					$("#NaClTitle").text('NaCl is not supported');
 				}
+				if (furious.hasFeature("webworkers")) {
+					$("#WebWorkersBlock").removeClass('panel-default').addClass('panel-success')
+					$("#WebWorkersTitle").text('Web Workers are supported');
+				} else {
+					$("#WebWorkersBlock").removeClass('panel-default').addClass('panel-warning')
+					$("#WebWorkersTitle").text('Web Workers are not supported');
+				}
 				if (furious.hasFeature("asm.js")) {
 					$("#AsmJSBlock").removeClass('panel-default').addClass('panel-success')
 					$("#AsmJSTitle").text('Asm.js is accelerated');
@@ -114,6 +121,12 @@
 				<div class="panel-heading" id="NaClTitle">NaCl</div>
 				<div class="panel-body">
 					NaCl is a sandboxing technology which enables execution of native machine code in a browser.
+				</div>
+			</div>
+			<div class="panel panel-default" id="WebWorkersBlock">
+				<div class="panel-heading" id="WebWorkersTitle">Web Workers</div>
+				<div class="panel-body">
+					Web Workers are the analogs of processes in JavaScript world. Web Workers let JavaScript applications utilize additional processor cores for computations.
 				</div>
 			</div>
 			<div class="panel panel-default" id="AsmJSBlock">
