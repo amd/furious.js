@@ -87,6 +87,7 @@
 			var gdpGrowthArray = null;
 			var x = null;
 			var XmX = null;
+			var isComputing = false;
 
 			if ((typeof performance !== "undefined") && (typeof performance.now !== "undefined")) {
 				function getTimerTicks() {
@@ -106,6 +107,7 @@
 				/* Delete the old context and its data */
 				furiousDeallocate();
 				context = null;
+				isComputing = false;
 
 				/* Request a new context to be created */
 				furious.init(backend, options, function(ctx) {
@@ -141,24 +143,28 @@
 
 			function furiousCompute() {
 				if (context && unemployment && gdpGrowth && g) {
-					var startTime = getTimerTicks();
-					if (!unemploymentArray || !gdpGrowthArray || !x || !XmX) {
-						furiousAllocate();
-					}
-					
-					var K = context.exp(context.square(XmX.div(h)).mul(-0.5)).retain();
-					var y = context.dot(K, gdpGrowthArray).div(context.sum(K, 1));
-					context.get(x, y, function(xVal, yVal) {
-						var endTime = getTimerTicks();
-						if (linePlot == null) {
-							linePlot = main.append("svg:path")
-								.attr("d", line(d3.zip(xVal, yVal)))
-								.attr("class", "trend");
-						} else {
-							linePlot.attr("d", line(d3.zip(xVal, yVal)));
+					if (!isComputing) {
+						var startTime = getTimerTicks();
+						isComputing = true;
+						if (!unemploymentArray || !gdpGrowthArray || !x || !XmX) {
+							furiousAllocate();
 						}
-						$("#time").text((endTime - startTime).toFixed(2) + " ms");
-					});
+						
+						var K = context.exp(context.square(XmX.div(h)).mul(-0.5)).retain();
+						var y = context.dot(K, gdpGrowthArray).div(context.sum(K, 1));
+						context.get(x, y, function(xVal, yVal) {
+							var endTime = getTimerTicks();
+							if (linePlot == null) {
+								linePlot = main.append("svg:path")
+									.attr("d", line(d3.zip(xVal, yVal)))
+									.attr("class", "trend");
+							} else {
+								linePlot.attr("d", line(d3.zip(xVal, yVal)));
+							}
+							$("#time").text((endTime - startTime).toFixed(2) + " ms");
+							isComputing = false;
+						});
+					}
 				}
 			}
 
