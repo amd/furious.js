@@ -16,7 +16,7 @@ Furious.js is a scientific computing package for JavaScript. Furious.js features
 - Works with all modern browsers and Node.js
 - Accelerates computation on Portable Native Client (PNaCl) and WebCL
 - Computes asynchronously, without stalling the GUI
-- Functionality covered with unit tests
+- Functionality covered with unit tests ([Try it!](https://amd.github.io/furious.js/unittest.html))
 - Comes with extensive documentation
 
 ## Backends
