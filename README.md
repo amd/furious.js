@@ -10,4 +10,12 @@
 Furious.js
 ==========
 
-scientific computing package for JavaScript - inspired by NumPy
+Furious.js is a scientific computing package for JavaScript. Furious.js features:
+
+- Provides n-dimensional array (NDArray) class
+- Programming interface similar to NumPy
+- Works with all modern browsers and Node.js
+- Accelerates computation on Portable Native Client (PNaCl) and WebCL
+- Computes asynchronously, without stalling the GUI
+- Functionality covered with unit tests
+- Comes with extensive documentation
