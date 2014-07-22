@@ -62,7 +62,7 @@ var jsmath = _dereq_("./jsmath");
  * @class Context
  * @constructor
  */
-function JSContext(callback) {
+function JSContext(options, callback) {
 	callback(this);
 }
 
@@ -1037,18 +1037,20 @@ var onPNaClMessage = function(message) {
 		if ("buffer" in result) {
 			messageCallbacks[id](result.buffer);
 		} else {
-			messageCallbacks[id]();
+			delete result.status;
+			delete result.id;
+			messageCallbacks[id](result);
 		}
 		delete messageCallbacks[id];
 	}
 };
 
-function PNaClContext(callback) {
+function PNaClContext(options, callback) {
 	var context = this;
 	this._pnaclObject = document.createElement("object");
 	this._pnaclObject.width = 0;
 	this._pnaclObject.height = 0;
-	this._pnaclObject.data = scriptDirectory + "furious.nmf";
+	this._pnaclObject.data = PNaClContext.getDefaultManifestURL();
 	this._pnaclObject.type = "application/x-pnacl";
 	this._pnaclObject.addEventListener("load", function () {
 		var messageId = allocator.newMessageId();
@@ -1063,6 +1065,18 @@ function PNaClContext(callback) {
 	this._pnaclObject.addEventListener("message", onPNaClMessage, true);
 	document.body.appendChild(this._pnaclObject);
 }
+
+PNaClContext.isSupported = function() {
+	try {
+		return (typeof navigator.mimeTypes["application/x-pnacl"]) !== "undefined";
+	} catch (e) {
+	}
+	return false;
+};
+
+PNaClContext.getDefaultManifestURL = function() {
+	return scriptDirectory + "furious.nmf";
+};
 
 PNaClContext.prototype.empty = function(shape, dataType) {
 	shape = util.checkShape(shape);
@@ -1187,21 +1201,24 @@ PNaClContext.prototype.reshape = function(a, shape) {
 	if (util.computeLength(shape) !== a.length) {
 		throw new RangeError("The shape is not compatible with the array");
 	}
-	var releaseArray = !a._decRef();
+	var idA = a._id;
+	var releaseA = !a._decRef();
 	var out = new NDArray(shape, a.dataType, this);
-	if (releaseArray) {
-		out._id = a._id;
-		releaseArray = false;
+	if (releaseA) {
+		out._id = idA;
+		a._id = 0;
+		releaseA = false;
 	} else {
 		out._id = allocator.newArrayId();
 	}
 	this._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "reshape",
-		"a": (releaseArray ? -a._id : a._id),
+		"a": (releaseA ? -idA : idA),
 		"out": out._id,
 		"shape": new Uint32Array(shape).buffer
 	});
+	a._tryInvalidate();
 	return out;
 };
 
@@ -1221,15 +1238,20 @@ PNaClContext.prototype.repeat = function(a, repeats, axis, out) {
 		util.checkDataTypesCompatibility(a.dataType, out.dataType);
 		out._incRef();
 	}
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	if (!a._decRef()) {
+		idA = -idA;
+		a._id = 0;
+	}
 	this._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "repeat",
-		"a": (releaseA ? -a._id : a._id),
+		"a": idA,
 		"out": out._id,
 		"repeats": repeats,
 		"axis": axis
 	});
+	a._tryInvalidate();
 	return out;
 };
 
@@ -1286,47 +1308,72 @@ PNaClContext.prototype.get = function() {
 				};
 			})(i, array.dataType.arrayType, array.shape);
 		}
+		var arrayId = array._id;
+		if (release[i]) {
+			array._id = 0;
+			arrayId = -arrayId;
+			array._tryInvalidate();
+		}
 		this._pnaclObject.postMessage({
 			"id": messageId,
 			"command": "get",
-			"in": (release[i] ? -array._id : array._id)
+			"in": arrayId
 		});
 	}
 };
 
+PNaClContext.prototype.info = function(callback) {
+	var messageId = allocator.newMessageId();
+	messageCallbacks[messageId] = callback;
+	this._pnaclObject.postMessage({
+		"id": messageId,
+		"command": "info"
+	});
+};
+
 var binaryArithOp = function(a, b, out, context, operation) {
-	var shapeOut = null, dataTypeOut = null, releaseA = false, releaseB = false;
+	var shapeOut = null, dataTypeOut = null, releaseIdA = false, releaseIdB = false, idA = 0, idB = 0;
 	if (a instanceof NDArray) {
+		idA = a._id;
 		shapeOut = a.shape;
 		dataTypeOut = a.dataType;
 		if (b instanceof NDArray) {
+			idB = b._id;
 			util.checkShapesCompatibility(a.shape, b.shape);
 			util.checkDataTypesCompatibility(a.dataType, b.dataType);
 		} else if (!util.isNumber(b)) {
 			throw new TypeError("Unsupported type of b");
 		}
 	} else if (util.isNumber(a)) {
+		idB = b._id;
 		shapeOut = b.shape;
 		dataTypeOut = b.dataType;
 		util.checkNDArray(b, "b");
 	} else {
 		throw new TypeError("Unsupported type of a");
 	}
-	if (a instanceof NDArray) {
-		releaseA = !a._decRef();
+	/* The IDs of a and b must be invalidated before we assign ID to out because a/b and out may be the same arrays */
+	if (idA !== 0) {
+		releaseIdA = !a._decRef();
+		if (releaseIdA) {
+			a._id = 0;
+		}
 	}
-	if (b instanceof NDArray) {
-		releaseB = !b._decRef();
+	if (idB !== 0) {
+		releaseIdB = !b._decRef();
+		if (releaseIdB) {
+			b._id = 0;
+		}
 	}
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray(shapeOut, dataTypeOut, context);
-			if (releaseA) {
-				out._id = a._id;
-				releaseA = false;
-			} else if (releaseB) {
-				out._id = b._id;
-				releaseB = false;
+			if (releaseIdA) {
+				out._id = idA;
+				releaseIdA = false;
+			} else if (releaseIdB) {
+				out._id = idB;
+				releaseIdB = false;
 			} else {
 				out._id = allocator.newArrayId();
 			}
@@ -1336,20 +1383,20 @@ var binaryArithOp = function(a, b, out, context, operation) {
 			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
 			out._incRef();
 		}
-		if (a instanceof NDArray) {
-			if (b instanceof NDArray) {
+		if (idA !== 0) {
+			if (idB !== 0) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation,
-					"a": (releaseA ? -a._id : a._id),
-					"b": (releaseB ? -b._id : b._id),
+					"a": (releaseIdA ? -idA : idA),
+					"b": (releaseIdB ? -idB : idB),
 					"out": out._id
 				});
 			} else {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation + "c",
-					"a": (releaseA ? -a._id : a._id),
+					"a": (releaseIdA ? -idA : idA),
 					"b": b,
 					"out": out._id
 				});
@@ -1360,7 +1407,7 @@ var binaryArithOp = function(a, b, out, context, operation) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": operation + "c",
-					"a": (releaseB ? -b._id : b._id),
+					"a": (releaseIdB ? -idB : idB),
 					"b": a,
 					"out": out._id
 				});
@@ -1368,34 +1415,51 @@ var binaryArithOp = function(a, b, out, context, operation) {
 				context._pnaclObject.postMessage({
 					"id": allocator.newMessageId(),
 					"command": "r" + operation + "c",
-					"a": b,
-					"b": (releaseA ? -a._id : a._id),
+					"a": (releaseIdB ? -idB : idB),
+					"b": a,
 					"out": out._id
 				});
 			}
 		}
 	} catch (e) {
 		/* Restore the previous state */
-		if (a instanceof NDArray) {
+		if (idA !== 0) {
+			a._id = idA;
 			a._incRef();
 		}
-		if (b instanceof NDArray) {
+		if (idB !== 0) {
+			b._id = idB;
 			b._incRef();
 		}
 		throw e;
+	}
+	/*
+	 * If a or b are arrays, invalidate them as needed.
+	 * If a/b and out are the same, their ref count is non-zero at this point, so they will stay valid.
+	 */
+	if (idA !== 0) {
+		a._tryInvalidate();
+	}
+	if (idB !== 0) {
+		b._tryInvalidate();
 	}
 	return out;
 };
 
 var unaryArithOp = function(a, out, context, operation) {
 	util.checkNDArray(a, "a");
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	/* The ID of a must be invalidated before we assign ID to out because a and out may be the same arrays */
+	if (releaseIdA) {
+		a._id = 0;
+	}
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray(a.shape, a.dataType, context);
-			if (releaseA) {
-				out._id = a._id;
-				releaseA = false;
+			if (releaseIdA) {
+				out._id = idA;
+				releaseIdA = false;
 			} else {
 				out._id = allocator.newArrayId();
 			}
@@ -1407,21 +1471,28 @@ var unaryArithOp = function(a, out, context, operation) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": (releaseA ? -a._id : a._id),
+		"a": (releaseIdA ? -idA : idA),
 		"out": out._id
 	});
+	/* If a and out are the same, their ref count is non-zero at this point, so they will stay valid. */
+	a._tryInvalidate();
 	return out;
 };
 
 var reduceArithOp = function(a, out, context, operation) {
 	util.checkNDArray(a, "a");
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
 	try {
 		if (typeof out === "undefined") {
 			out = new NDArray([], a.dataType, context);
@@ -1434,21 +1505,27 @@ var reduceArithOp = function(a, out, context, operation) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": (releaseA ? -a._id : a._id),
+		"a": (releaseIdA ? -idA : idA),
 		"out": out._id
 	});
+	a._tryInvalidate();
 	return out;
 };
 
 var axisReduceArithOp = function(a, axis, out, context, operation) {
 	util.checkNDArray(a, "a");
-	var releaseA = !a._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
 	try {
 		util.checkAxis(axis);
 		if (typeof out === "undefined") {
@@ -1462,16 +1539,18 @@ var axisReduceArithOp = function(a, axis, out, context, operation) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": operation,
-		"a": (releaseA ? -a._id : a._id),
+		"a": (releaseIdA ? -idA : idA),
 		"axis": axis|0,
 		"out": out._id
 	});
+	a._tryInvalidate();
 	return out;
 };
 
@@ -1479,8 +1558,16 @@ var dotArithOp = function(a, b, out, context) {
 	util.checkNDArray(a, "a");
 	util.checkNDArray(b, "b");
 	util.checkDataTypesCompatibility(a.dataType, b.dataType);
-	var releaseA = !a._decRef();
-	var releaseB = !b._decRef();
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
+	var idB = b._id;
+	var releaseIdB = !b._decRef();
+	if (releaseIdB) {
+		b._id = 0;
+	}
 	try {
 		if (typeof out === "undefined") {
 			var shapeA = a.shape;
@@ -1509,17 +1596,21 @@ var dotArithOp = function(a, b, out, context) {
 		}
 	} catch (e) {
 		/* Restore the previous state */
+		a._id = idA;
 		a._incRef();
+		b._id = idB;
 		b._incRef();
 		throw e;
 	}
 	context._pnaclObject.postMessage({
 		"id": allocator.newMessageId(),
 		"command": "dot",
-		"a": (releaseA ? -a._id : a._id),
-		"b": (releaseB ? -b._id : b._id),
+		"a": (releaseIdA ? -idA : idA),
+		"b": (releaseIdB ? -idB : idB),
 		"out": out._id
 	});
+	a._tryInvalidate();
+	b._tryInvalidate();
 	return out;
 };
 
@@ -1659,23 +1750,35 @@ var WebCLContext = _dereq_("./webcl/WebCLContext");
  *         </tr>
  *     </table>
  *
+ * @param {Object} options - Backend-specific options.
  * @param {Function} callback - A callback function that is called when the backend finish initialization.
  * @param {Context} callback.context - A ready to use computational context.
  */
-var init = function(backend, callback) {
+var init = function(backend, options, callback) {
 	if (typeof callback === "undefined") {
-		callback = backend;
-		backend = undefined;
+		if (typeof options === "undefined") {
+			/* Called with one parameter: callback */
+			callback = backend;
+			options = undefined;
+			backend = undefined;
+		} else {
+			/* Called with two parameters: backend and callback */
+			callback = options;
+			options = undefined;
+		}
 	}
-	if (typeof backend == "undefined") {
+	if (typeof backend === "undefined") {
 		backend = getDefaultBackend();
 	}
-	if (backend == "javascript") {
-		return new JSContext(callback);
-	} else if (backend == "pnacl") {
-		return new PNaClContext(callback);
-	} else if (backend == "webcl") {
-		return new WebCLContext(callback);
+	if (typeof options === "undefined") {
+		options = {};
+	}
+	if (backend === "javascript") {
+		return new JSContext(options, callback);
+	} else if (backend === "pnacl") {
+		return new PNaClContext(options, callback);
+	} else if (backend === "webcl") {
+		return new WebCLContext(options, callback);
 	} else {
 		throw new Error("Unsupported backend: " + backend);
 	}
@@ -1713,9 +1816,9 @@ var init = function(backend, callback) {
  *     </table>
  */
 var getDefaultBackend = function() {
-	if (hasFeature("webcl")) {
+	if (WebCLContext.isUsable()) {
 		return "webcl";
-	} else if (hasFeature("pnacl")) {
+	} else if (PNaClContext.isSupported()) {
 		return "pnacl";
 	} else {
 		return "javascript";
@@ -1755,10 +1858,10 @@ var getDefaultBackend = function() {
  */
 var getSupportedBackends = function() {
 	var backends = [];
-	if (hasFeature("webcl")) {
+	if (WebCLContext.isUsable()) {
 		backends.push("webcl");
 	}
-	if (hasFeature("pnacl")) {
+	if (PNaClContext.isSupported()) {
 		backends.push("pnacl");
 	}
 	if (hasFeature("asm.js")) {
@@ -1766,6 +1869,117 @@ var getSupportedBackends = function() {
 	}
 	backends.push("javascript");
 	return backends;
+};
+
+/**
+ * Queries possible backend options available on this platform.
+ *
+ * @param {String} backend - name of the backend to query options for.
+ *
+ * @static
+ * @method getBackendOptions
+ *
+ * @return {Object} - An object that describes available options.
+ * The names of object's properties correspond to backend option names.
+ * Object's properties have array values with possible option values.
+ * Below are the backend options for the built-in backends:
+ *
+ *     <table>
+ *         <caption>Options of "javascript" and "asmjs" backends</caption>
+ *         <tr>
+ *             <th>Option name</th>
+ *             <th>Option values</th>
+ *             <th>Default value</th>
+ *         </tr>
+ *         <tr>
+ *             <td>"async"</td>
+ *             <td>[true, false]</td>
+ *             <td>true</td>
+ *         </tr>
+ *     </table>
+ *
+ *     <table>
+ *         <caption>Options of "pnacl" backend</caption>
+ *         <tr>
+ *             <th>Option name</th>
+ *             <th>Option values</th>
+ *             <th>Default value</th>
+ *         </tr>
+ *         <tr>
+ *             <td>"manifest"</td>
+ *             <td>undefined</td>
+ *             <td>URL of "furious.nmf" file in the same directory as "furious.js" library</td>
+ *         </tr>
+ *     </table>
+ *
+ *     <table>
+ *         <caption>Options of "webcl" backend</caption>
+ *         <tr>
+ *             <th>Option name</th>
+ *             <th>Option values</th>
+ *             <th>Default value</th>
+ *         </tr>
+ *         <tr>
+ *             <td>"device"</td>
+ *             <td>Depends on the platform</td>
+ *             <td>Discrete GPU device, if available. Otherwise integrated GPU device, if available. Otherwise CPU device.</td>
+ *         </tr>
+ *     </table>
+ */
+var getBackendOptions = function(backend) {
+	if (backend === "javascript") {
+		return {
+			"async": [true, false]
+		};
+	} else if (backend === "pnacl") {
+		if (PNaClContext.isSupported()) {
+			return {
+				"manifest": [PNaClContext.getDefaultManifestURL()]
+			};
+		} else {
+			return {};
+		}
+	} else if (backend === "webcl") {
+		return {
+			"device": WebCLContext.getAvailableDevices()
+		};
+	} else {
+		throw new Error("Unsupported backend: " + backend);
+	}
+};
+
+/**
+ * Queries default backend options on this platform.
+ *
+ * @param {String} backend - name of the backend to query options for.
+ *
+ * @static
+ * @method getBackendOptions
+ *
+ * @return {Object} - An object that describes available options.
+ * The names of object's properties correspond to backend option names.
+ * The values of object's properties correspond to default option values.
+ */
+var getDefaultBackendOptions = function(backend) {
+	if (backend === "javascript") {
+		return {
+			"async": true
+		};
+	} else if (backend === "pnacl") {
+		if (PNaClContext.isSupported()) {
+			return {
+				"manifest": PNaClContext.getDefaultManifestURL()
+			};
+		} else {
+			return {};
+		}
+	} else if (backend === "webcl") {
+		return {
+			"device": WebCLContext.getDefaultDevice()
+		};
+	} else {
+		throw new Error("Unsupported backend: " + backend);
+	}
 };
 
 /**
@@ -1782,6 +1996,10 @@ var getSupportedBackends = function() {
  *             <th>Interpretation</th>
  *         </tr>
  *         <tr>
+ *             <td>"webworkers"</td>
+ *             <td>Detect if the JavaScript engine can spawn dedicated Web Workers.</td>
+ *         </tr>
+ *         <tr>
  *             <td>"asm.js"</td>
  *             <td>Detect if the JavaScript engine recognizes Asm.js directive.</td>
  *         </tr>
@@ -1791,11 +2009,11 @@ var getSupportedBackends = function() {
  *         </tr>
  *         <tr>
  *             <td>"webgl"</td>
- *             <td>Detect if the browser supports WebGL (either experimental or stable implementation)</td>
+ *             <td>Detect if the environment supports WebGL (either experimental or stable implementation)</td>
  *         </tr>
  *         <tr>
  *             <td>"webcl"</td>
- *             <td>Detect if the browser supports WebCL</td>
+ *             <td>Detect if the environment supports WebCL</td>
  *         </tr>
  *         <tr>
  *             <td>"pnacl"</td>
@@ -1816,10 +2034,11 @@ var hasFeature = function(name) {
 				var userAgent = window.navigator.userAgent;
 				var userAgentComponents = userAgent.split(/\s+/);
 				var firefoxRegexp = /[Ff]irefox\/(\d+)/g;
-				for (var component in userAgentComponents) {
+				for (var i = 0; i < userAgentComponents.length; ++i) {
+					var component = userAgentComponents[i];
 					var match = firefoxRegexp.exec(component);
 					if (match !== null) {
-						var firefoxVersion = parseInt(match[0]);
+						var firefoxVersion = parseInt(match[1]);
 						return firefoxVersion >= 29;
 					}
 				}
@@ -1828,7 +2047,11 @@ var hasFeature = function(name) {
 			}
 			return false;
 		case "simd.js":
-			return (typeof SIMD !== "undefined");
+			return (typeof SIMD !== "undefined") &&
+				(typeof Float32x4Array !== "undefined") &&
+				(typeof Int32x4Array !== "undefined");
+		case "webworkers":
+			return (typeof Worker !== "undefined");
 		case "webgl":
 			try {
 				var canvas = document.createElement("canvas");
@@ -1848,29 +2071,9 @@ var hasFeature = function(name) {
 			}
 			return false;
 		case "webcl":
-			if (typeof webcl !== "undefined") {
-				try {
-					var platforms = webcl.getPlatforms();
-					return platforms.length >= 1;
-				} catch (e) {
-					return false;
-				}
-			} else {
-				try {
-					var cl = _dereq_("node-webcl");
-					var platforms = cl.getPlatforms();
-					return platforms.length >= 1;
-				} catch (e) {
-					return false;
-				}
-			}
-			return false;
+			return WebCLContext.isSupported();
 		case "pnacl":
-			try {
-				return (typeof navigator.mimeTypes["application/x-pnacl"]) !== "undefined";
-			} catch (e) {
-			}
-			return false;
+			return PNaClContext.isSupported();
 		case "nacl":
 			try {
 				return (typeof navigator.mimeTypes["application/x-nacl"]) !== "undefined";
@@ -1886,6 +2089,8 @@ exports.init = init;
 exports.hasFeature = hasFeature;
 exports.getDefaultBackend = getDefaultBackend;
 exports.getSupportedBackends = getSupportedBackends;
+exports.getBackendOptions = getBackendOptions;
+exports.getDefaultBackendOptions = getDefaultBackendOptions;
 exports.DataType = DataType;
 
 },{"./DataType":1,"./JSContext":2,"./PNaClContext":4,"./webcl/WebCLContext":9}],7:[function(_dereq_,module,exports){
@@ -2477,6 +2682,10 @@ exports.asIntArray = function (list) {
 	}
 };
 
+exports.roundUp = function (number, multiple) {
+	return Math.ceil(number / multiple) * multiple;
+};
+
 /**
  * Validate the shape argument.
  * Throws an error if the argument represents a valid shape.
@@ -2874,117 +3083,499 @@ var DataType = _dereq_("../DataType");
 var util = _dereq_("../util");
 
 
-var shapeToLength = function(shape) {
-	var length = 1;
-	for (var i = 0; i < shape.length; i++) {
-		length *= shape[i];
-	}
-	return length;
-};
-
-var isCompatibleShape = function(shape1, shape2) {
-	if (shape1.length !== shape2.length) {
-		return false;
-	}
-	for (var i = 0; i < shape1.length; i++) {
-		if (shape1[i] !== shape2[i]) {
-			return false;
-		}
-	}
-	return true;
-};
-
-/* Not supported by Nokia-WebCL, buggy in Chromium-WebCL */
-var useAsyncBufferRead = false;
 /* Buggy in Chromium-WebCL */
 var useBufferCreationWithInit = false;
 
-var cl = (typeof window === "object") ? window.webcl : undefined;
-var context = null;
-var queue = null;
-var messageCallbacks = {};
+var isNodeWebCL = false;
+var cl = void 0;
+var availableDevices = null;
+var availableDevicesDescriptions = null;
+var defaultDeviceIndex = -1;
 
-var binaryOpKernels = {
-	add: {},
-	sub: {},
-	mul: {},
-	div: {}
-};
-var binaryConstOpKernels = {
-	add: {},
-	sub: {},
-	mul: {},
-	div: {}
-};
-var unaryOpKernels = {
-	neg: {},
-	abs: {},
-	exp: {},
-	log: {},
-	sqrt: {},
-	square: {}
-};
-
-var setKernels = {};
-
-function WebCLContext(callback) {
+/**
+ * If the global cl variable is undefined, this method would initialize it with a WebCL instance.
+ * Works for both browser and Node.js
+ *
+ * @private
+ * @static
+ * @method initWebCL
+ * @return {WebCL} - an instance of WebCL object from WebCL specification. If WebCL is not supported, return null.
+ */
+var initWebCL = function() {
 	if (typeof cl === "undefined") {
-		cl = _dereq_("node-webcl");
-	}
-	if (context === null) {
-		var source = "kernel void setF32(\r\n\tuint length,\r\n\tglobal float* out,\r\n\tfloat value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\nkernel void setF64(\r\n\tuint length,\r\n\tglobal double* out,\r\n\tdouble value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\n\r\nkernel void addF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void addF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void subF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void subF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void mulF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void mulF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void divF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void divF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void addConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void addConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void subConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void subConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void mulConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void mulConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void divConstF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void divConstF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void negF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void negF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void absF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void absF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void expF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void expF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void logF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void logF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void sqrtF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void sqrtF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void squareF32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst float aVal = a[id]; \r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\nkernel void squareF64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst double aVal = a[id];\r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\n";
-
-		var platforms = cl.getPlatforms();
-		var platform = platforms[0];
-		var devices = platform.getDevices(cl.DEVICE_TYPE_ALL);
-		var device = devices[0];
-		context = cl.createContext(device);
-		queue = context.createCommandQueue();
-		var program = context.createProgram(source);
-		try {
-			/* Chromium-WebCL requires a list of devices */
-			program.build([device]);
-		} catch (e) {
-			if (e.name === "INVALID_DEVICE") {
-				/* Nokia-WebCL only works with no arguments to WebCLProgram.build */
-				program.build();
-			} else {
-				throw e;
+		if (typeof window === "object") {
+			cl = (typeof window.webcl !== "undefined") ? window.webcl : null;
+		} else {
+			try {
+				cl = _dereq_("node-webcl");
+				isNodeWebCL = true;
+			} catch (e) {
+				cl = null;
 			}
 		}
-		setKernels.f32 = program.createKernel("setF32");
-		setKernels.f64 = program.createKernel("setF64");
-		binaryOpKernels.add.f32 = program.createKernel("addF32");
-		binaryOpKernels.add.f64 = program.createKernel("addF64");
-		binaryOpKernels.sub.f32 = program.createKernel("subF32");
-		binaryOpKernels.sub.f64 = program.createKernel("subF64");
-		binaryOpKernels.mul.f32 = program.createKernel("mulF32");
-		binaryOpKernels.mul.f64 = program.createKernel("mulF64");
-		binaryOpKernels.div.f32 = program.createKernel("divF32");
-		binaryOpKernels.div.f64 = program.createKernel("divF64");
-		binaryConstOpKernels.add.f32 = program.createKernel("addConstF32");
-		binaryConstOpKernels.add.f64 = program.createKernel("addConstF64");
-		binaryConstOpKernels.sub.f32 = program.createKernel("subConstF32");
-		binaryConstOpKernels.sub.f64 = program.createKernel("subConstF64");
-		binaryConstOpKernels.mul.f32 = program.createKernel("mulConstF32");
-		binaryConstOpKernels.mul.f64 = program.createKernel("mulConstF64");
-		binaryConstOpKernels.div.f32 = program.createKernel("divConstF32");
-		binaryConstOpKernels.div.f64 = program.createKernel("divConstF64");
-		unaryOpKernels.neg.f32 = program.createKernel("negF32");
-		unaryOpKernels.neg.f64 = program.createKernel("negF64");
-		unaryOpKernels.abs.f32 = program.createKernel("absF32");
-		unaryOpKernels.abs.f64 = program.createKernel("absF64");
-		unaryOpKernels.exp.f32 = program.createKernel("expF32");
-		unaryOpKernels.exp.f64 = program.createKernel("expF64");
-		unaryOpKernels.log.f32 = program.createKernel("logF32");
-		unaryOpKernels.log.f64 = program.createKernel("logF64");
-		unaryOpKernels.sqrt.f32 = program.createKernel("sqrtF32");
-		unaryOpKernels.sqrt.f64 = program.createKernel("sqrtF64");
-		unaryOpKernels.square.f32 = program.createKernel("squareF32");
-		unaryOpKernels.square.f64 = program.createKernel("squareF64");
 	}
+	return cl;
+};
+
+/**
+ * Creates an empty WebCLEvent.
+ * Works for both browser and Node.js
+ *
+ * @private
+ * @static
+ * @method createEvent
+ * @return {WebCLEvent} - an empty instance of WebCLEvent.
+ */
+var createEvent = function() {
+	if (isNodeWebCL) {
+		return new cl.WebCLEvent();
+	} else {
+		return new WebCLEvent();
+	}
+};
+
+/**
+ * Tries to release a WebCL resource and ignores any errors in the process.
+ *
+ * @private
+ * @method tryRlease
+ * @param {Object} webclObject - a WebCL object.
+ * @return {Boolean} - true if the object was successfully released and false otherwise.
+ */
+var tryRelease = function(webclResource) {
+	if (webclResource !== null) {
+		try {
+			webclResource.release();
+			return true;
+		} catch (e) {
+			/* Silently ignore */
+		}
+	}
+	return false;
+};
+
+/**
+ * Checks if a WebCL device supports KHR_fp64 extension.
+ *
+ * @private
+ * @method isFP64Capable
+ * @param {WebCLDevice} device - the device to check for KHR_fp64 support.
+ * @return {Boolean} - true if the device supports KHR_fp64 and false otherwise.
+ */
+var isFP64Capable = function(device) {
+	var extensions = device.getSupportedExtensions();
+	if (extensions.indexOf("KHR_fp64") === -1) {
+		return false;
+	}
+	/*
+	 * Due to a bug WebKit-WebCL may report KHR_fp64 even if it is not supported by the underlying OpenCL device.
+	 * See bug https://github.com/SRA-SiliconValley/webkit-webcl/issues/536
+	 */
+	var testSource = "kernel void foo(global double* bar) { }";
+	var context = null, program = null;
+	try {
+		context = cl.createContext(device);
+		program = context.createProgram(testSource);
+		program.build();
+		return true;
+	} catch (e) {
+		return false;
+	} finally {
+		tryRelease(program);
+		tryRelease(context);
+	}
+};
+
+/**
+ * Initialises and returns a list of WebCL devices suitable for computation.
+ *
+ * @private
+ * @static
+ * @method getAvailableDevices
+ * @return {WebCLDevice[]} - a list of GPU and CPU WebCL devices that support KHR_FP64 (may be empty).
+ */
+var getAvailableDevices = function() {
+	if (availableDevices === null) {
+		availableDevices = [];
+		var webcl = initWebCL();
+		if (webcl !== null) {
+			var platforms = cl.getPlatforms();
+			for (var i = 0; i < platforms.length; ++i) {
+				var platform = platforms[i];
+				var devices = platform.getDevices(cl.DEVICE_TYPE_ALL);
+				for (var j = 0; j < devices.length; ++j) {
+					var device = devices[j];
+					if (isFP64Capable(device)) {
+						availableDevices.push(device);
+					}
+				}
+			}
+		}
+		generateAvailableDevicesDescriptions();
+	}
+	return availableDevices;
+};
+
+var generateAvailableDevicesDescriptions = function() {
+	availableDevicesDescriptions = [];
+	/* If devices names are available, use them */
+	var haveNames = true;
+	for (var i = 0; i < availableDevices.length; ++i) {
+		var device = availableDevices[i];
+		var name = device.getInfo(cl.DEVICE_NAME);
+		if ((name === null) || (name === "")) {
+			haveNames = false;
+			break;
+		}
+		availableDevicesDescriptions[i] = name;
+	}
+	if (!haveNames) {
+		/* At least some names are not available: try to assign names based on classification (e.g. "CPU", "dGPU", "iGPU") */
+		var cpuCount = 0, igpuCount = 0, dgpuCount = 0;
+		for (var i = 0; i < availableDevices.length; ++i) {
+			var device = availableDevices[i];
+			var classification = classifyDevice(device);
+			if (classification === "cpu") {
+				++cpuCount;
+				availableDevicesDescriptions[i] = "CPU";
+			} else if (classification === "igpu") {
+				++igpuCount;
+				availableDevicesDescriptions[i] = "iGPU";
+			} else if (classification === "dgpu") {
+				++dgpuCount;
+				availableDevicesDescriptions[i] = "dGPU";
+			} else {
+				throw new Error("Impossible device classification: " + classification);
+			}
+		}
+		if ((cpuCount > 1) || (igpuCount > 1) || (dgpuCount > 1)) {
+			/* We have multiple devices of the same type. Need to use more complicated naming scheme */
+			var cpuIndex = 0, igpuIndex = 0, dgpuIndex = 0;
+			for (var i = 0; i < availableDevices.length; ++i) {
+				var device = availableDevices[i];
+				var classification = classifyDevice(device);
+				if (classification === "cpu") {
+					if (cpuCount > 1) {
+						++cpuIndex;
+						availableDevicesDescriptions[i] = "CPU #" + cpuIndex;
+					}
+				} else if (classification === "igpu") {
+					if (igpuCount > 1) {
+						++igpuIndex;
+						availableDevicesDescriptions[i] = "iGPU #" + igpuIndex;
+					}
+				} else if (classification === "dgpu") {
+					if (dgpuCount > 1) {
+						++dgpuCount;
+						availableDevicesDescriptions[i] = "dGPU #" + dgpuIndex;
+					}
+				} else {
+					throw new Error("Impossible device classification: " + classification);
+				}
+			}
+		}
+	}
+};
+
+/**
+ * Classifies WebCL device to one of four categories:
+ * - "cpu" for CPU devices.
+ * - "igpu" for GPUs integrated with CPU package or chipset.
+ * - "dgpu" for discrete GPUs.
+ * - "unknown" for other types of devices (e.g. FPGAs)
+ *
+ * @private
+ * @method classifyDevice
+ * @param {WebCLDevice} device - the WebCL device to classify.
+ * @return {String} - one of the strings described above.
+ */
+var classifyDevice = function(device) {
+	try {
+		var deviceType = device.getInfo(cl.DEVICE_TYPE);
+		if (deviceType === cl.DEVICE_TYPE_CPU) {
+			return "cpu";
+		} else if (deviceType === cl.DEVICE_TYPE_GPU) {
+			var isHostUnifiedMemory = device.getInfo(cl.DEVICE_HOST_UNIFIED_MEMORY);
+			return (isHostUnifiedMemory ? "igpu" : "dgpu");
+		}
+	} catch (e) {
+	}
+	return "unknown";
+};
+
+/**
+ * Selects the optimal WebCL device among the available devices.
+ * The priority of devices: "dgpu" > "igpu" > "cpu"
+ *
+ * @private
+ * @method getDefaultDeviceIndex
+ * @return {WebCLDevice} - the selected device from the list.
+ */
+var getDefaultDeviceIndex = function() {
+	if (defaultDeviceIndex === -1) {
+		var availableDevices = getAvailableDevices();
+		if (availableDevices.length === 0) {
+			defaultDeviceIndex = -2;
+			return defaultDeviceIndex;
+		}
+		var deviceClassifications = [];
+		/* Search for "dgpu" */
+		for (var i = 0; i < availableDevices.length; ++i) {
+			var device = availableDevices[i];
+			var deviceClass = classifyDevice(device);
+			if (deviceClass === "dgpu") {
+				defaultDeviceIndex = i;
+				return i;
+			}
+			deviceClassifications.push(deviceClass);
+		}
+		/* Search for "igpu" */
+		for (var i = 0; i < availableDevices.length; ++i) {
+			if (deviceClassifications[i] === "igpu") {
+				defaultDeviceIndex = i;
+				return i;
+			}
+		}
+		/* Search for "cpu" */
+		for (var i = 0; i < availableDevices.length; ++i) {
+			if (deviceClassifications[i] === "cpu") {
+				defaultDeviceIndex = i;
+				return i;
+			}
+		}
+	}
+	return defaultDeviceIndex;
+};
+
+var createKernels = function(program) {
+	var kernels = {
+		set: {
+			f32: program.createKernel("set_f32"),
+			f64: program.createKernel("set_f64")
+		},
+		linspace: {
+			f32: program.createKernel("linspace_f32"),
+			f64: program.createKernel("linspace_f64")
+		},
+		repeat: {
+			f32: program.createKernel("repeat_f32"),
+			f64: program.createKernel("repeat_f64")
+		},
+		add: {
+			f32: program.createKernel("add_f32"),
+			f64: program.createKernel("add_f64")
+		},
+		sub: {
+			f32: program.createKernel("sub_f32"),
+			f64: program.createKernel("sub_f64")
+		},
+		mul: {
+			f32: program.createKernel("mul_f32"),
+			f64: program.createKernel("mul_f64")
+		},
+		div: {
+			f32: program.createKernel("div_f32"),
+			f64: program.createKernel("div_f64")
+		},
+		addc: {
+			f32: program.createKernel("addc_f32"),
+			f64: program.createKernel("addc_f64")
+		},
+		subc: {
+			f32: program.createKernel("subc_f32"),
+			f64: program.createKernel("subc_f64")
+		},
+		subrc: {
+			f32: program.createKernel("subrc_f32"),
+			f64: program.createKernel("subrc_f64")
+		},
+		mulc: {
+			f32: program.createKernel("mulc_f32"),
+			f64: program.createKernel("mulc_f64")
+		},
+		divc: {
+			f32: program.createKernel("divc_f32"),
+			f64: program.createKernel("divc_f64")
+		},
+		divrc: {
+			f32: program.createKernel("divrc_f32"),
+			f64: program.createKernel("divrc_f64")
+		},
+		neg: {
+			f32: program.createKernel("neg_f32"),
+			f64: program.createKernel("neg_f64")
+		},
+		abs: {
+			f32: program.createKernel("abs_f32"),
+			f64: program.createKernel("abs_f64")
+		},
+		exp: {
+			f32: program.createKernel("exp_f32"),
+			f64: program.createKernel("exp_f64")
+		},
+		log: {
+			f32: program.createKernel("log_f32"),
+			f64: program.createKernel("log_f64")
+		},
+		sqrt: {
+			f32: program.createKernel("sqrt_f32"),
+			f64: program.createKernel("sqrt_f64")
+		},
+		square: {
+			f32: program.createKernel("square_f32"),
+			f64: program.createKernel("square_f64")
+		},
+		sum: {
+			f32: program.createKernel("sum_f32_gpu"),
+			f64: program.createKernel("sum_f64_gpu")
+		},
+		min: {
+			f32: program.createKernel("min_f32_gpu"),
+			f64: program.createKernel("min_f64_gpu")
+		},
+		max: {
+			f32: program.createKernel("max_f32_gpu"),
+			f64: program.createKernel("max_f64_gpu")
+		},
+		asum: {
+			f32: program.createKernel("asum_f32"),
+			f64: program.createKernel("asum_f64")
+		},
+		amin: {
+			f32: program.createKernel("amin_f32"),
+			f64: program.createKernel("amin_f64")
+		},
+		amax: {
+			f32: program.createKernel("amax_f32"),
+			f64: program.createKernel("amax_f64")
+		},
+		dot: {
+			f32: program.createKernel("dot_f32"),
+			f64: program.createKernel("dot_f64")
+		}
+	};
+	return kernels;
+};
+
+function WebCLContext(options, callback) {
+	initWebCL();
+	var binaryKernelsSource = "kernel void add_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b[id];\n\t}\n}\nkernel void add_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b[id];\n\t}\n}\nkernel void sub_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b[id];\n\t}\n}\nkernel void sub_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b[id];\n\t}\n}\nkernel void mul_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b[id];\n\t}\n}\nkernel void mul_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b[id];\n\t}\n}\nkernel void div_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b[id];\n\t}\n}\nkernel void div_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b[id];\n\t}\n}\nkernel void addc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b;\n\t}\n}\nkernel void addc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b;\n\t}\n}\nkernel void subc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b;\n\t}\n}\nkernel void subc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b;\n\t}\n}\nkernel void subrc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void subrc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void mulc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b;\n\t}\n}\nkernel void mulc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b;\n\t}\n}\nkernel void divc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b;\n\t}\n}\nkernel void divc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b;\n\t}\n}\nkernel void divrc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void divrc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\n";
+	var unaryKernelsSource = "kernel void neg_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = -a[id];\n\t}\n}\nkernel void neg_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = -a[id];\n\t}\n}\nkernel void abs_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = fabs(a[id]);\n\t}\n}\nkernel void abs_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = fabs(a[id]);\n\t}\n}\nkernel void exp_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = exp(a[id]);\n\t}\n}\nkernel void exp_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = exp(a[id]);\n\t}\n}\nkernel void log_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = log(a[id]);\n\t}\n}\nkernel void log_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = log(a[id]);\n\t}\n}\nkernel void sqrt_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = sqrt(a[id]);\n\t}\n}\nkernel void sqrt_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = sqrt(a[id]);\n\t}\n}\nkernel void square_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tconst float aVal = a[id]; \n\t\tout[id] = aVal * aVal;\n\t}\n}\nkernel void square_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tconst double aVal = a[id];\n\t\tout[id] = aVal * aVal;\n\t}\n}\n";
+	var reductionKernelsSource = "kernel void sum_f32_gpu(\n\tuint length,\n\tglobal float* a,\n\tlocal float* scratch,\n\tglobal float* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tfloat accumulator = 0.0f;\n\twhile (globalIndex < length) {\n\t\taccumulator += a[globalIndex];\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void sum_f64_gpu(\n\tuint length,\n\tglobal double* a,\n\tlocal double* scratch,\n\tglobal double* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tdouble accumulator = 0.0;\n\twhile (globalIndex < length) {\n\t\taccumulator += a[globalIndex];\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void min_f32_gpu(\n\tuint length,\n\tglobal float* a,\n\tlocal float* scratch,\n\tglobal float* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tfloat accumulator = INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = min(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void min_f64_gpu(\n\tuint length,\n\tglobal double* a,\n\tlocal double* scratch,\n\tglobal double* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tdouble accumulator = INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = min(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void max_f32_gpu(\n\tuint length,\n\tglobal float* a,\n\tlocal float* scratch,\n\tglobal float* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tfloat accumulator = -INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = max(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void max_f64_gpu(\n\tuint length,\n\tglobal double* a,\n\tlocal double* scratch,\n\tglobal double* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tdouble accumulator = -INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = max(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n";
+	var axisReductionKernelsSource = "kernel void asum_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tfloat accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator += *a;\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void asum_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tdouble accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator += *a;\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amin_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tfloat accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = min(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amin_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tdouble accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = min(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amax_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tfloat accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = max(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amax_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tdouble accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = max(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n";
+	var productKernelsSource = "kernel void dot_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\tconst uint l = get_global_id(2);\n\tconst uint outerStrideB = get_global_size(1);\n\tconst uint innerStrideB = get_global_size(2);\n\n\tfloat accumulator = 0.0f;\n\tfor (uint j = 0; j < reductionDim; ++j) {\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\n\t}\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\n}\n\nkernel void dot_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\tconst uint l = get_global_id(2);\n\tconst uint outerStrideB = get_global_size(1);\n\tconst uint innerStrideB = get_global_size(2);\n\n\tdouble accumulator = 0.0;\n\tfor (uint j = 0; j < reductionDim; ++j) {\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\n\t}\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\n}\n";
+	var utilKernelsSource = "kernel void set_f32(\n\tuint length,\n\tglobal float* out,\n\tfloat value)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = value;\n\t}\n}\nkernel void set_f64(\n\tuint length,\n\tglobal double* out,\n\tdouble value)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = value;\n\t}\n}\n\nkernel void linspace_f32(\n\tuint length,\n\tglobal float* out,\n\tfloat start,\n\tfloat step)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = start + step * ((float) id);\n\t}\n}\nkernel void linspace_f64(\n\tuint length,\n\tglobal double* out,\n\tdouble start,\n\tdouble step)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = start + step * ((double) id);\n\t}\n}\n\nkernel void repeat_f32(\n\tuint expansionDim,\n\tuint innerStride,\n\tuint repeats,\n\tglobal float *restrict a,\n\tglobal float *restrict out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint j = get_global_id(1);\n\tconst uint k = get_global_id(2);\n\tconst float value = a[(i * expansionDim + j) * innerStride + k];\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\n\tfor (uint c = 0; c < repeats; ++c) {\n\t\tout[offsetOut] = value;\n\t\toffsetOut += innerStride;\n\t}\n}\nkernel void repeat_f64(\n\tuint expansionDim,\n\tuint innerStride,\n\tuint repeats,\n\tglobal double *restrict a,\n\tglobal double *restrict out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint j = get_global_id(1);\n\tconst uint k = get_global_id(2);\n\tconst double value = a[(i * expansionDim + j) * innerStride + k];\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\n\tfor (uint c = 0; c < repeats; ++c) {\n\t\tout[offsetOut] = value;\n\t\toffsetOut += innerStride;\n\t}\n}\n";
+	var source = binaryKernelsSource + unaryKernelsSource + 
+		reductionKernelsSource + axisReductionKernelsSource + 
+		productKernelsSource + utilKernelsSource;
+
+	var asyncCallbacks = options.asyncCallbacks;
+	if (typeof asyncCallbacks === "undefined") {
+		/* Currently only Node-WebCL supports asynchronous callbacks */
+		this.asyncCallbacks = isNodeWebCL;
+	} else {
+		this.asyncCallbacks = !!asyncCallbacks;
+	}
+	var deviceName = options.device;
+	if (deviceName) {
+		var deviceIndex = availableDevicesDescriptions.indexOf(deviceName);
+		if (deviceIndex === -1) {
+			throw new Error("Invalid WebCL device name: " + deviceName);
+		}
+		this.device = availableDevices[deviceIndex];
+	} else {
+		var deviceIndex = getDefaultDeviceIndex();
+		if (deviceIndex < 0) {
+			throw new Error("No suitable WebCL device found");
+		}
+		this.device = availableDevices[deviceIndex];
+	}
+	this.device.enableExtension("KHR_fp64");
+	this.deviceInfo = {
+		deviceClass: classifyDevice(this.device),
+		localMemorySize: this.device.getInfo(cl.DEVICE_LOCAL_MEM_SIZE),
+		maxComputeUnits: this.device.getInfo(cl.DEVICE_MAX_COMPUTE_UNITS),
+		maxWorkGroupSize: this.device.getInfo(cl.DEVICE_MAX_WORK_GROUP_SIZE),
+		maxWorkItemSizes: this.device.getInfo(cl.DEVICE_MAX_WORK_ITEM_SIZES)
+	};
+	this.context = cl.createContext(this.device);
+	this.queue = this.context.createCommandQueue(this.device);
+	this.program = this.context.createProgram(source);
+	try {
+		/* Chromium-WebCL requires a list of devices */
+		this.program.build([this.device]);
+	} catch (e) {
+		if (e.name === "INVALID_DEVICE") {
+			/* Nokia-WebCL only works with no arguments to WebCLProgram.build */
+			this.program.build();
+		} else {
+			throw e;
+		}
+	}
+	this.kernels = createKernels(this.program);
+	/* Context is ready for computations */
 	callback(this);
 }
+
+/**
+ * Returns the names of devices that can be used for computation.
+ * Any of these names can be passed as a "device" option when creating a WebCL context.
+ *
+ * @static
+ * @method getAvailableDevices
+ * @return {String[]} - a possibly empty list of available device names.
+ */
+WebCLContext.getAvailableDevices = function() {
+	if (WebCLContext.isSupported()) {
+		return availableDevicesDescriptions;
+	} else {
+		return [];
+	}
+};
+
+/**
+ * Returns the name of the default device used for computation.
+ *
+ * @static
+ * @method getDefaultDevice
+ * @return {String} - the name of the default WebCL device or null if no suitable device available.
+ */
+WebCLContext.getDefaultDevice = function() {
+	var deviceIndex = getDefaultDeviceIndex();
+	if (deviceIndex < 0) {
+		return null;
+	} else {
+		return availableDevicesDescriptions[deviceIndex];
+	}
+};
+
+/**
+ * Checks if WebCL is supported by the environment.
+ *
+ * @static
+ * @method isSupported
+ * @return {Boolean} - true if WebCL is supported on this system and false otherwise.
+ */
+WebCLContext.isSupported = function() {
+	return initWebCL() !== null;
+};
+
+/**
+ * Checks if WebCL can be used for computation.
+ * WebCL is usable for computations if it is supported by JS engine (or Node.js) and there is at least one CPU or GPU device with KHR_fp64 extension.
+ *
+ * @static
+ * @method isUsable
+ * @return {Boolean} - true if WebCL is usable on this system and false otherwise.
+ */
+WebCLContext.isUsable = function() {
+	var webcl = initWebCL();
+	if (webcl === null) {
+		return false;
+	}
+	var availableDevices = getAvailableDevices();
+	return availableDevices.length !== 0;
+};
 
 WebCLContext.prototype.empty = function(shape, dataType) {
 	shape = util.checkShape(shape);
@@ -2994,7 +3585,7 @@ WebCLContext.prototype.empty = function(shape, dataType) {
 		throw new TypeError(dataType + " is not an instance of DataType");
 	}
 	var array = new NDArray(shape, dataType, this);
-	array._buffer = context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
+	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
 	return array;
 };
 
@@ -3006,12 +3597,29 @@ WebCLContext.prototype.zeros = function(shape, dataType) {
 		throw new TypeError(dataType + " is not an instance of DataType");
 	}
 	var array = new NDArray(shape, dataType, this);
-	array._buffer = context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
-	var kernel = setKernels[dataType.type];
+	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
+	var kernel = this.kernels.set[dataType.type];
 	kernel.setArg(0, new Uint32Array([array.length]));
 	kernel.setArg(1, array._buffer);
 	kernel.setArg(2, new dataType.arrayType([0.0]));
-	queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
+	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
+	return array;
+};
+
+WebCLContext.prototype.ones = function(shape, dataType) {
+	shape = util.checkShape(shape);
+	if (typeof dataType === "undefined") {
+		dataType = new DataType("f64");
+	} else if (!(dataType instanceof DataType)) {
+		throw new TypeError(dataType + " is not an instance of DataType");
+	}
+	var array = new NDArray(shape, dataType, this);
+	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
+	var kernel = this.kernels.set[dataType.type];
+	kernel.setArg(0, new Uint32Array([array.length]));
+	kernel.setArg(1, array._buffer);
+	kernel.setArg(2, new dataType.arrayType([1.0]));
+	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
 	return array;
 };
 
@@ -3027,11 +3635,51 @@ WebCLContext.prototype.array = function(data, dataType) {
 	var buffer = new dataType.arrayType(array.length);
 	util.copyArrayDataRecursive(buffer, data, shape, 0, 0);
 	if (useBufferCreationWithInit) {
-		array._buffer = context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength, buffer);
+		array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength, buffer);
 	} else {
-		array._buffer = context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength);
-		queue.enqueueWriteBuffer(array._buffer, false, 0, buffer.byteLength, buffer);
+		array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength);
+		this.queue.enqueueWriteBuffer(array._buffer, false, 0, buffer.byteLength, buffer);
 	}
+	return array;
+};
+
+WebCLContext.prototype.linspace = function(start, stop, samples, closed) {
+	if (!util.isReal(start)) {
+		throw new TypeError(start + " is not a real number");
+	}
+	if (!util.isReal(stop)) {
+		throw new TypeError(stop + " is not a real number");
+	}
+	if (typeof samples === "undefined") {
+		/* Default value in NumPy */
+		samples = 50;
+	} else if (!util.isInt(samples)) {
+		throw new TypeError(samples + " is not an integer");
+	} else if (samples <= 0) {
+		throw new RangeError("The number of samples must be positive");
+	}
+	if (typeof closed === "undefined") {
+		closed = true;
+	}
+	if (closed && (samples === 1)) {
+		throw new RangeError("The number of samples must be a least 2 (for start and end points)");
+	}
+
+	var dataType = new DataType("f64");
+	var array = new NDArray(samples, dataType, this);
+	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, samples * dataType.size);
+
+	var range = stop - start;
+	var n = (closed) ? samples - 1 : samples;
+	var step = range / n;
+
+	var kernel = this.kernels.linspace[dataType.type];
+	kernel.setArg(0, new Uint32Array([array.length]));
+	kernel.setArg(1, array._buffer);
+	kernel.setArg(2, new dataType.arrayType([start]));
+	kernel.setArg(3, new dataType.arrayType([step]));
+	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
+
 	return array;
 };
 
@@ -3061,18 +3709,19 @@ WebCLContext.prototype.get = function() {
 	}
 	var callbackWaitArguments = arguments.length - 1;
 	var callbackArguments = new Array(callbackWaitArguments);
-	if (useAsyncBufferRead) {
-		/* Async version: doesn't seem to be supported by WebCL implementations */
+	if (this.asyncCallbacks) {
+		var asyncEvents = [];
 		for (var i = 0; i < callbackWaitArguments; i++) {
 			var array = arguments[i];
-			(function(i, shape, ArrayType) {
-				var buffer = new ArrayType(length);
-				var readFinishEvent = new WebCLEvent();
+			(function(queue, i, shape, ArrayType) {
+				var buffer = new ArrayType(array.length);
+				var readFinishEvent = createEvent();
+				asyncEvents.push(readFinishEvent);
 				queue.enqueueReadBuffer(array._buffer, false, 0, buffer.byteLength, buffer, null, readFinishEvent);
 				if (shape.length === 0) {
 					readFinishEvent.setCallback(cl.COMPLETE, function() {
 						readFinishEvent.release();
-						callbackArguments[i] = typedArray[0];
+						callbackArguments[i] = buffer[0];
 						if (--callbackWaitArguments === 0) {
 							callback.apply(null, callbackArguments);
 						}
@@ -3081,22 +3730,24 @@ WebCLContext.prototype.get = function() {
 					readFinishEvent.setCallback(cl.COMPLETE, function() {
 						readFinishEvent.release();
 						var jsarray = new Array(shape[0]);
-						createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
+						util.createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
 						callbackArguments[i] = jsarray;
 						if (--callbackWaitArguments === 0) {
 							callback.apply(null, callbackArguments);
 						}
 					});
 				}
-			})(i, array.shape, array.dataType.arrayType);
+			})(this.queue, i, array.shape, array.dataType.arrayType);
+			/* This line mostly serializes execution. Unfortunately, without it nothing works */
+			cl.waitForEvents(asyncEvents);
 		}
 	} else {
 		for (var i = 0; i < callbackWaitArguments; i++) {
 			var array = arguments[i];
 			var buffer = new array.dataType.arrayType(array.length);
-			queue.enqueueReadBuffer(array._buffer, true, 0, buffer.byteLength, buffer);
+			this.queue.enqueueReadBuffer(array._buffer, true, 0, buffer.byteLength, buffer);
 			if (array.shape.length === 0) {
-				callbackArguments[i] = typedArray[0];
+				callbackArguments[i] = buffer[0];
 			} else {
 				var jsarray = new Array(array.shape[0]);
 				util.createArrayRecursive(new array.dataType.arrayType(buffer), jsarray, array.shape, 0, 0);
@@ -3107,113 +3758,363 @@ WebCLContext.prototype.get = function() {
 	}
 };
 
-var binaryArithOp = function(a, b, out, context, operation) {
-	var shape = null, dataType = null;
+WebCLContext.prototype.reshape = function(a, shape) {
+	shape = util.checkShape(shape);
+	if (util.computeLength(shape) !== a.length) {
+		throw new RangeError("The shape is not compatible with the array");
+	}
+	var out = new NDArray(shape, a.dataType, this);
+	if (a._decRef()) {
+		out._buffer = this.context.createBuffer(webcl.MEM_READ_WRITE, out.length * out.dataType.size);
+		this.queue.enqueueCopyBuffer(a._buffer, out._buffer, 0, 0, out.length * out.dataType.size);
+	} else {
+		out._buffer = a._buffer;
+		a._buffer = null;
+	}
+	return out;
+};
+
+WebCLContext.prototype.repeat = function(a, repeats, axis, out) {
+	util.checkNDArray(a, "a");
+	repeats = util.checkRepeats(repeats);
+	axis = util.checkAxis(axis, a.shape.length);
+	var shapeA = a.shape;
+	var shapeOut = shapeA.slice(0);
+	shapeOut[axis] *= repeats;
+	a._decRef();
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(shapeOut, a.dataType, this);
+			out._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(out.shape, shapeOut);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		var outerStride = util.computeOuterStride(shapeA, axis);
+		var expansionDim = shapeA[axis];
+		var innerStride = util.computeInnerStride(shapeA, axis);
+		var kernel = this.kernels.repeat[a.dataType.type];
+		kernel.setArg(0, new Uint32Array([expansionDim]));
+		kernel.setArg(1, new Uint32Array([innerStride]));
+		kernel.setArg(2, new Uint32Array([repeats]));
+		kernel.setArg(3, a._buffer);
+		kernel.setArg(4, out._buffer);
+		this.queue.enqueueNDRangeKernel(kernel, 3, null, [outerStride, expansionDim, innerStride]);
+	} catch (e) {
+		a._incRef();
+		throw e;
+	}
+	a._tryInvalidate();
+	return out;
+};
+
+var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryConstOpKernels, binaryRevConstKernels) {
+	var shapeOut = null, dataTypeOut = null;
+	var bufferA = null, bufferB = null;
 	if (a instanceof NDArray) {
-		shape = a.shape;
-		dataType = a.dataType;
+		bufferA = a._buffer;
+		shapeOut = a.shape;
+		dataTypeOut = a.dataType;
 		if (b instanceof NDArray) {
-			if (!isCompatibleShape(shape, b.shape)) {
-				throw new Error("The a and b arrays have incompatible shapes");
-			}
+			bufferB = b._buffer;
+			util.checkShapesCompatibility(a.shape, b.shape);
+			util.checkDataTypesCompatibility(a.dataType, b.dataType);
 		} else if (!util.isNumber(b)) {
 			throw new TypeError("Unsupported type of b");
 		}
+	} else if (util.isNumber(a)) {
+		util.checkNDArray(b, "b");
+		bufferB = b._buffer;
+		shapeOut = b.shape;
+		dataTypeOut = b.dataType;
 	} else {
 		throw new TypeError("Unsupported type of a");
 	}
-	if (typeof out === "undefined") {
-		out = context.empty(shape, dataType);
-	} else if (out instanceof NDArray) {
-		if (!isCompatibleShape(shape, out.shape)) {
-			throw new Error("The out array has incompatible shape");
+	if (a instanceof NDArray) {
+		a._decRef();
+	}
+	if (b instanceof NDArray) {
+		b._decRef();
+	}
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(shapeOut, dataTypeOut, furiousContext);
+			if ((a instanceof NDArray) && !a._hasRefs()) {
+				out._buffer = a._buffer;
+				a._buffer = null;
+			} else if ((b instanceof NDArray) && !b._hasRefs()) {
+				out._buffer = b._buffer;
+				b._buffer = null;
+			} else {
+				out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
+			}
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(shapeOut, out.shape);
+			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
+			out._incRef();
 		}
-	} else {
-		throw new TypeError("out is not an NDArray");
+		if (a instanceof NDArray) {
+			if (b instanceof NDArray) {
+				var kernel = binaryOpKernels[dataTypeOut.type];
+				kernel.setArg(0, new Uint32Array([out.length]));
+				kernel.setArg(1, bufferA);
+				kernel.setArg(2, bufferB);
+				kernel.setArg(3, out._buffer);
+				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+			} else {
+				var kernel = binaryConstOpKernels[dataTypeOut.type];
+				kernel.setArg(0, new Uint32Array([out.length]));
+				kernel.setArg(1, bufferA);
+				kernel.setArg(2, new dataTypeOut.arrayType([b]));
+				kernel.setArg(3, out._buffer);
+				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+			}
+		} else {
+			var kernel = binaryRevConstKernels[dataTypeOut.type];
+			kernel.setArg(0, new Uint32Array([out.length]));
+			kernel.setArg(1, bufferB);
+			kernel.setArg(2, new dataTypeOut.arrayType([a]));
+			kernel.setArg(3, out._buffer);
+			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		if (a instanceof NDArray) {
+			a._incRef();
+		}
+		if (b instanceof NDArray) {
+			b._incRef();
+		}
+		throw e;
 	}
 	if (a instanceof NDArray) {
-		if (b instanceof NDArray) {
-			var kernel = binaryOpKernels[operation][dataType.type];
-			kernel.setArg(0, new Uint32Array([out.length]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, b._buffer);
-			kernel.setArg(3, out._buffer);
-			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-		} else {
-			var kernel = binaryConstOpKernels[operation][dataType.type];
-			kernel.setArg(0, new Uint32Array([out.length]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, new a.dataType.arrayType([b]));
-			kernel.setArg(3, out._buffer);
-			queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-		}
+		a._tryInvalidate();
+	}
+	if (b instanceof NDArray) {
+		b._tryInvalidate();
 	}
 	return out;
 };
 
-var unaryArithOp = function(a, out, context, operation) {
-	var shape = null, dataType = null;
-	if (a instanceof NDArray) {
-		shape = a.shape;
-		dataType = a.dataType;
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (typeof out === "undefined") {
-		out = context.empty(shape, dataType);
-	} else if (out instanceof NDArray) {
-		if (!isCompatibleShape(shape, out.shape)) {
-			throw new Error("The out array has incompatible shape");
+var unaryArithOp = function(a, out, furiousContext, unaryOpKernels) {
+	util.checkNDArray(a, "a");
+	a._decRef();
+	var bufferA = a._buffer;
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(a.shape, a.dataType, furiousContext);
+			if ((a instanceof NDArray) && !a._hasRefs()) {
+				out._buffer = a._buffer;
+				a._buffer = null;
+			} else {
+				out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
+			}
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(a.shape, out.shape);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
 		}
-	} else {
-		throw new TypeError("out is not an NDArray");
+		var kernel = unaryOpKernels[a.dataType.type];
+		kernel.setArg(0, new Uint32Array([out.length]));
+		kernel.setArg(1, bufferA);
+		kernel.setArg(2, out._buffer);
+		furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		throw e;
 	}
-	var kernel = unaryOpKernels[operation][dataType.type];
-	kernel.setArg(0, new Uint32Array([out.length]));
-	kernel.setArg(1, a._buffer);
-	kernel.setArg(2, out._buffer);
-	queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
+	a._tryInvalidate();
 	return out;
 };
+
+var axisReduceOp = function(a, axis, out, furiousContext, reduceKernels, axisReduceKernels) {
+	util.checkNDArray(a, "a");
+	if (typeof axis === "undefined") {
+		if (typeof out === "undefined") {
+			out = new NDArray([], a.dataType, furiousContext);
+			out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, a.dataType.size);
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility([], out.shape);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		var lengthA = a.length;
+		var maxWorkItemsPerCU = Math.min(
+			Math.min(furiousContext.deviceInfo.maxWorkGroupSize,
+				furiousContext.deviceInfo.maxWorkItemSizes[0]), 
+			furiousContext.deviceInfo.localMemorySize / a.dataType.size);
+		/* The minimal ammount of parallelism that justifies switching to two-pass reduction */
+		var parallelisationThreshold = 16;
+		var kernel = reduceKernels[a.dataType.type];
+		if (lengthA < maxWorkItemsPerCU * parallelisationThreshold) {
+			/* One reduction is enough */
+			kernel.setArg(0, new Uint32Array([lengthA]));
+			kernel.setArg(1, a._buffer);
+			kernel.setArg(2, new Uint32Array([maxWorkItemsPerCU * a.dataType.size]));
+			kernel.setArg(3, out._buffer);
+			/* Important: use only one work group */
+			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [maxWorkItemsPerCU], [maxWorkItemsPerCU]);
+		} else {
+			/* Two-step reduction */
+			var maxComputeUnits = furiousContext.deviceInfo.maxComputeUnits;
+			var workGroupSizeMultiple = kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE);
+			var tempBuffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, maxComputeUnits * a.dataType.size);
+
+			kernel.setArg(0, new Uint32Array([lengthA]));
+			kernel.setArg(1, a._buffer);
+			kernel.setArg(2, new Uint32Array([maxWorkItemsPerCU * a.dataType.size]));
+			kernel.setArg(3, tempBuffer);
+			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null,
+				[maxWorkItemsPerCU * maxComputeUnits],
+				[maxWorkItemsPerCU]);
+
+			var workGroupSize = Math.min(maxWorkItemsPerCU,
+				util.roundUp(maxComputeUnits, workGroupSizeMultiple));
+			kernel.setArg(0, new Uint32Array([maxComputeUnits]));
+			kernel.setArg(1, tempBuffer);
+			kernel.setArg(2, new Uint32Array([workGroupSize * a.dataType.size]));
+			kernel.setArg(3, out._buffer);
+			/* Important: use only one work group */
+			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null,
+				[workGroupSize],
+				[workGroupSize]);
+
+			tempBuffer.release();
+		}
+		a._tryRelease();
+		return out;
+	} else {
+		axis = util.checkAxis(axis, a.shape.length);
+		var shapeOut = util.computeAxisReductionOutShape(a.shape, axis);
+		if (typeof out === "undefined") {
+			var out = new NDArray(shapeOut, a.dataType, furiousContext);
+			out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, a.dataType.size * out.length);
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility([], out.shape);
+			util.checkDataTypesCompatibility(a.dataType, out.dataType);
+			out._incRef();
+		}
+		var outerStride = util.computeOuterStride(a.shape, axis);
+		var reductionDim = a.shape[axis];
+		var innerStride = util.computeInnerStride(a.shape, axis);
+		var kernel = axisReduceKernels[a.dataType.type];
+		kernel.setArg(0, new Uint32Array([reductionDim]));
+		kernel.setArg(1, a._buffer);
+		kernel.setArg(2, out._buffer);
+		furiousContext.queue.enqueueNDRangeKernel(kernel, 2, null,
+			[outerStride, innerStride]);
+		a._tryRelease();
+		return out;
+	}
+};
+
 
 WebCLContext.prototype.add = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "add");
+	return binaryArithOp(a, b, out, this, this.kernels.add, this.kernels.addc, this.kernels.addc);
 };
 
 WebCLContext.prototype.sub = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "sub");
+	return binaryArithOp(a, b, out, this, this.kernels.sub, this.kernels.subc, this.kernels.subrc);
 };
 
 WebCLContext.prototype.mul = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "mul");
+	return binaryArithOp(a, b, out, this, this.kernels.mul, this.kernels.mulc, this.kernels.mulc);
 };
 
 WebCLContext.prototype.div = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, "div");
+	return binaryArithOp(a, b, out, this, this.kernels.div, this.kernels.divc, this.kernels.divrc);
 };
 
 WebCLContext.prototype.neg = function(a, out) {
-	return unaryArithOp(a, out, this, "neg");
+	return unaryArithOp(a, out, this, this.kernels.neg);
 };
 
 WebCLContext.prototype.abs = function(a, out) {
-	return unaryArithOp(a, out, this, "abs");
+	return unaryArithOp(a, out, this, this.kernels.abs);
 };
 
 WebCLContext.prototype.exp = function(a, out) {
-	return unaryArithOp(a, out, this, "exp");
+	return unaryArithOp(a, out, this, this.kernels.exp);
 };
 
 WebCLContext.prototype.log = function(a, out) {
-	return unaryArithOp(a, out, this, "log");
+	return unaryArithOp(a, out, this, this.kernels.log);
 };
 
 WebCLContext.prototype.sqrt = function(a, out) {
-	return unaryArithOp(a, out, this, "sqrt");
+	return unaryArithOp(a, out, this, this.kernels.sqrt);
 };
 
 WebCLContext.prototype.square = function(a, out) {
-	return unaryArithOp(a, out, this, "square");
+	return unaryArithOp(a, out, this, this.kernels.square);
+};
+
+WebCLContext.prototype.min = function(a, axis, out) {
+	return axisReduceOp(a, axis, out, this, this.kernels.min, this.kernels.amin);
+};
+
+WebCLContext.prototype.max = function(a, axis, out) {
+	return axisReduceOp(a, axis, out, this, this.kernels.max, this.kernels.amax);
+};
+
+WebCLContext.prototype.sum = function(a, axis, out) {
+	return axisReduceOp(a, axis, out, this, this.kernels.sum, this.kernels.asum);
+};
+
+WebCLContext.prototype.dot = function(a, b, out) {
+	util.checkNDArray(a, "a");
+	util.checkNDArray(b, "b");
+	util.checkDataTypesCompatibility(a.dataType, b.dataType);
+
+	/* The axis of b used in reduction: axis 0 for 1D array, second-to-last axis for ND array */
+	var aAxis = Math.max(a.shape.length - 1, 0);
+	var bAxis = Math.max(b.shape.length - 2, 0);
+	var reductionDim = a.shape[aAxis];
+	if (reductionDim !== b.shape[bAxis]) {
+		throw new RangeError("Arrays have incompatible reduction dimensions");
+	}
+	var shapeOut = [], strideA = 1, outerStrideB = 1, innerStrideB = 1;
+	for (var i = 0; i < aAxis; i++) {
+		shapeOut.push(a.shape[i]);
+		strideA *= a.shape[i];
+	}
+	for (var i = 0; i < b.shape.length; i++) {
+		var dim = b.shape[i];
+		if (i < bAxis) {
+			outerStrideB *= dim;
+			shapeOut.push(dim);
+		} else if (i > bAxis) {
+			innerStrideB *= dim;
+			shapeOut.push(dim);
+		}
+	}
+	if (typeof out === "undefined") {
+		out = this.empty(shapeOut, a.dataType);
+	} else if (out instanceof NDArray) {
+		util.checkNDArray(out, "out");
+		util.checkShapesCompatibility(out.shape, shapeOut);
+		util.checkDataTypesCompatibility(out.dataType, a.dataType);
+		util.checkDifferentNDArrays(a, out, "a", "out");
+		util.checkDifferentNDArrays(b, out, "b", "out");
+		out._incRef();
+	}
+	var kernel = this.kernels.dot[out.dataType.type];
+	kernel.setArg(0, new Uint32Array([reductionDim]));
+	kernel.setArg(1, a._buffer);
+	kernel.setArg(2, b._buffer);
+	kernel.setArg(3, out._buffer);
+	this.queue.enqueueNDRangeKernel(kernel, 3, null,
+		[strideA, outerStrideB, innerStrideB]);
+	a._tryRelease();
+	b._tryRelease();
+	return out;
 };
 
 module.exports = WebCLContext;

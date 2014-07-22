@@ -23,6 +23,22 @@
 				if (furious.hasFeature("webcl")) {
 					$("#WebCLBlock").removeClass('panel-default').addClass('panel-success')
 					$("#WebCLTitle").text('WebCL is supported');
+					var webclOptions = furious.getBackendOptions("webcl");
+					var webclDevices = webclOptions.device;
+					if (webclDevices.length !== 0) {
+						var panelContainer = $(document.createElement("div")).addClass("container-fluid");
+						var panel = $(document.createElement("div")).addClass("panel").addClass("panel-info");
+						var panelHeader = $(document.createElement("div")).addClass("panel-heading").text("Available WebCL devices");
+						panel.append(panelHeader);
+						var listGroup = $(document.createElement("ul")).addClass("panel-body").addClass("list-group");
+						for (var i = 0; i < webclDevices.length; ++i) {
+							var listItem = $(document.createElement("li")).addClass("list-group-item").text(webclDevices[i]);
+							listGroup.append(listItem);
+						}
+						panel.append(listGroup);
+						panelContainer.append(panel)
+						$("#WebCLBlock").append(panelContainer);
+					}
 				} else {
 					$("#WebCLBlock").removeClass('panel-default').addClass('panel-danger')
 					$("#WebCLTitle").text('WebCL is not supported');
@@ -48,6 +64,13 @@
 					$("#NaClBlock").removeClass('panel-default').addClass('panel-danger')
 					$("#NaClTitle").text('NaCl is not supported');
 				}
+				if (furious.hasFeature("webworkers")) {
+					$("#WebWorkersBlock").removeClass('panel-default').addClass('panel-success')
+					$("#WebWorkersTitle").text('Web Workers are supported');
+				} else {
+					$("#WebWorkersBlock").removeClass('panel-default').addClass('panel-warning')
+					$("#WebWorkersTitle").text('Web Workers are not supported');
+				}
 				if (furious.hasFeature("asm.js")) {
 					$("#AsmJSBlock").removeClass('panel-default').addClass('panel-success')
 					$("#AsmJSTitle").text('Asm.js is accelerated');
@@ -66,49 +89,57 @@
 		</script>
 	</head>
 	<body onload="detectFeatures()">
-		<div class="panel panel-default">
-			<div class="panel-heading">Furious.js Backends</div>
-			<div class="panel-body">
-				<ul class="list-group">
-					<li class="list-group-item" id="SupportedBackends"></li>
-					<li class="list-group-item" id="DefaultBackend"></li>
-				</ul>
+		<div class="container">
+			<div class="panel panel-default">
+				<div class="panel-heading">Furious.js Backends</div>
+				<div class="panel-body">
+					<ul class="list-group">
+						<li class="list-group-item" id="SupportedBackends"></li>
+						<li class="list-group-item" id="DefaultBackend"></li>
+					</ul>
+				</div>
 			</div>
-		</div>
-		<div class="panel panel-default" id="WebCLBlock">
-			<div class="panel-heading" id="WebCLTitle">WebCL</div>
-			<div class="panel-body">
-				WebCL is a web version of OpenCL.
+			<div class="panel panel-default" id="WebCLBlock">
+				<div class="panel-heading" id="WebCLTitle">WebCL</div>
+				<div class="panel-body">
+					WebCL is a web version of OpenCL.
+				</div>
 			</div>
-		</div>
-		<div class="panel panel-default" id="WebGLBlock">
-			<div class="panel-heading" id="WebGLTitle">WebGL</div>
-			<div class="panel-body">
-				WebGL is a web version of OpenGL ES.
+			<div class="panel panel-default" id="WebGLBlock">
+				<div class="panel-heading" id="WebGLTitle">WebGL</div>
+				<div class="panel-body">
+					WebGL is a web version of OpenGL ES.
+				</div>
 			</div>
-		</div>
-		<div class="panel panel-default" id="PNaClBlock">
-			<div class="panel-heading" id="PNaClTitle">PNaCl</div>
-			<div class="panel-body">
-				PNaCl is a sandboxing technology which enables execution of LLVM bytecode in a browser.
+			<div class="panel panel-default" id="PNaClBlock">
+				<div class="panel-heading" id="PNaClTitle">PNaCl</div>
+				<div class="panel-body">
+					PNaCl is a sandboxing technology which enables execution of LLVM bytecode in a browser.
+				</div>
 			</div>
-		</div>
-		<div class="panel panel-default" id="NaClBlock">
-			<div class="panel-heading" id="NaClTitle">NaCl</div>
-			<div class="panel-body">
-				NaCl is a sandboxing technology which enables execution of native machine code in a browser.
+			<div class="panel panel-default" id="NaClBlock">
+				<div class="panel-heading" id="NaClTitle">NaCl</div>
+				<div class="panel-body">
+					NaCl is a sandboxing technology which enables execution of native machine code in a browser.
+				</div>
 			</div>
-		</div>
-		<div class="panel panel-default" id="AsmJSBlock">
-			<div class="panel-heading" id="AsmJSTitle">Asm.js</div>
-			<div class="panel-body">
-				Asm.js is a statically typed subset of JavaScript which can be compiled into native code by a browser.
+			<div class="panel panel-default" id="WebWorkersBlock">
+				<div class="panel-heading" id="WebWorkersTitle">Web Workers</div>
+				<div class="panel-body">
+					Web Workers are the analogs of processes in JavaScript world. Web Workers let JavaScript applications utilize additional processor cores for computations.
+				</div>
 			</div>
-		</div>
-		<div class="panel panel-default" id="SimdJSBlock">
-			<div class="panel-heading" id="SimdJSTitle">SIMD.js</div>
-			<div class="panel-body">
-				SIMD.js is a JavaScript extension that introduces SIMD types and operations.
+			<div class="panel panel-default" id="AsmJSBlock">
+				<div class="panel-heading" id="AsmJSTitle">Asm.js</div>
+				<div class="panel-body">
+					Asm.js is a statically typed subset of JavaScript which can be compiled into native code by a browser.
+				</div>
+			</div>
+			<div class="panel panel-default" id="SimdJSBlock">
+				<div class="panel-heading" id="SimdJSTitle">SIMD.js</div>
+				<div class="panel-body">
+					SIMD.js is a JavaScript extension that introduces SIMD types and operations.
+				</div>
 			</div>
 		</div>
 	</body>

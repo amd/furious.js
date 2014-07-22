@@ -36,7 +36,6 @@
 			}
 			#controls {
 				margin-top: 100px;
-				width: *;
 			}
 		</style>
 		<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
@@ -63,11 +62,20 @@
 						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="WebCLBackend" data-backend="webcl">WebCL</a></li>
 					</ul>
 				</div>
+				<div class="dropdown">
+					<button class="btn btn-default dropdown-toggle" type="button" id="deviceMenu" data-toggle="dropdown">
+						WebCL Device: <span id="activeDevice">None</span><span class="caret"></span>
+					</button>
+					<ul class="dropdown-menu" id="deviceDropdown" role="menu" aria-labelledby="deviceMenu">
+					</ul>
+				</div>
 			</div>
 		</div>
 		<script>
 			var h = 0.5;
 			var context = null;
+			var backend = null;
+			var options = {};
 			var g = null;
 			var main = null;
 			var unemployment = null, unemploymentMin = null, unemploymentMax = null;
@@ -77,6 +85,9 @@
 			var linePlot = null;
 			var unemploymentArray = null;
 			var gdpGrowthArray = null;
+			var x = null;
+			var XmX = null;
+			var isComputing = false;
 
 			if ((typeof performance !== "undefined") && (typeof performance.now !== "undefined")) {
 				function getTimerTicks() {
@@ -92,60 +103,68 @@
 				}
 			}
 
-			function furiousInit(backend) {
-				furious.init(backend, function(ctx) {
+			function furiousReInit() {
+				/* Delete the old context and its data */
+				furiousDeallocate();
+				context = null;
+				isComputing = false;
+
+				/* Request a new context to be created */
+				furious.init(backend, options, function(ctx) {
 					context = ctx;
 					furiousCompute();
 				});
-			}
-
-			function furiousFree() {
-				furiousDeallocate();
-				context = null;
 			}
 
 			function furiousAllocate() {
 				if (unemployment && gdpGrowth) {
 					unemploymentArray = context.array(unemployment).lock();
 					gdpGrowthArray = context.array(gdpGrowth).lock();
+					var interpolationPoints = 1000;
+					var dataPoints = gdpGrowthArray.length;
+					x = context.linspace(unemploymentMin, unemploymentMax, interpolationPoints).lock();
+					XmX = unemploymentArray.reshape([1, dataPoints]).repeat(interpolationPoints, 0)
+						.sub(x.reshape([interpolationPoints, 1]).repeat(dataPoints, 1)).lock();
 				}
 			}
 
 			function furiousDeallocate() {
-				if (unemploymentArray && gdpGrowthArray) {
+				if (unemploymentArray && gdpGrowthArray && XmX && x) {
 					unemploymentArray.invalidate();
 					gdpGrowthArray.invalidate();
+					XmX.invalidate();
+					x.invalidate();
 					unemploymentArray = null;
 					gdpGrowthArray = null;
+					XmX = null;
+					x = null;
 				}
 			}
 
 			function furiousCompute() {
 				if (context && unemployment && gdpGrowth && g) {
-					var startTime = getTimerTicks();
-					if (!unemploymentArray || !gdpGrowthArray) {
-						furiousAllocate();
-					}
-					
-					var interpolation_points = 1000;
-					var data_points = gdpGrowthArray.length;
-
-					var x = context.linspace(unemploymentMin, unemploymentMax, interpolation_points).retain();
-
-					var XmX = unemploymentArray.div(h).reshape([1, data_points]).repeat(interpolation_points, 0).sub(x.div(h).reshape([interpolation_points, 1]).repeat(data_points, 1));
-					var K = context.exp(context.square(XmX).mul(-0.5));
-					var y = context.dot(K.retain(), gdpGrowthArray).div(context.sum(K, 1));
-					context.get(x, y, function(xVal, yVal) {
-						var endTime = getTimerTicks();
-						if (linePlot == null) {
-							linePlot = main.append("svg:path")
-								.attr("d", line(d3.zip(xVal, yVal)))
-								.attr("class", "trend");
-						} else {
-							linePlot.attr("d", line(d3.zip(xVal, yVal)));
+					if (!isComputing) {
+						var startTime = getTimerTicks();
+						isComputing = true;
+						if (!unemploymentArray || !gdpGrowthArray || !x || !XmX) {
+							furiousAllocate();
 						}
-						$("#time").text((endTime - startTime).toFixed(2) + " ms");
-					});
+						
+						var K = context.exp(context.square(XmX.div(h)).mul(-0.5)).retain();
+						var y = context.dot(K, gdpGrowthArray).div(context.sum(K, 1));
+						context.get(x, y, function(xVal, yVal) {
+							var endTime = getTimerTicks();
+							if (linePlot == null) {
+								linePlot = main.append("svg:path")
+									.attr("d", line(d3.zip(xVal, yVal)))
+									.attr("class", "trend");
+							} else {
+								linePlot.attr("d", line(d3.zip(xVal, yVal)));
+							}
+							$("#time").text((endTime - startTime).toFixed(2) + " ms");
+							isComputing = false;
+						});
+					}
 				}
 			}
 
@@ -233,10 +252,11 @@
 							.attr("cy", function (d) { return scaleY(d[1]); } )
 							.attr("r", 2);
 
+					/* Ask to recompute in case the compute context initialized before the data was loaded */
 					furiousCompute();
 				});
 			};
-			
+
 			function bandwidthSliderInit() {
 				function onslider() {
 					h = parseFloat($("#slider").slider("value"));
@@ -271,6 +291,24 @@
 				}
 			}
 
+			function setBackend(newBackend) {
+				if (newBackend !== backend) {
+					/* Reset backend options */
+					options = {};
+					backend = newBackend;
+					$("#activeBackend").text(beautifyBackendName(backend));
+					if (newBackend === "webcl") {
+						options.device = $("#activeDevice").text();
+						/* Enable device dropdown */
+						$("#deviceMenu").removeClass("disabled");
+					} else {
+						/* Disable device dropdown */
+						$("#deviceMenu").addClass("disabled");
+					}
+					furiousReInit();
+				}
+			}
+
 			function backendDropdownInit() {
 				var supportedBackends = furious.getSupportedBackends();
 				$("#activeBackend").text(beautifyBackendName(furious.getDefaultBackend()));
@@ -279,21 +317,46 @@
 						$(this).parent().addClass("disabled");
 					} else {
 						$(this).click(function() {
-							var backend = $(this).data("backend");
-							furiousFree();
-							furiousInit(backend);
-							$("#activeBackend").text(beautifyBackendName(backend));
+							var newBackend = $(this).data("backend");
+							setBackend(newBackend);
 						});
 					}
 				});
 			}
 
+			function deviceDropdownInit() {
+				var webclDefault = furious.getDefaultBackendOptions("webcl");
+				var webclDefaultDevice = webclDefault.device;
+				$("#activeDevice").text(webclDefaultDevice === null ? "None" : webclDefaultDevice);
+				if (furious.hasFeature("webcl")) {
+					var webclOptions = furious.getBackendOptions("webcl");
+					var webclDevices = webclOptions.device;
+					for (var i = 0; i < webclDevices.length; ++i) {
+						var device = webclDevices[i];
+						var item = $(document.createElement("li")).attr("role", "presentation");
+						var content = $(document.createElement("a")).attr("role", "menuitem")
+							.attr("tabindex", -1).attr("href", "#").text(device);
+						content.click(function() {
+							var newDevice = $(this).text();
+							if (newDevice !== options.device) {
+								options.device = newDevice;
+								furiousReInit();
+								$("#activeDevice").text(newDevice);
+							}
+						});
+						item.append(content);
+						$("#deviceDropdown").append(item);
+					}
+				}
+			}
+
 			function pageInit() {
 				bandwidthSliderInit();
 				backendDropdownInit();
+				deviceDropdownInit();
 
-				furiousInit(furious.getDefaultBackend());
 				plotInit();
+				setBackend(furious.getDefaultBackend());
 			}
 		</script>
 	</body>
