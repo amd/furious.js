@@ -7,8 +7,7 @@
 
 [![Browser Support](https://ci.testling.com/amd/furious.js.png)](https://ci.testling.com/amd/furious.js)
 
-Furious.js
-==========
+# Furious.js
 
 Furious.js is a scientific computing package for JavaScript. Furious.js features:
 
@@ -19,3 +18,13 @@ Furious.js is a scientific computing package for JavaScript. Furious.js features
 - Computes asynchronously, without stalling the GUI
 - Functionality covered with unit tests
 - Comes with extensive documentation
+
+## Backends
+
+Currently Furious.js provides three computational backends:
+
+- JavaScript backend that works in all modern JS engines (Typed Array support required).
+- Portable Native Client that works in Google Chrome and other Chromium-based browsers.
+- WebCL backend that can be used with Node.js (via node-webcl) and WebKit-WebCL.
+
+Normally Furious.js would automatically detect the optimal backend, but it is possible to specify it manually.
