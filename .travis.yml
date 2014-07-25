@@ -1,12 +1,19 @@
 before_install:
  - sudo apt-get update -qq
- - sudo apt-get install -qq python libc6:i386 libstdc++6:i386 npm libfreeimage-dev
+ - sudo apt-get install -qq python libc6:i386 libstdc++6:i386 npm build-essential libfreeimage-dev
  - git clone git://github.com/martine/ninja.git /tmp/ninja
  - pushd /tmp/ninja
  - git checkout release
  - python bootstrap.py
  - export PATH=/tmp/ninja:$PATH
  - export PYTHONPATH=/tmp/ninja/misc
+ - popd
+ - wget https://protobuf.googlecode.com/files/protobuf-2.5.0.tar.gz
+ - tar -xzf protobuf-2.5.0.tar.gz
+ - pushd protobuf-2.5.0
+ - ./configure
+ - make
+ - export PATH=$PWD/src:$PATH
  - popd
  - wget http://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/nacl_sdk.zip -O /tmp/nacl_sdk.zip
  - unzip /tmp/nacl_sdk.zip -d /tmp/
