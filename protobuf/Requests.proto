@@ -1,0 +1,165 @@
+package furious;
+
+option optimize_for = LITE_RUNTIME;
+
+enum DataType {
+	FLOAT64 = 0;
+	FLOAT32 = 1;
+}
+
+message Request {
+	enum Type {
+		EMPTY_ARRAY              =  0;
+		DATA_ARRAY               =  1;
+		CONST_ARRAY              =  2;
+		LINSPACE                 =  3;
+		RESHAPE                  =  4;
+		REPEAT                   =  5;
+		DEALLOCATE               =  6;
+		FETCH                    =  7;
+		BINARY_OPERATION         =  8;
+		BINARY_CONST_OPERATION   =  9;
+		UNARY_OPERATION          = 10;
+		REDUCTION_OPERATION      = 11;
+		AXIS_REDUCTION_OPERATION = 12;
+		DOT_OPERATION            = 13;
+	}
+	required fixed32                     id                          =  1;
+	required Type                        type                        =  2;
+
+	optional EmptyArrayRequest           emptyArrayRequest           =  3;
+	optional DataArrayRequest            dataArrayRequest            =  4;
+	optional ConstArrayRequest           constArrayRequest           =  5;
+	optional LinspaceRequest             linspaceRequest             =  6;
+	optional ReshapeRequest              reshapeRequest              =  7;
+	optional RepeatRequest               repeatRequest               =  8;
+	optional DeallocateRequest           deallocateRequest           =  9;
+	optional FetchRequest                fetchRequest                = 10;
+	optional BinaryOperationRequest      binaryOperationRequest      = 11;
+	optional BinaryConstOperationRequest binaryConstOperationRequest = 12;
+	optional UnaryOperationRequest       unaryOperationRequest       = 13;
+	optional ReductionRequest            reductionRequest            = 14;
+	optional AxisReductionRequest        axisReductionRequest        = 15;
+	optional DotOperationRequest         dotOperationRequest         = 16;
+}
+
+message EmptyArrayRequest {
+	required fixed32  id_out      = 1;
+	repeated uint32   shape       = 2 [packed=true];
+	required DataType data_type   = 3;
+}
+
+message DataArrayRequest {
+	required fixed32  id_out      = 1;
+	repeated uint32   shape       = 2 [packed=true];
+	required DataType data_type   = 3;
+	required bytes    data_buffer = 4;
+}
+
+message ConstArrayRequest {
+	required fixed32  id_out      = 1;
+	repeated uint32   shape       = 2 [packed=true];
+	required DataType data_type   = 3;
+	required double   fill_value  = 4;
+}
+
+message LinspaceRequest {
+	required sfixed32  id_out     = 1;
+	required double    start      = 2;
+	required double    stop       = 3;
+	required uint32    samples    = 4;
+	required bool      closed     = 5;
+	required DataType  data_type  = 6;
+}
+
+message ReshapeRequest {
+	required sfixed32  id_a      = 1;
+	required fixed32   id_out    = 2;
+	repeated uint32    shape_out = 3 [packed=true];
+}
+
+message RepeatRequest {
+	required sfixed32 id_a    = 1;
+	required fixed32  id_out  = 2;
+	required uint32   axis    = 3;
+	required uint32   repeats = 4;
+}
+
+message DeallocateRequest {
+	required fixed32 id_a = 1;
+}
+
+message FetchRequest {
+	required fixed32 id_a = 1;
+}
+
+message BinaryOperationRequest {
+	enum Type {
+		ADD = 0;
+		SUB = 1;
+		MUL = 2;
+		DIV = 3;
+	}
+	required Type     type   = 1;
+	required sfixed32 id_a   = 2;
+	required sfixed32 id_b   = 3;
+	required fixed32  id_out = 4;
+}
+
+message BinaryConstOperationRequest {
+	enum Type {
+		ADDC  = 0;
+		SUBC  = 1;
+		SUBRC = 2;
+		MULC  = 3;
+		DIVC  = 4;
+		DIVRC = 5;
+	}
+	required Type     type    = 1;
+	required sfixed32 id_a    = 2;
+	required double   value_b = 3;
+	required fixed32  id_out  = 4;
+}
+
+message UnaryOperationRequest {
+	enum Type {
+		NEG    = 0;
+		ABS    = 1;
+		EXP    = 2;
+		LOG    = 3;
+		SQRT   = 4;
+		SQUARE = 5;
+	}
+	required Type     type   = 1;
+	required sfixed32 id_a   = 2;
+	required fixed32  id_out = 3;
+}
+
+message ReductionRequest {
+	enum Type {
+		SUM = 0;
+		MIN = 1;
+		MAX = 2;
+	}
+	required Type     type   = 1;
+	required sfixed32 id_a   = 2;
+	required fixed32  id_out = 3;
+}
+
+message AxisReductionRequest {
+	enum Type {
+		SUM = 0;
+		MIN = 1;
+		MAX = 2;
+	}
+	required Type     type   = 1;
+	required sfixed32 id_a   = 2;
+	required uint32   axis   = 3;
+	required fixed32  id_out = 4;
+}
+
+message DotOperationRequest {
+	required sfixed32 id_a   = 1;
+	required sfixed32 id_b   = 2;
+	required fixed32  id_out = 3;
+}

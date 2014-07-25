@@ -4,6 +4,8 @@
 
 enum FJS_Error {
 	FJS_Error_Ok,
+	/* Invalid format of request protobuf */
+	FJS_Error_InvalidProtobuf,
 	/* The shape array has no elements */
 	FJS_Error_EmptyShape,
 	/* Some of the shape elements is 0 */
@@ -49,6 +51,8 @@ inline static enum FJS_StringVariable FJS_Error_ToString(enum FJS_Error error) {
 	switch (error) {
 		case FJS_Error_Ok:
 			return FJS_StringVariable_Ok;
+		case FJS_Error_InvalidProtobuf:
+			return FJS_StringVariable_InvalidProtobuf;
 		case FJS_Error_EmptyShape:
 			return FJS_StringVariable_EmptyShape;
 		case FJS_Error_DegenerateShape:

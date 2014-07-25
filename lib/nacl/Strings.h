@@ -4,27 +4,6 @@
 #include <ppapi/c/pp_var.h>
 
 enum FJS_StringVariable {
-	FJS_StringVariable_Command,
-	FJS_StringVariable_Datatype,
-	FJS_StringVariable_Id,
-	FJS_StringVariable_Out,
-	FJS_StringVariable_In,
-	FJS_StringVariable_Shape,
-	FJS_StringVariable_Array,
-	FJS_StringVariable_Buffer,
-	FJS_StringVariable_Data,
-	FJS_StringVariable_Axis,
-	FJS_StringVariable_Repeats,
-	FJS_StringVariable_Start,
-	FJS_StringVariable_Stop,
-	FJS_StringVariable_Samples,
-	FJS_StringVariable_Closed,
-	FJS_StringVariable_A,
-	FJS_StringVariable_B,
-	FJS_StringVariable_X,
-	FJS_StringVariable_Y,
-	FJS_StringVariable_Z,
-
 	FJS_StringVariable_IDAllocations,
 	FJS_StringVariable_ArrayAllocations,
 	FJS_StringVariable_ByteAllocations,
@@ -36,6 +15,7 @@ enum FJS_StringVariable {
 
 	/* Strings for errors */
 	FJS_StringVariable_Ok,
+	FJS_StringVariable_InvalidProtobuf,
 	FJS_StringVariable_EmptyShape,
 	FJS_StringVariable_DegenerateShape,
 	FJS_StringVariable_LengthOverflow,
@@ -63,5 +43,13 @@ enum FJS_StringVariable {
 
 extern struct PP_Var FJS_StringVariables[FJS_StringVariable_NumberOfEntries];
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void FJS_Strings_Initialize();
 void FJS_Strings_Release();
+
+#ifdef __cplusplus
+}
+#endif

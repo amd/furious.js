@@ -42,11 +42,13 @@ if __name__ == '__main__':
         ninja.rule('COMPILE_PNACL_C', '$pnacl_cc -o $out -c $in -MMD -MF $out.d $optflags $cflags',
             deps='gcc', depfile='$out.d',
             description='CC[PNaCl] $in')
-        ninja.rule('COMPILE_PNACL_CXX', '$pnacl_cxx -o $out -c $in -MMD -MF $optflags $cxxflags',
+        ninja.rule('COMPILE_PNACL_CXX', '$pnacl_cxx -o $out -c $in -MMD -MF $out.d $optflags $cxxflags',
             deps='gcc', depfile='$out.d',
             description='CXX[PNaCl] $in')
         ninja.rule('LINK_PNACL_C', '$pnacl_cc -o $out $in $ldflags',
             description='CCLD[PNaCl] $out')
+        ninja.rule('LINK_PNACL_CXX', '$pnacl_cxx -o $out $in $ldflags',
+            description='CXXLD[PNaCl] $out')
         ninja.rule('FINALIZE_PNACL', '$pnacl_finalize -o $out $in',
             description='FINALIZE[PNaCl] $out')
 
@@ -54,11 +56,17 @@ if __name__ == '__main__':
         c_source_dir = os.path.join(root_dir, "lib", "nacl")
         c_build_dir = os.path.join(root_dir, "build", "nacl")
         c_sources = [os.path.join(root_dir, path) for path in glob.glob(os.path.join(c_source_dir, "*.c"))]
+        cxx_sources = [os.path.join(root_dir, path) for path in glob.glob(os.path.join(c_source_dir, "*.cc"))]
         c_objects = [os.path.join(c_build_dir, os.path.splitext(os.path.relpath(path, c_source_dir))[0]) + ".bc" for path in c_sources]
+        cxx_objects = [os.path.join(c_build_dir, os.path.splitext(os.path.relpath(path, c_source_dir))[0]) + ".bc" for path in cxx_sources]
         for source, object in zip(c_sources, c_objects):
             ninja.build(object, 'COMPILE_PNACL_C', source,
                 variables={'optflags': '-O3',
                     'cflags': '-I$nacl_sdk_dir/include -pthread -g -std=gnu99 -Wno-long-long -Wall -Werror -Wno-unused-variable -Wno-error=unused-function'})
-        ninja.build(os.path.join(c_build_dir, 'furious.unstable.pexe'), 'LINK_PNACL_C', c_objects,
-            variables={'ldflags': '-L$nacl_sdk_dir/lib/pnacl/Release -lppapi -lm'})
+        for source, object in zip(cxx_sources, cxx_objects):
+            ninja.build(object, 'COMPILE_PNACL_CXX', source,
+                variables={'optflags': '-O3',
+                    'cxxflags': '-I$nacl_sdk_dir/include -pthread -g -std=gnu++11 -fno-exceptions -Wno-long-long -Wall -Werror -Wno-unused-variable -Wno-error=unused-function'})
+        ninja.build(os.path.join(c_build_dir, 'furious.unstable.pexe'), 'LINK_PNACL_CXX', c_objects + cxx_objects,
+            variables={'ldflags': '-L$nacl_sdk_dir/lib/pnacl/Release -lppapi -lm -lprotobuf-lite'})
         ninja.build(os.path.join(root_dir, 'furious.pexe'), 'FINALIZE_PNACL', os.path.join(c_build_dir, 'furious.unstable.pexe'))

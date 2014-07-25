@@ -8,7 +8,6 @@
 #include "NDArray.h"
 #include "Commands.h"
 #include "Interfaces.h"
-#include "Message.h"
 #include "Strings.h"
 #include "IdMap.h"
 #include "Util.h"
@@ -73,104 +72,107 @@ static void dotF64(size_t aStride, size_t bOuterStride, size_t bInnerStride, siz
 	const double b[restrict static bOuterStride*reductionLength*bInnerStride],
 	double out[restrict static aStride*bOuterStride*bInnerStride]);
 
-static const BinaryOpFunction addFunctions[] = {
-	[FJS_DataType_F64] = (BinaryOpFunction) addF64,
-	[FJS_DataType_F32] = (BinaryOpFunction) addF32
+static const BinaryOpFunction binaryOpFunctions[][FJS_DataType_Max] = {
+	[FJS_BinaryOperationType_Add] = {
+		[FJS_DataType_F64] = (BinaryOpFunction) addF64,
+		[FJS_DataType_F32] = (BinaryOpFunction) addF32
+	},
+	[FJS_BinaryOperationType_Sub] = {
+		[FJS_DataType_F64] = (BinaryOpFunction) subF64,
+		[FJS_DataType_F32] = (BinaryOpFunction) subF32
+	},
+	[FJS_BinaryOperationType_Mul] = {
+		[FJS_DataType_F64] = (BinaryOpFunction) mulF64,
+		[FJS_DataType_F32] = (BinaryOpFunction) mulF32
+	},
+	[FJS_BinaryOperationType_Div] = {
+		[FJS_DataType_F64] = (BinaryOpFunction) divF64,
+		[FJS_DataType_F32] = (BinaryOpFunction) divF32
+	}
 };
 
-static const BinaryOpFunction subFunctions[] = {
-	[FJS_DataType_F64] = (BinaryOpFunction) subF64,
-	[FJS_DataType_F32] = (BinaryOpFunction) subF32
+static const BinaryConstOpFunction binaryConstOpFunctions[][FJS_DataType_Max] = {
+	[FJS_BinaryConstOperationType_AddC] = {
+		[FJS_DataType_F64] = (BinaryConstOpFunction) addConstF64,
+		[FJS_DataType_F32] = (BinaryConstOpFunction) addConstF32
+	},
+	[FJS_BinaryConstOperationType_SubC] = {
+		[FJS_DataType_F64] = (BinaryConstOpFunction) subConstF64,
+		[FJS_DataType_F32] = (BinaryConstOpFunction) subConstF32
+	},
+	[FJS_BinaryConstOperationType_SubRC] = {
+		[FJS_DataType_F64] = (BinaryConstOpFunction) subConstF64,
+		[FJS_DataType_F32] = (BinaryConstOpFunction) subConstF32
+	},
+	[FJS_BinaryConstOperationType_MulC] = {
+		[FJS_DataType_F64] = (BinaryConstOpFunction) mulConstF64,
+		[FJS_DataType_F32] = (BinaryConstOpFunction) mulConstF32
+	},
+	[FJS_BinaryConstOperationType_DivC] = {
+		[FJS_DataType_F64] = (BinaryConstOpFunction) divConstF64,
+		[FJS_DataType_F32] = (BinaryConstOpFunction) divConstF32
+	},
+	[FJS_BinaryConstOperationType_DivRC] = {
+		[FJS_DataType_F64] = (BinaryConstOpFunction) divConstF64,
+		[FJS_DataType_F32] = (BinaryConstOpFunction) divConstF32
+	}
 };
 
-static const BinaryOpFunction mulFunctions[] = {
-	[FJS_DataType_F64] = (BinaryOpFunction) mulF64,
-	[FJS_DataType_F32] = (BinaryOpFunction) mulF32
+static const UnaryOpFunction unaryOpFunctions[][FJS_DataType_Max] = {
+	[FJS_UnaryOperationType_Neg] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) negF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) negF32
+	},
+	[FJS_UnaryOperationType_Abs] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) absF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) absF32
+	},
+	[FJS_UnaryOperationType_Exp] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) expF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) expF32
+	},
+	[FJS_UnaryOperationType_Log] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) logF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) logF32
+	},
+	[FJS_UnaryOperationType_Sqrt] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) sqrtF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) sqrtF32
+	},
+	[FJS_UnaryOperationType_Square] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) squareF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) squareF32
+	},
 };
 
-static const BinaryOpFunction divFunctions[] = {
-	[FJS_DataType_F64] = (BinaryOpFunction) divF64,
-	[FJS_DataType_F32] = (BinaryOpFunction) divF32
+static const ReduceOpFunction reductionFunctions[][FJS_DataType_Max] = {
+	[FJS_ReductionType_Sum] = {
+		[FJS_DataType_F64] = (ReduceOpFunction) sumF64,
+		[FJS_DataType_F32] = (ReduceOpFunction) sumF32
+	},
+	[FJS_ReductionType_Min] = {
+		[FJS_DataType_F64] = (ReduceOpFunction) minF64,
+		[FJS_DataType_F32] = (ReduceOpFunction) minF32
+	},
+	[FJS_ReductionType_Max] = {
+		[FJS_DataType_F64] = (ReduceOpFunction) maxF64,
+		[FJS_DataType_F32] = (ReduceOpFunction) maxF32
+	}
 };
 
-static const BinaryConstOpFunction addConstFunctions[] = {
-	[FJS_DataType_F64] = (BinaryConstOpFunction) addConstF64,
-	[FJS_DataType_F32] = (BinaryConstOpFunction) addConstF32
-};
-
-static const BinaryConstOpFunction subConstFunctions[] = {
-	[FJS_DataType_F64] = (BinaryConstOpFunction) subConstF64,
-	[FJS_DataType_F32] = (BinaryConstOpFunction) subConstF32
-};
-
-static const BinaryConstOpFunction mulConstFunctions[] = {
-	[FJS_DataType_F64] = (BinaryConstOpFunction) mulConstF64,
-	[FJS_DataType_F32] = (BinaryConstOpFunction) mulConstF32
-};
-
-static const BinaryConstOpFunction divConstFunctions[] = {
-	[FJS_DataType_F64] = (BinaryConstOpFunction) divConstF64,
-	[FJS_DataType_F32] = (BinaryConstOpFunction) divConstF32
-};
-
-static const UnaryOpFunction negFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) negF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) negF32
-};
-
-static const UnaryOpFunction absFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) absF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) absF32
-};
-
-static const UnaryOpFunction expFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) expF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) expF32
-};
-
-static const UnaryOpFunction logFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) logF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) logF32
-};
-
-static const UnaryOpFunction sqrtFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) sqrtF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) sqrtF32
-};
-
-static const UnaryOpFunction squareFunctions[] = {
-	[FJS_DataType_F64] = (UnaryOpFunction) squareF64,
-	[FJS_DataType_F32] = (UnaryOpFunction) squareF32
-};
-
-static const ReduceOpFunction minFunctions[] = {
-	[FJS_DataType_F64] = (ReduceOpFunction) minF64,
-	[FJS_DataType_F32] = (ReduceOpFunction) minF32
-};
-
-static const ReduceOpFunction maxFunctions[] = {
-	[FJS_DataType_F64] = (ReduceOpFunction) maxF64,
-	[FJS_DataType_F32] = (ReduceOpFunction) maxF32
-};
-
-static const ReduceOpFunction sumFunctions[] = {
-	[FJS_DataType_F64] = (ReduceOpFunction) sumF64,
-	[FJS_DataType_F32] = (ReduceOpFunction) sumF32
-};
-
-static const AxisReduceOpFunction axisMinFunctions[] = {
-	[FJS_DataType_F64] = (AxisReduceOpFunction) axisMinF64,
-	[FJS_DataType_F32] = (AxisReduceOpFunction) axisMinF32
-};
-
-static const AxisReduceOpFunction axisMaxFunctions[] = {
-	[FJS_DataType_F64] = (AxisReduceOpFunction) axisMaxF64,
-	[FJS_DataType_F32] = (AxisReduceOpFunction) axisMaxF32
-};
-
-static const AxisReduceOpFunction axisSumFunctions[] = {
-	[FJS_DataType_F64] = (AxisReduceOpFunction) axisSumF64,
-	[FJS_DataType_F32] = (AxisReduceOpFunction) axisSumF32
+static const AxisReduceOpFunction axisReductionFunctions[][FJS_DataType_Max] = {
+	[FJS_AxisReductionType_Sum] = {
+		[FJS_DataType_F64] = (AxisReduceOpFunction) axisSumF64,
+		[FJS_DataType_F32] = (AxisReduceOpFunction) axisSumF32
+	},
+	[FJS_AxisReductionType_Min] = {
+		[FJS_DataType_F64] = (AxisReduceOpFunction) axisMinF64,
+		[FJS_DataType_F32] = (AxisReduceOpFunction) axisMinF32
+	},
+	[FJS_AxisReductionType_Max] = {
+		[FJS_DataType_F64] = (AxisReduceOpFunction) axisMaxF64,
+		[FJS_DataType_F32] = (AxisReduceOpFunction) axisMaxF32
+	}
 };
 
 static const DotOpFunction dotFunctions[] = {
@@ -178,106 +180,19 @@ static const DotOpFunction dotFunctions[] = {
 	[FJS_DataType_F32] = (DotOpFunction) dotF32
 };
 
-static enum FJS_Error executeBinaryOp(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const BinaryOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeBinaryConstOp(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const BinaryConstOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeUnaryOp(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const UnaryOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeReduceOp(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const ReduceOpFunction computeFunctions[static 1]);
-static enum FJS_Error executeAxisReduceOp(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1], const AxisReduceOpFunction computeFunctions[static 1]);
-
-enum FJS_Error FJS_Execute_Add(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryOp(instance, arguments, response, addFunctions);
-}
-
-enum FJS_Error FJS_Execute_Sub(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryOp(instance, arguments, response, subFunctions);
-}
-
-enum FJS_Error FJS_Execute_Mul(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryOp(instance, arguments, response, mulFunctions);
-}
-
-enum FJS_Error FJS_Execute_Div(PP_Instance instance, const struct FJS_BinaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryOp(instance, arguments, response, divFunctions);
-}
-
-enum FJS_Error FJS_Execute_AddC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryConstOp(instance, arguments, response, addConstFunctions);
-}
-
-enum FJS_Error FJS_Execute_SubC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryConstOp(instance, arguments, response, subConstFunctions);
-}
-
-enum FJS_Error FJS_Execute_MulC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryConstOp(instance, arguments, response, mulConstFunctions);
-}
-
-enum FJS_Error FJS_Execute_DivC(PP_Instance instance, const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeBinaryConstOp(instance, arguments, response, divConstFunctions);
-}
-
-enum FJS_Error FJS_Execute_Neg(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeUnaryOp(instance, arguments, response, negFunctions);
-}
-
-enum FJS_Error FJS_Execute_Abs(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeUnaryOp(instance, arguments, response, absFunctions);
-}
-
-enum FJS_Error FJS_Execute_Exp(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeUnaryOp(instance, arguments, response, expFunctions);
-}
-
-enum FJS_Error FJS_Execute_Log(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeUnaryOp(instance, arguments, response, logFunctions);
-}
-
-enum FJS_Error FJS_Execute_Sqrt(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeUnaryOp(instance, arguments, response, sqrtFunctions);
-}
-
-enum FJS_Error FJS_Execute_Square(PP_Instance instance, const struct FJS_UnaryOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeUnaryOp(instance, arguments, response, squareFunctions);
-}
-
-enum FJS_Error FJS_Execute_Min(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeReduceOp(instance, arguments, response, minFunctions);
-}
-
-enum FJS_Error FJS_Execute_Max(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeReduceOp(instance, arguments, response, maxFunctions);
-}
-
-enum FJS_Error FJS_Execute_Sum(PP_Instance instance, const struct FJS_ReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeReduceOp(instance, arguments, response, sumFunctions);
-}
-
-enum FJS_Error FJS_Execute_AxisMin(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeAxisReduceOp(instance, arguments, response, axisMinFunctions);
-}
-
-enum FJS_Error FJS_Execute_AxisMax(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeAxisReduceOp(instance, arguments, response, axisMaxFunctions);
-}
-
-enum FJS_Error FJS_Execute_AxisSum(PP_Instance instance, const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	return executeAxisReduceOp(instance, arguments, response, axisSumFunctions);
-}
-
-static enum FJS_Error executeBinaryOp(PP_Instance instance,
-	const struct FJS_BinaryOp_Command_Arguments arguments[static 1],
-	struct PP_Var response[static 1],
-	const BinaryOpFunction computeFunctions[static 1])
+enum FJS_Error FJS_Execute_BinaryOperation(PP_Instance instance,
+	enum FJS_BinaryOperationType type,
+	int32_t idA,
+	int32_t idB,
+	uint32_t idOut)
 {
 	/* Validate the id for input array A and get NDArray object for array A */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
 	/* Validate the id for input array B and get NDArray object for array B */
-	const int32_t idB = arguments->idB;
 	struct NDArray* arrayB = FJS_GetPointerFromId(instance, __builtin_abs(idB));
 	if (arrayB == NULL) {
 		return FJS_Error_InvalidId;
@@ -306,15 +221,12 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance,
 	 * Check input data type (at this point it the same for a and b arrays)
 	 * and choose the compute function for this data type.
 	 */
-	BinaryOpFunction computeFunction;
-	switch (dataTypeA) {
-		case FJS_DataType_F64:
-		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataTypeA];
-			break;
-		case FJS_DataType_Invalid:
-		default:
-			return FJS_Error_InvalidDataType;
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const BinaryOpFunction computeFunction = binaryOpFunctions[type][dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
 	}
 
 	/* Check that the input arrays have the same number of dimensions */
@@ -332,7 +244,6 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance,
 
 	/* Short-cut: do additional checks only if a and out are actually different arrays */
 	void* dataOut = (void*) dataA;
-	const int32_t idOut = arguments->idOut;
 	if (idA != idOut) {
 		/* Short-cut: do additional checks only if b and out are actually different arrays */
 		dataOut = (void*) dataB;
@@ -403,13 +314,13 @@ static enum FJS_Error executeBinaryOp(PP_Instance instance,
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeBinaryConstOp(PP_Instance instance,
-	const struct FJS_BinaryConstOp_Command_Arguments arguments[static 1],
-	struct PP_Var response[static 1],
-	const BinaryConstOpFunction computeFunctions[static 1])
+enum FJS_Error FJS_Execute_BinaryConstOperation(PP_Instance instance,
+	enum FJS_BinaryConstOperationType type,
+	int32_t idA,
+	double valueB,
+	uint32_t idOut)
 {
 	/* Validate input array id and get NDArray object for this id */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -423,20 +334,16 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance,
 	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
 	/* Check input data type and choose the compute function for this data type */
-	BinaryConstOpFunction computeFunction;
-	switch (dataTypeA) {
-		case FJS_DataType_F64:
-		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataTypeA];
-			break;
-		case FJS_DataType_Invalid:
-		default:
-			return FJS_Error_InvalidDataType;
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const BinaryConstOpFunction computeFunction = binaryConstOpFunctions[type][dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
 	}
 
 	/* Short-cut: do additional checks only if a and out are actually different arrays */
 	void* dataOut = (void*) dataA;
-	const int32_t idOut = arguments->idOut;
 	if (idA != idOut) {
 		/*
 		 * Try to get NDArray for the provided output id.
@@ -488,7 +395,7 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance,
 	}
 
 	/* Do the binary operation with constant */
-	computeFunction(lengthA, dataA, arguments->valueB, dataOut);
+	computeFunction(lengthA, dataA, valueB, dataOut);
 
 	/* De-allocate the input array if needed */
 	if (idA < 0) {
@@ -499,13 +406,12 @@ static enum FJS_Error executeBinaryConstOp(PP_Instance instance,
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeUnaryOp(PP_Instance instance,
-	const struct FJS_UnaryOp_Command_Arguments arguments[static 1],
-	struct PP_Var response[static 1],
-	const UnaryOpFunction computeFunctions[static 1])
+enum FJS_Error FJS_Execute_UnaryOperation(PP_Instance instance,
+	enum FJS_UnaryOperationType type,
+	int32_t idA,
+	uint32_t idOut)
 {
 	/* Validate input array id and get NDArray object for this id */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -519,20 +425,16 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance,
 	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
 	/* Check input data type and choose the compute function for this data type */
-	UnaryOpFunction computeFunction;
-	switch (dataTypeA) {
-		case FJS_DataType_F64:
-		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataTypeA];
-			break;
-		case FJS_DataType_Invalid:
-		default:
-			return FJS_Error_InvalidDataType;
+	if ((uint32_t) dataTypeA < FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const UnaryOpFunction computeFunction = unaryOpFunctions[type][dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
 	}
 
 	/* Short-cut: do additional checks only if a and out are actually different arrays */
 	void* dataOut = (void*) dataA;
-	const int32_t idOut = arguments->idOut;
 	if (idA != idOut) {
 		/*
 		 * Try to get NDArray for the provided output id.
@@ -590,13 +492,12 @@ static enum FJS_Error executeUnaryOp(PP_Instance instance,
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeReduceOp(PP_Instance instance,
-	const struct FJS_ReduceOp_Command_Arguments arguments[static 1],
-	struct PP_Var response[static 1],
-	const ReduceOpFunction computeFunctions[static 1])
+enum FJS_Error FJS_Execute_Reduction(PP_Instance instance,
+	enum FJS_ReductionType type,
+	int32_t idA,
+	uint32_t idOut)
 {
 	/* Validate input array id and get NDArray object for this id */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -609,15 +510,12 @@ static enum FJS_Error executeReduceOp(PP_Instance instance,
 	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
 	/* Check input data type and choose the compute function for this data type */
-	ReduceOpFunction computeFunction;
-	switch (dataTypeA) {
-		case FJS_DataType_F64:
-		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataTypeA];
-			break;
-		case FJS_DataType_Invalid:
-		default:
-			return FJS_Error_InvalidDataType;
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const ReduceOpFunction computeFunction = reductionFunctions[type][dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
 	}
 
 	/*
@@ -625,7 +523,6 @@ static enum FJS_Error executeReduceOp(PP_Instance instance,
 	 * If there is an NDArray associated with the supplied id, validate it.
 	 * Otherwise, create an NDArray and associate it with the provided id.
 	 */
-	const int32_t idOut = arguments->idOut;
 	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	if (arrayOut == NULL) {
 		/* Define parameters for the output array */
@@ -670,13 +567,13 @@ static enum FJS_Error executeReduceOp(PP_Instance instance,
 	return FJS_Error_Ok;
 }
 
-static enum FJS_Error executeAxisReduceOp(PP_Instance instance,
-	const struct FJS_AxisReduceOp_Command_Arguments arguments[static 1],
-	struct PP_Var response[static 1],
-	const AxisReduceOpFunction computeFunctions[static 1])
+enum FJS_Error FJS_Execute_AxisReduction(PP_Instance instance,
+	enum FJS_AxisReductionType type,
+	int32_t idA,
+	uint32_t axis,
+	uint32_t idOut)
 {
 	/* Validate input array id and get NDArray object for this id */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -690,21 +587,17 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance,
 	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
 	/* Validate axis. Note that this check always fails if dimensionsA == 0. */
-	const int32_t axis = arguments->axis;
-	if ((axis < 0) || (axis >= dimensionsA)) {
+	if (axis >= dimensionsA) {
 		return FJS_Error_AxisOutOfRange;
 	}
 
 	/* Validate input data type and choose the compute function for this data type */
-	AxisReduceOpFunction computeFunction;
-	switch (dataTypeA) {
-		case FJS_DataType_F64:
-		case FJS_DataType_F32:
-			computeFunction = computeFunctions[dataTypeA];
-			break;
-		case FJS_DataType_Invalid:
-		default:
-			return FJS_Error_InvalidDataType;
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const AxisReduceOpFunction computeFunction = axisReductionFunctions[type][dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
 	}
 
 	/* Compute strides for reduction */
@@ -723,7 +616,6 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance,
 	 * If there is an NDArray associated with the supplied id, validate it.
 	 * Otherwise, create an NDArray and associate it with the provided id.
 	 */
-	const int32_t idOut = arguments->idOut;
 	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	if (arrayOut == NULL) {
 		/* Initialize the shape for the output array and compute strides for reduction */
@@ -778,16 +670,18 @@ static enum FJS_Error executeAxisReduceOp(PP_Instance instance,
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_Dot(PP_Instance instance, const struct FJS_Dot_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+enum FJS_Error FJS_Execute_DotOperation(PP_Instance instance,
+	int32_t idA,
+	int32_t idB,
+	uint32_t idOut)
+{
 	/* Validate the id for input array A and get NDArray object for array A */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
 	}
 
 	/* Validate the id for input array B and get NDArray object for array B */
-	const int32_t idB = arguments->idB;
 	struct NDArray* arrayB = FJS_GetPointerFromId(instance, __builtin_abs(idB));
 	if (arrayB == NULL) {
 		return FJS_Error_InvalidId;
@@ -826,15 +720,12 @@ enum FJS_Error FJS_Execute_Dot(PP_Instance instance, const struct FJS_Dot_Comman
 	 * Validate input data type (at this point it is the same for a and b arrays)
 	 * and choose the compute function for this data type
 	 */
-	DotOpFunction computeFunction;
-	switch (dataTypeA) {
-		case FJS_DataType_F64:
-		case FJS_DataType_F32:
-			computeFunction = dotFunctions[dataTypeA];
-			break;
-		case FJS_DataType_Invalid:
-		default:
-			return FJS_Error_InvalidDataType;
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const DotOpFunction computeFunction = dotFunctions[dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
 	}
 
 	/* Compute the axes that will be used for reduction */
@@ -847,7 +738,6 @@ enum FJS_Error FJS_Execute_Dot(PP_Instance instance, const struct FJS_Dot_Comman
 		return FJS_Error_MismatchingShape;
 	}
 
-	const int32_t idOut = arguments->idOut;
 	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	if (arrayOut != NULL) {
 		FJS_LOG_ERROR("TODO [executeDotOp]: implement in-place operation");

@@ -27,3 +27,7 @@ node_modules/**
 .ninja_deps
 .ninja_log
 build.ninja
+
+# C++ sources and headers generated from Protobufs
+*.pb.cc
+*.pb.h

@@ -7,23 +7,34 @@
 #include "NDArray.h"
 #include "Commands.h"
 #include "Interfaces.h"
-#include "Message.h"
 #include "Strings.h"
 #include "IdMap.h"
 #include "Util.h"
 
-typedef void (*StepInitFunction)(int32_t, double, double, void*);
-static void initLinearF32(int32_t samples, double start, double step, float dataOut[restrict static samples]);
-static void initLinearF64(int32_t samples, double start, double step, double dataOut[restrict static samples]);
+typedef void (*ConstInitFunction)(uint32_t, double, void*);
+static void initConstF32(uint32_t length, double fillValue, float dataOut[restrict static length]);
+static void initConstF64(uint32_t length, double fillValue, double dataOut[restrict static length]);
+
+typedef void (*StepInitFunction)(uint32_t, double, double, void*);
+static void initLinearF32(uint32_t samples, double start, double step, float dataOut[restrict static samples]);
+static void initLinearF64(uint32_t samples, double start, double step, double dataOut[restrict static samples]);
+
+static const ConstInitFunction constInitFunctions[] = {
+	[FJS_DataType_F64] = (ConstInitFunction) initConstF64,
+	[FJS_DataType_F32] = (ConstInitFunction) initConstF32
+};
 
 static const StepInitFunction stepInitFunctions[] = {
 	[FJS_DataType_F64] = (StepInitFunction) initLinearF64,
 	[FJS_DataType_F32] = (StepInitFunction) initLinearF32
 };
 
-enum FJS_Error FJS_Execute_Empty(PP_Instance instance, const struct FJS_Empty_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	const struct FJS_Shape shape = arguments->shape;
-	const uint32_t elementSize = FJS_DataType_GetSize(arguments->dataType);
+enum FJS_Error FJS_Execute_CreateEmptyArray(PP_Instance instance,
+	uint32_t idOut,
+	struct FJS_Shape shape,
+	enum FJS_DataType dataType)
+{
+	const uint32_t elementSize = FJS_DataType_GetSize(dataType);
 	if (elementSize == 0) {
 		return FJS_Error_InvalidDataType;
 	}
@@ -43,104 +54,22 @@ enum FJS_Error FJS_Execute_Empty(PP_Instance instance, const struct FJS_Empty_Co
 		return FJS_Error_SizeOverflow;
 	}
 
-	struct NDArray* array = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, arguments->dataType);
-	if (array == NULL) {
-		return FJS_Error_OutOfMemory;
-	}
-
-	FJS_AllocateId(instance, arguments->idOut, array);
-	return FJS_Error_Ok;
-}
-
-enum FJS_Error FJS_Execute_Zeros(PP_Instance instance, const struct FJS_Zeros_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	const struct FJS_Shape shape = arguments->shape;
-	const uint32_t elementSize = FJS_DataType_GetSize(arguments->dataType);
-	if (elementSize == 0) {
-		return FJS_Error_InvalidDataType;
-	}
-	uint32_t length = 1;
-	for (uint32_t dimension = 0; dimension < shape.dimensions; dimension++) {
-		const uint32_t measure = shape.buffer[dimension];
-		if (measure < 1) {
-			return FJS_Error_DegenerateShape;
-		}
-		/* This multiplication can easily overflow */
-		if (!FJS_Util_Mul32u(length, measure, &length)) {
-			return FJS_Error_LengthOverflow;
-		}
-	}
-	uint32_t size;
-	if (!FJS_Util_Mul32u(length, elementSize, &size)) {
-		return FJS_Error_SizeOverflow;
-	}
-
-	struct NDArray* array = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, arguments->dataType);
-	if (array == NULL) {
-		return FJS_Error_OutOfMemory;
-	}
-
-	memset(FJS_NDArray_GetData(array), 0, size);
-
-	FJS_AllocateId(instance, arguments->idOut, array);
-	return FJS_Error_Ok;
-}
-
-enum FJS_Error FJS_Execute_Ones(PP_Instance instance, const struct FJS_Ones_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	const struct FJS_Shape shape = arguments->shape;
-	const uint32_t elementSize = FJS_DataType_GetSize(arguments->dataType);
-	if (elementSize == 0) {
-		return FJS_Error_InvalidDataType;
-	}
-	uint32_t length = 1;
-	for (uint32_t dimension = 0; dimension < shape.dimensions; dimension++) {
-		const uint32_t measure = shape.buffer[dimension];
-		if (measure < 1) {
-			return FJS_Error_DegenerateShape;
-		}
-		/* This multiplication can easily overflow */
-		if (!FJS_Util_Mul32u(length, measure, &length)) {
-			return FJS_Error_LengthOverflow;
-		}
-	}
-	uint32_t size;
-	if (!FJS_Util_Mul32u(length, elementSize, &size)) {
-		return FJS_Error_SizeOverflow;
-	}
-
-	const enum FJS_DataType dataType = arguments->dataType;
 	struct NDArray* array = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, dataType);
 	if (array == NULL) {
 		return FJS_Error_OutOfMemory;
 	}
 
-	void* data = FJS_NDArray_GetData(array);
-	switch (dataType) {
-	case FJS_DataType_F32:
-		for (size_t i = 0; i < length; i++) {
-			*((float*)data) = 1.0f;
-			data += sizeof(float);
-		}
-		break;
-	case FJS_DataType_F64:
-		for (size_t i = 0; i < length; i++) {
-			*((double*)data) = 1.0;
-			data += sizeof(double);
-		}
-		break;
-	default:
-		__builtin_unreachable();
-	}
-
-	FJS_AllocateId(instance, arguments->idOut, array);
+	FJS_AllocateId(instance, idOut, array);
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_Array(PP_Instance instance, const struct FJS_Array_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	const struct FJS_Shape shape = arguments->shape;
-	if (shape.dimensions == 0) {
-		return FJS_Error_EmptyShape;
-	}
-	const uint32_t elementSize = FJS_DataType_GetSize(arguments->dataType);
+enum FJS_Error FJS_Execute_CreateConstArray(PP_Instance instance,
+	uint32_t idOut,
+	struct FJS_Shape shape,
+	enum FJS_DataType dataType,
+	double fillValue)
+{
+	const uint32_t elementSize = FJS_DataType_GetSize(dataType);
 	if (elementSize == 0) {
 		return FJS_Error_InvalidDataType;
 	}
@@ -159,35 +88,91 @@ enum FJS_Error FJS_Execute_Array(PP_Instance instance, const struct FJS_Array_Co
 	if (!FJS_Util_Mul32u(length, elementSize, &size)) {
 		return FJS_Error_SizeOverflow;
 	}
-	const struct FJS_Buffer buffer = arguments->buffer;
-	if (size != buffer.size) {
-		return FJS_Error_IncompatibleBufferSize;
+
+	ConstInitFunction initFunction;
+	switch (dataType) {
+		case FJS_DataType_F64:
+		case FJS_DataType_F32:
+			initFunction = constInitFunctions[dataType];
+			break;
+		case FJS_DataType_Invalid:
+		default:
+			return FJS_Error_InvalidDataType;
 	}
 
-	struct NDArray* array = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, arguments->dataType);
-	if (array == NULL) {
+	struct NDArray* arrayOut = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, dataType);
+	if (arrayOut == NULL) {
 		return FJS_Error_OutOfMemory;
 	}
 
-	memcpy(FJS_NDArray_GetData(array), buffer.pointer, buffer.size);
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
+	initFunction(length, fillValue, dataOut);
 
-	FJS_AllocateId(instance, arguments->idOut, array);
+	FJS_AllocateId(instance, idOut, arrayOut);
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, const struct FJS_LinSpace_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+enum FJS_Error FJS_Execute_CreateDataArray(PP_Instance instance,
+	uint32_t idOut,
+	struct FJS_Shape shape,
+	enum FJS_DataType dataType,
+	struct FJS_Buffer dataBuffer)
+{
+	if (shape.dimensions == 0) {
+		return FJS_Error_EmptyShape;
+	}
+	const uint32_t elementSize = FJS_DataType_GetSize(dataType);
+	if (elementSize == 0) {
+		return FJS_Error_InvalidDataType;
+	}
+	uint32_t length = 1;
+	for (uint32_t dimension = 0; dimension < shape.dimensions; dimension++) {
+		const uint32_t measure = shape.buffer[dimension];
+		if (measure < 1) {
+			return FJS_Error_DegenerateShape;
+		}
+		/* This multiplication can easily overflow */
+		if (!FJS_Util_Mul32u(length, measure, &length)) {
+			return FJS_Error_LengthOverflow;
+		}
+	}
+	uint32_t size;
+	if (!FJS_Util_Mul32u(length, elementSize, &size)) {
+		return FJS_Error_SizeOverflow;
+	}
+	if (size != dataBuffer.size) {
+		return FJS_Error_IncompatibleBufferSize;
+	}
+
+	struct NDArray* arrayOut = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, dataType);
+	if (arrayOut == NULL) {
+		return FJS_Error_OutOfMemory;
+	}
+
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
+	memcpy(dataOut, dataBuffer.pointer, dataBuffer.size);
+
+	FJS_AllocateId(instance, idOut, arrayOut);
+	return FJS_Error_Ok;
+}
+
+enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance,
+	uint32_t idOut,
+	double start,
+	double stop,
+	uint32_t samples,
+	bool closed,
+	enum FJS_DataType dataType)
+{
 	/* Check that the number of samples is sane */
-	const int32_t samples = arguments->samples;
 	if (samples <= 0) {
 		return FJS_Error_InvalidLength;
 	}
-	const bool closed = arguments->closed;
 	if (closed && (samples == 1)) {
 		return FJS_Error_InvalidLength;
 	}
 
 	/* Check that the data type is supported and choose the initialization function for this data type */
-	const enum FJS_DataType dataType = arguments->dataType;
 	StepInitFunction initFunction;
 	switch (dataType) {
 		case FJS_DataType_F64:
@@ -200,33 +185,34 @@ enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, const struct FJS_LinSp
 	}
 
 	/* Define parameters for the output array */
-	const uint32_t length = arguments->samples;
-	const uint32_t shape[1] = { arguments->samples };
-	const uint32_t dimensions = 1;
+	const uint32_t lengthOut = samples;
+	const uint32_t shapeOut[1] = { samples };
+	const uint32_t dimensionsOut = 1;
 
 	/* Create output array */
-	struct NDArray* array = FJS_NDArray_Create(dimensions, length, shape, dataType);
-	if (array == NULL) {
+	struct NDArray* arrayOut = FJS_NDArray_Create(dimensionsOut, lengthOut, shapeOut, dataType);
+	if (arrayOut == NULL) {
 		return FJS_Error_OutOfMemory;
 	}
 
 	/* Associate the output array with its id */
-	FJS_AllocateId(instance, arguments->idOut, array);
+	FJS_AllocateId(instance, idOut, arrayOut);
 
 	/* Do the initialization */
-	void* data = FJS_NDArray_GetData(array);
-	const double start = arguments->start;
-	const double stop = arguments->stop;
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
 	const double range = stop - start;
-	const double step = range / ((closed) ? samples - 1 : samples);
-	initFunction(samples, start, step, data);
+	const double step = range / ((double) ((closed) ? samples - 1 : samples));
+	initFunction(samples, start, step, dataOut);
 
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShape_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+enum FJS_Error FJS_Execute_ReShape(PP_Instance instance,
+	int32_t idA,
+	uint32_t idOut,
+	struct FJS_Shape shapeOut)
+{
 	/* Validate the id for input array A and get NDArray object for array A */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -242,7 +228,6 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 
 	/* Compute the length of the new array */
 	uint32_t lengthOut = 1;
-	const struct FJS_Shape shapeOut = arguments->shapeOut;
 	for (uint32_t dimension = 0; dimension < shapeOut.dimensions; dimension++) {
 		const uint32_t measure = shapeOut.buffer[dimension];
 		if (measure < 1) {
@@ -260,7 +245,6 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 	}
 
 	/* Try short-cut: if input and output arrays are the same, only change array shape */
-	const int32_t idOut = arguments->idOut;
 	if (idOut == idA) {
 		struct NDArray* arrayOut = FJS_NDArray_ReShape(arrayA, shapeOut.dimensions, shapeOut.buffer);
 		if (arrayOut == NULL) {
@@ -334,9 +318,13 @@ enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, const struct FJS_ReShap
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
+enum FJS_Error FJS_Execute_Repeat(PP_Instance instance,
+	int32_t idA,
+	uint32_t idOut,
+	uint32_t repeats,
+	uint32_t axis)
+{
 	/* Validate the id for input array A and get NDArray object for array A */
-	const int32_t idA = arguments->idA;
 	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (arrayA == NULL) {
 		return FJS_Error_InvalidId;
@@ -351,20 +339,18 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 	const size_t elementSizeA = FJS_DataType_GetSize(dataTypeA);
 
 	/* Validate axis. Note that this check always fails if dimensionsA == 0. */
-	const int32_t axis = arguments->axis;
-	if ((axis < 0) || (axis >= dimensionsA)) {
+	if (axis >= dimensionsA) {
 		return FJS_Error_AxisOutOfRange;
 	}
 
 	/* Validate repeats count */
-	const int32_t repeats = arguments->repeats;
 	if (repeats <= 1) {
 		return FJS_Error_RepeatsOutOfRange;
 	}
 
 	/* Compute the length of the new array */
 	uint32_t lengthOut = lengthA;
-	if (!FJS_Util_Mul32u(lengthOut, (uint32_t) repeats, &lengthOut)) {
+	if (!FJS_Util_Mul32u(lengthOut, repeats, &lengthOut)) {
 		/* This multiplication overflowed */
 		return FJS_Error_LengthOverflow;
 	}
@@ -373,7 +359,6 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 	 * Try to get NDArray for the provided output id.
 	 * If there is an NDArray associated with the supplied id, validate it.
 	 */
-	const int32_t idOut = arguments->idOut;
 	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
 	size_t outerStride = 1, innerStride = 1, repeatLengthA, repeatLengthOut;
 	if (arrayOut != NULL) {
@@ -394,7 +379,7 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 
 		/* Check that the output array has expected shape and compute strides */
 		const uint32_t* shapeOut = FJS_NDArray_GetShape(arrayOut);
-		for (size_t i = 0; i < (size_t) axis; i++) {
+		for (size_t i = 0; i < axis; i++) {
 			const size_t sizeOut = shapeOut[i];
 			if (sizeOut != shapeA[i]) {
 				return FJS_Error_MismatchingShape;
@@ -402,13 +387,13 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 			outerStride *= sizeOut;
 		}
 		{
-			repeatLengthOut = shapeOut[(uint32_t) axis];
-			repeatLengthA = shapeA[(uint32_t) axis];
-			if (repeatLengthOut != repeatLengthA * ((uint32_t) repeats)) {
+			repeatLengthOut = shapeOut[axis];
+			repeatLengthA = shapeA[axis];
+			if (repeatLengthOut != repeatLengthA * repeats) {
 				return FJS_Error_MismatchingShape;
 			}
 		}
-		for (size_t i = (size_t) axis; i < dimensionsA; i++) {
+		for (size_t i = axis; i < dimensionsA; i++) {
 			const size_t sizeOut = shapeOut[i];
 			if (sizeOut != shapeA[i]) {
 				return FJS_Error_MismatchingShape;
@@ -422,17 +407,17 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 
 		/* Initialize the shape for the output array and compute strides */
 		uint32_t shapeOut[dimensionsA];
-		for (size_t i = 0; i < (size_t) axis; i++) {
+		for (size_t i = 0; i < axis; i++) {
 			const size_t sizeA = shapeA[i];
 			shapeOut[i] = sizeA;
 			outerStride *= sizeA;
 		}
 		{
-			repeatLengthA = shapeA[(uint32_t) axis];
-			repeatLengthOut = repeatLengthA * ((uint32_t) repeats);
-			shapeOut[(uint32_t) axis] = repeatLengthOut;
+			repeatLengthA = shapeA[axis];
+			repeatLengthOut = repeatLengthA * repeats;
+			shapeOut[axis] = repeatLengthOut;
 		}
-		for (size_t i = (size_t) (axis + 1); i < dimensionsA; i++) {
+		for (size_t i = axis + 1; i < dimensionsA; i++) {
 			const size_t sizeA = shapeA[i];
 			shapeOut[i] = sizeA;
 			innerStride *= sizeA;
@@ -470,8 +455,7 @@ enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, const struct FJS_Repeat_
 	return FJS_Error_Ok;
 }
 
-enum FJS_Error FJS_Execute_Free(PP_Instance instance, const struct FJS_Free_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	const int32_t idA = arguments->idA;
+enum FJS_Error FJS_Execute_DeAllocate(PP_Instance instance, int32_t idA) {
 	struct NDArray* array = FJS_GetPointerFromId(instance, idA);
 	if (array == NULL) {
 		return FJS_Error_InvalidId;
@@ -482,54 +466,30 @@ enum FJS_Error FJS_Execute_Free(PP_Instance instance, const struct FJS_Free_Comm
 	}
 }
 
-enum FJS_Error FJS_Execute_Get(PP_Instance instance, const struct FJS_Get_Command_Arguments arguments[static 1], struct PP_Var response[static 1]) {
-	enum FJS_Error error = FJS_Error_Ok;
-	struct PP_Var bufferVar = PP_MakeUndefined();
-	void* bufferPointer = NULL;
-
-	const int32_t idA = arguments->idA;
+enum FJS_Error FJS_Execute_Fetch(PP_Instance instance, int32_t idA, struct FJS_Buffer buffer[restrict static 1]) {
 	struct NDArray* array = FJS_GetPointerFromId(instance, __builtin_abs(idA));
 	if (array == NULL) {
-		error = FJS_Error_InvalidId;
-		goto cleanup;
+		return FJS_Error_InvalidId;
 	}
 
 	const uint32_t elementSize = FJS_DataType_GetSize(array->dataType);
 	if (elementSize == 0) {
-		error = FJS_Error_InvalidDataType;
-		goto cleanup;
-	}
-	const uint32_t dataSize = elementSize * array->length;
-	bufferVar = bufferInterface->Create(dataSize);
-	bufferPointer = bufferInterface->Map(bufferVar);
-	if (bufferPointer == NULL) {
-		error = FJS_Error_OutOfMemory;
-		goto cleanup;
+		return FJS_Error_InvalidDataType;
 	}
 
-	memcpy(bufferPointer, FJS_NDArray_GetData(array), dataSize);
-
-	if (dictionaryInterface->Set(*response, FJS_StringVariables[FJS_StringVariable_Buffer], bufferVar) != PP_TRUE) {
-		FJS_LOG_ERROR("Failed to set buffer");
-		goto cleanup;
-	}
+	buffer->pointer = FJS_NDArray_GetData(array);
+	buffer->size = elementSize * array->length;
 
 	/* De-allocate input array if needed */
-	if (idA < 0) {
-		FJS_NDArray_Delete(array);
-		FJS_ReleaseId(instance, __builtin_abs(idA));
-	}
+	// if (idA < 0) {
+	// 	FJS_NDArray_Delete(array);
+	// 	FJS_ReleaseId(instance, __builtin_abs(idA));
+	// }
 
-cleanup:
-	if (bufferPointer != NULL) {
-		bufferInterface->Unmap(bufferVar);
-	}
-	if (error != FJS_Error_Ok) {
-		varInterface->Release(bufferVar);
-	}
-	return error;
+	return FJS_Error_Ok;
 }
 
+/*
 enum FJS_Error FJS_Execute_Info(PP_Instance instance, const void* unused, struct PP_Var response[static 1]) {
 	enum FJS_Error error = FJS_Error_Ok;
 
@@ -560,17 +520,31 @@ enum FJS_Error FJS_Execute_Info(PP_Instance instance, const void* unused, struct
 cleanup:
 	return error;
 }
+*/
 
-static void initLinearF32(int32_t samples, double start, double step, float dataOut[restrict static samples]) {
+static void initConstF32(uint32_t length, double fillValue, float dataOut[restrict static length]) {
+	const float fillValueF32 = fillValue;
+	for (uint32_t i = 0; i < length; i++) {
+		*dataOut++ = fillValueF32;
+	}
+}
+
+static void initConstF64(uint32_t length, double fillValue, double dataOut[restrict static length]) {
+	for (uint32_t i = 0; i < length; i++) {
+		*dataOut++ = fillValue;
+	}
+}
+
+static void initLinearF32(uint32_t samples, double start, double step, float dataOut[restrict static samples]) {
 	const float startF32 = start;
 	const float stepF32 = step;
-	for (int32_t i = 0; i < samples; i++) {
+	for (uint32_t i = 0; i < samples; i++) {
 		*dataOut++ = startF32 + stepF32 * ((float) i);
 	}
 }
 
-static void initLinearF64(int32_t samples, double start, double step, double dataOut[restrict static samples]) {
-	for (int32_t i = 0; i < samples; i++) {
+static void initLinearF64(uint32_t samples, double start, double step, double dataOut[restrict static samples]) {
+	for (uint32_t i = 0; i < samples; i++) {
 		*dataOut++ = start + step * ((double) i);
 	}
 }
