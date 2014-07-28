@@ -19,6 +19,16 @@ before_install:
  - unzip /tmp/nacl_sdk.zip -d /tmp/
  - /tmp/nacl_sdk/naclsdk update pepper_canary
  - export NACL_SDK_ROOT=/tmp/nacl_sdk/pepper_canary
+ - git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+ - export PATH=$PWD/depot_tools/$PATH
+ - mkdir naclports
+ - pushd naclports
+ - gclient config --name=src  https://chromium.googlesource.com/external/naclports.git
+ - gclient sync
+ - pushd src
+ - NACL_ARCH=pnacl make protobuf
+ - popd
+ - popd
  - npm install -g grunt-cli
 before_script:
  - grunt
