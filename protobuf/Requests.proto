@@ -24,23 +24,23 @@ message Request {
 		AXIS_REDUCTION_OPERATION = 12;
 		DOT_OPERATION            = 13;
 	}
-	required fixed32                     id                          =  1;
-	required Type                        type                        =  2;
+	required fixed32                     id                             =  1;
+	required Type                        type                           =  2;
 
-	optional EmptyArrayRequest           emptyArrayRequest           =  3;
-	optional DataArrayRequest            dataArrayRequest            =  4;
-	optional ConstArrayRequest           constArrayRequest           =  5;
-	optional LinspaceRequest             linspaceRequest             =  6;
-	optional ReshapeRequest              reshapeRequest              =  7;
-	optional RepeatRequest               repeatRequest               =  8;
-	optional DeallocateRequest           deallocateRequest           =  9;
-	optional FetchRequest                fetchRequest                = 10;
-	optional BinaryOperationRequest      binaryOperationRequest      = 11;
-	optional BinaryConstOperationRequest binaryConstOperationRequest = 12;
-	optional UnaryOperationRequest       unaryOperationRequest       = 13;
-	optional ReductionRequest            reductionRequest            = 14;
-	optional AxisReductionRequest        axisReductionRequest        = 15;
-	optional DotOperationRequest         dotOperationRequest         = 16;
+	optional EmptyArrayRequest           empty_array_request            =  3;
+	optional DataArrayRequest            data_array_request             =  4;
+	optional ConstArrayRequest           const_array_request            =  5;
+	optional LinspaceRequest             linspace_request               =  6;
+	optional ReshapeRequest              reshape_request                =  7;
+	optional RepeatRequest               repeat_request                 =  8;
+	optional DeallocateRequest           deallocate_request             =  9;
+	optional FetchRequest                fetch_request                  = 10;
+	optional BinaryOperationRequest      binary_operation_request       = 11;
+	optional BinaryConstOperationRequest binary_const_operation_request = 12;
+	optional UnaryOperationRequest       unary_operation_request        = 13;
+	optional ReductionRequest            reduction_request              = 14;
+	optional AxisReductionRequest        axis_reduction_request         = 15;
+	optional DotOperationRequest         dot_operation_request          = 16;
 }
 
 message EmptyArrayRequest {
