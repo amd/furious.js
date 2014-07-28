@@ -1,6 +1,6 @@
 before_install:
  - sudo apt-get update -qq
- - sudo apt-get install -qq python libc6:i386 libstdc++6:i386 npm libfreeimage-dev
+ - sudo apt-get install -qq python libc6:i386 libstdc++6:i386 npm build-essential libfreeimage-dev
  - git clone git://github.com/martine/ninja.git /tmp/ninja
  - pushd /tmp/ninja
  - git checkout release
@@ -8,10 +8,27 @@ before_install:
  - export PATH=/tmp/ninja:$PATH
  - export PYTHONPATH=/tmp/ninja/misc
  - popd
+ - wget https://protobuf.googlecode.com/files/protobuf-2.5.0.tar.gz
+ - tar -xzf protobuf-2.5.0.tar.gz
+ - pushd protobuf-2.5.0
+ - ./configure
+ - make
+ - export PATH=$PWD/src:$PATH
+ - popd
  - wget http://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/nacl_sdk.zip -O /tmp/nacl_sdk.zip
  - unzip /tmp/nacl_sdk.zip -d /tmp/
  - /tmp/nacl_sdk/naclsdk update pepper_canary
  - export NACL_SDK_ROOT=/tmp/nacl_sdk/pepper_canary
+ - git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+ - export PATH=$PWD/depot_tools:$PATH
+ - mkdir naclports
+ - pushd naclports
+ - gclient config --name=src  https://chromium.googlesource.com/external/naclports.git
+ - gclient sync
+ - pushd src
+ - NACL_ARCH=pnacl make protobuf
+ - popd
+ - popd
  - npm install -g grunt-cli
 before_script:
  - grunt
