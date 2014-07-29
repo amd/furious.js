@@ -89,15 +89,12 @@ enum FJS_Error FJS_Execute_CreateConstArray(PP_Instance instance,
 		return FJS_Error_SizeOverflow;
 	}
 
-	ConstInitFunction initFunction;
-	switch (dataType) {
-		case FJS_DataType_F64:
-		case FJS_DataType_F32:
-			initFunction = constInitFunctions[dataType];
-			break;
-		case FJS_DataType_Invalid:
-		default:
-			return FJS_Error_InvalidDataType;
+	if ((uint32_t) dataType >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const ConstInitFunction initFunction = constInitFunctions[dataType];
+	if (initFunction == NULL) {
+		return FJS_Error_InvalidDataType;
 	}
 
 	struct NDArray* arrayOut = FJS_NDArray_Create(shape.dimensions, length, shape.buffer, dataType);

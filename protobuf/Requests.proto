@@ -17,12 +17,14 @@ message Request {
 		REPEAT                   =  5;
 		DEALLOCATE               =  6;
 		FETCH                    =  7;
-		BINARY_OPERATION         =  8;
-		BINARY_CONST_OPERATION   =  9;
-		UNARY_OPERATION          = 10;
-		REDUCTION_OPERATION      = 11;
-		AXIS_REDUCTION_OPERATION = 12;
-		DOT_OPERATION            = 13;
+		BARRIER                  =  8;
+		INFO                     =  9;
+		BINARY_OPERATION         = 10;
+		BINARY_CONST_OPERATION   = 11;
+		UNARY_OPERATION          = 12;
+		REDUCTION_OPERATION      = 13;
+		AXIS_REDUCTION_OPERATION = 14;
+		DOT_OPERATION            = 15;
 	}
 	required fixed32                     id                             =  1;
 	required Type                        type                           =  2;

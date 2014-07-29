@@ -425,7 +425,7 @@ enum FJS_Error FJS_Execute_UnaryOperation(PP_Instance instance,
 	const enum FJS_DataType dataTypeA = arrayA->dataType;
 
 	/* Check input data type and choose the compute function for this data type */
-	if ((uint32_t) dataTypeA < FJS_DataType_Max) {
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
 		return FJS_Error_InvalidDataType;
 	}
 	const UnaryOpFunction computeFunction = unaryOpFunctions[type][dataTypeA];

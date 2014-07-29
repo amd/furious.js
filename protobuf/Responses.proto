@@ -1,0 +1,40 @@
+package furious;
+
+option optimize_for = LITE_RUNTIME;
+
+message Response {
+	enum Type {
+		FETCH   = 0;
+		ERROR   = 1;
+		INIT    = 2;
+		BARRIER = 3;
+		INFO    = 4;
+	}
+	required fixed32         id               = 1;
+	required Type            type             = 2;
+
+	optional FetchResponse   fetch_response   = 3;
+	optional ErrorResponse   error_response   = 4;
+	optional InitResponse    init_response    = 5;
+	optional InfoResponse    info_response    = 7;
+}
+
+message FetchResponse {
+	required bytes data_buffer = 1;
+}
+
+message ErrorResponse {
+	enum Type {
+		RUNTIME  = 0;
+		ARGUMENT = 1;
+		PARSE    = 2;
+	}
+	required Type   type        = 1;
+	optional string description = 2;
+}
+
+message InitResponse {
+}
+
+message InfoResponse {
+}

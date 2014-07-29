@@ -58,7 +58,11 @@ PP_EXPORT void PPP_ShutdownModule(void) {
 	FJS_Strings_Release();
 }
 
+enum FJS_Error FJS_Dispatch_Init(PP_Instance instance);
+enum FJS_Error FJS_Dispatch_Request(PP_Instance instance, const void* requestPointer, size_t requestSize);
+
 static PP_Bool onCreateInstance(PP_Instance instance, uint32_t argc, const char* argn[], const char* argv[]) {
+	FJS_Dispatch_Init(instance);
 	return PP_TRUE;
 }
 
@@ -83,8 +87,6 @@ static struct PPP_Instance_1_1 pluginInstanceInterface = {
 	.HandleDocumentLoad = onDocumentLoad
 };
 
-enum FJS_Error FJS_DispatchRequest(PP_Instance instance, const void* requestPointer, size_t requestSize);
-
 static void handleMessage(PP_Instance instance, struct PP_Var requestVar) {
 	void* requestPointer = 0;
 
@@ -108,7 +110,7 @@ static void handleMessage(PP_Instance instance, struct PP_Var requestVar) {
 		goto cleanup;
 	}
 
-	FJS_DispatchRequest(instance, requestPointer, requestSize);
+	FJS_Dispatch_Request(instance, requestPointer, requestSize);
 cleanup:
 	if (requestPointer != NULL) {
 		bufferInterface->Unmap(requestVar);

@@ -5,10 +5,30 @@
 
 #include "Error.h"
 #include "Commands.h"
+#include "Interfaces.h"
 
 #include "Requests.pb.h"
+#include "Responses.pb.h"
 
-extern "C" enum FJS_Error FJS_DispatchRequest(PP_Instance instance, const void* requestPointer, size_t requestSize) {
+extern "C" enum FJS_Error FJS_Dispatch_Init(PP_Instance instance) {
+	furious::Response response;
+	response.set_id(0);
+	response.set_type(furious::Response::INIT);
+	response.set_allocated_init_response(new furious::InitResponse());
+	const int responseSize = response.ByteSize();
+	struct PP_Var responseVar = bufferInterface->Create(static_cast<uint32_t>(responseSize));
+	void* requestPointer = bufferInterface->Map(responseVar);
+	if (requestPointer != NULL) {
+		if (response.SerializeToArray(requestPointer, responseSize)) {
+			messagingInterface->PostMessage(instance, responseVar);
+		}
+		bufferInterface->Unmap(responseVar);
+	}
+	varInterface->Release(responseVar);
+	return FJS_Error_Ok;
+}
+
+extern "C" enum FJS_Error FJS_Dispatch_Request(PP_Instance instance, const void* requestPointer, size_t requestSize) {
 	furious::Request request;
 	if (!request.ParseFromArray(requestPointer, requestSize)) {
 		return FJS_Error_InvalidProtobuf;
@@ -100,9 +120,53 @@ extern "C" enum FJS_Error FJS_DispatchRequest(PP_Instance instance, const void* 
 		{
 			struct FJS_Buffer buffer;
 			const furious::FetchRequest& fetchRequest = request.fetch_request();
-			return FJS_Execute_Fetch(instance,
+			const enum FJS_Error error = FJS_Execute_Fetch(instance,
 				fetchRequest.id_a(),
 				&buffer);
+			if (error == FJS_Error_Ok) {
+				furious::Response response;
+				response.set_id(request.id());
+				response.set_type(furious::Response::FETCH);
+
+				furious::FetchResponse* fetchResponse = new furious::FetchResponse();
+				/* Note: the code is compiled without exception support */
+				if (fetchResponse != NULL) {
+					fetchResponse->set_data_buffer(buffer.pointer, buffer.size);
+					response.set_allocated_fetch_response(fetchResponse);
+
+					const int responseSize = response.ByteSize();
+					struct PP_Var responseVar = bufferInterface->Create(static_cast<uint32_t>(responseSize));
+					void* requestPointer = bufferInterface->Map(responseVar);
+					if (requestPointer != NULL) {
+						if (response.SerializeToArray(requestPointer, responseSize)) {
+							messagingInterface->PostMessage(instance, responseVar);
+						}
+						bufferInterface->Unmap(responseVar);
+					}
+					varInterface->Release(responseVar);
+				}
+			}
+			return error;
+		}
+		case furious::Request_Type_INFO:
+		case furious::Request_Type_BARRIER:
+		{
+			furious::Response response;
+			response.set_id(request.id());
+			response.set_type(furious::Response::BARRIER);
+
+			const int responseSize = response.ByteSize();
+			struct PP_Var responseVar = bufferInterface->Create(static_cast<uint32_t>(responseSize));
+			void* requestPointer = bufferInterface->Map(responseVar);
+			if (requestPointer != NULL) {
+				if (response.SerializeToArray(requestPointer, responseSize)) {
+					messagingInterface->PostMessage(instance, responseVar);
+				}
+				bufferInterface->Unmap(responseVar);
+			}
+			varInterface->Release(responseVar);
+
+			return FJS_Error_Ok;
 		}
 		case furious::Request_Type_BINARY_OPERATION:
 		{

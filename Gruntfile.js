@@ -75,7 +75,7 @@ module.exports = function(grunt) {
 
 		shell: {
 			protoc: {
-				command: "protoc --proto_path=protobuf --cpp_out=lib/nacl protobuf/Requests.proto"
+				command: "protoc --proto_path=protobuf --cpp_out=lib/nacl protobuf/Requests.proto protobuf/Responses.proto"
 			},
 			configure: {
 				command: "python configure.py"
