@@ -3,6 +3,8 @@
 #include <ppapi/c/pp_instance.h>
 #include <ppapi/c/pp_var.h>
 
+#include <unistd.h>
+
 #include "Error.h"
 #include "Commands.h"
 #include "Interfaces.h"
@@ -14,7 +16,16 @@ extern "C" enum FJS_Error FJS_Dispatch_Init(PP_Instance instance) {
 	furious::Response response;
 	response.set_id(0);
 	response.set_type(furious::Response::INIT);
-	response.set_allocated_init_response(new furious::InitResponse());
+
+	const long concurrency = sysconf(_SC_NPROCESSORS_ONLN);
+	if (concurrency > 0) {
+		furious::InitResponse* initResponse = new furious::InitResponse();
+		if (initResponse != NULL) {
+			initResponse->set_concurrency(concurrency);
+			response.set_allocated_init_response(initResponse);
+		}
+	}
+
 	const int responseSize = response.ByteSize();
 	struct PP_Var responseVar = bufferInterface->Create(static_cast<uint32_t>(responseSize));
 	void* requestPointer = bufferInterface->Map(responseVar);

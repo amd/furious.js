@@ -34,6 +34,7 @@ message ErrorResponse {
 }
 
 message InitResponse {
+	optional uint32 concurrency = 1;
 }
 
 message InfoResponse {
