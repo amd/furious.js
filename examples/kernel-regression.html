@@ -152,7 +152,7 @@
 						
 						var K = context.exp(context.square(XmX.div(h)).mul(-0.5)).retain();
 						var y = context.dot(K, gdpGrowthArray).div(context.sum(K, 1));
-						context.get(x, y, function(xVal, yVal) {
+						context.fetch(x, y, function(xVal, yVal) {
 							var endTime = getTimerTicks();
 							if (linePlot == null) {
 								linePlot = main.append("svg:path")

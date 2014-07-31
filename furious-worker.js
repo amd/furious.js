@@ -1,4 +1,4 @@
-!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.furious=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 "use strict";
 
 /**
@@ -47,11 +47,11 @@ DataType.prototype.equals = function(other) {
 
 module.exports = DataType;
 
-},{}],2:[function(_dereq_,module,exports){
+},{}],2:[function(require,module,exports){
 "use strict";
 
-var util = _dereq_("./util");
-var DataType = _dereq_("./DataType");
+var util = require("./util");
+var DataType = require("./DataType");
 
 /**
  * An opaque N-dimensional array object.
@@ -421,14 +421,12 @@ NDArray.prototype.get = function(callback) {
 
 module.exports = NDArray;
 
-},{"./DataType":1,"./util":12}],3:[function(_dereq_,module,exports){
-"use strict";
-
-var NDArray = _dereq_("./NDArray");
-var DataType = _dereq_("./DataType");
-var allocator = _dereq_("./allocator");
-var util = _dereq_("./util");
-var requests = _dereq_("./requests.pb");
+},{"./DataType":1,"./util":8}],3:[function(require,module,exports){
+var util = require("./../util");
+var jsmath = require("./jsmath");
+var MaybeNDArray = require("./MaybeNDArray");
+var DataType = require("./../DataType");
+var requests = require("./../requests.pb");
 var Request = requests.Request;
 var EmptyArrayRequest = requests.EmptyArrayRequest;
 var DataArrayRequest = requests.DataArrayRequest;
@@ -444,2101 +442,584 @@ var UnaryOperationRequest = requests.UnaryOperationRequest;
 var ReductionRequest = requests.ReductionRequest;
 var AxisReductionRequest = requests.AxisReductionRequest;
 var DotOperationRequest = requests.DotOperationRequest;
-var Response = _dereq_("./responses.pb").Response;
+var responses = require("./../responses.pb");
+var Response = responses.Response;
+var FetchResponse = responses.FetchResponse;
+var ErrorResponse = responses.ErrorResponse;
+var InitResponse = responses.InitResponse;
+var InfoResponse = responses.InfoResponse;
 
-var dataTypeMap = {
-	"f32": requests.DataType.FLOAT32,
-	"f64": requests.DataType.FLOAT64
-};
+var idMap = {};
 
-function PBContext(options, postMessage, callback) {
-	var context = this;
-	this._postMessage = postMessage;
-	this._callbacks = {};
-	this._callbacks[0] = function(limits) {
-		callback(context, limits);
-	};
+var dataTypeMap = {};
+dataTypeMap[requests.DataType.FLOAT64] = new DataType("f64");
+dataTypeMap[requests.DataType.FLOAT32] = new DataType("f32");
+
+function createEmptyArray(requestId, idOut, shape, dataType) {
+	if (idOut in idMap) {
+		throw new Error("Invalid output ID");
+	}
+	shape = util.checkShape(shape);
+	dataType = util.checkDataType(dataType);
+	var arrayOut = new MaybeNDArray(shape, dataType, null);
+	idMap[idOut] = arrayOut;
 }
 
-PBContext.prototype._onMessage = function(message) {
-	var response = Response.decode(message.data);
-	var id = response.id;
-	var callback = this._callbacks[id];
-	delete this._callbacks[id];
-	switch (response.type) {
-		case Response.Type.INIT:
-			var limits = {};
-			var initResponse = response.initResponse;
-			if (initResponse.concurrency !== null) {
-				limits.concurrency = initResponse.concurrency;
-			}
-			callback(limits);
-			break;
-		case Response.Type.BARRIER:
-			callback();
-			break;
-		case Response.Type.FETCH:
-			callback(response.fetchResponse.dataBuffer.toArrayBuffer());
-			break;
-		case Response.Type.ERROR:
-			break;
-		case Response.Type.INFO:
-			break;
+function createDataArray(requestId, idOut, shape, dataType, dataBuffer) {
+	if (idOut in idMap) {
+		throw new Error("Invalid output ID");
 	}
-};
-
-PBContext.prototype.empty = function(shape, dataType) {
 	shape = util.checkShape(shape);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
+	dataType = util.checkDataType(dataType);
+	var arrayOut = new MaybeNDArray(shape, dataType, dataBuffer);
+	idMap[idOut] = arrayOut;
+}
+
+function createConstArray(requestId, idOut, shape, dataType, fillValue) {
+	if (idOut in idMap) {
+		throw new Error("Invalid output ID");
 	}
-	var array = new NDArray(shape, dataType, this);
-	array._id = allocator.newArrayId();
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.EMPTY_ARRAY;
-	var emptyArrayRequest = new EmptyArrayRequest();
-	emptyArrayRequest.idOut = array._id;
-	emptyArrayRequest.shape = shape;
-	emptyArrayRequest.dataType = dataTypeMap[dataType.type];
-	request.emptyArrayRequest = emptyArrayRequest;
-	this._postMessage(request.encodeAB());
-
-	return array;
-};
-
-PBContext.prototype.zeros = function(shape, dataType) {
 	shape = util.checkShape(shape);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
+	dataType = util.checkDataType(dataType);
+	var arrayOut = new MaybeNDArray(shape, dataType, null);
+	if (arrayOut.hasData()) {
+		if (fillValue !== 0.0) {
+			jsmath.fill(arrayOut.data, fillValue);
+		}
 	}
-	var array = new NDArray(shape, dataType, this);
-	array._id = allocator.newArrayId();
+	idMap[idOut] = arrayOut;
+}
 
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.CONST_ARRAY;
-	var constArrayRequest = new ConstArrayRequest();
-	constArrayRequest.idOut = array._id;
-	constArrayRequest.shape = shape;
-	constArrayRequest.dataType = dataTypeMap[dataType.type];
-	constArrayRequest.fillValue = 0.0;
-	request.constArrayRequest = constArrayRequest;
-	this._postMessage(request.encodeAB());
-
-	return array;
-};
-
-PBContext.prototype.ones = function(shape, dataType) {
-	shape = util.checkShape(shape);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
+function linspace(requestId, idOut, start, stop, samples, closed, dataType) {
+	if (idOut in idMap) {
+		throw new Error("Invalid output ID");
 	}
-	var array = new NDArray(shape, dataType, this);
-	array._id = allocator.newArrayId();
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.CONST_ARRAY;
-	var constArrayRequest = new ConstArrayRequest();
-	constArrayRequest.idOut = array._id;
-	constArrayRequest.shape = shape;
-	constArrayRequest.dataType = dataTypeMap[dataType.type];
-	constArrayRequest.fillValue = 1.0;
-	request.constArrayRequest = constArrayRequest;
-	this._postMessage(request.encodeAB());
-
-	return array;
-};
-
-PBContext.prototype.array = function(data, dataType) {
-	var shape = [];
-	util.discoverArrayShapeRecursive(data, shape, 0);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
+	if (!isFinite(start)) {
+		throw new TypeError("start is not a real number");
 	}
-	var array = new NDArray(shape, dataType, this);
-	array._id = allocator.newArrayId();
-	var arrayBuffer = new dataType.arrayType(array.length);
-	util.copyArrayDataRecursive(arrayBuffer, data, shape, 0, 0);
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.DATA_ARRAY;
-	var dataArrayRequest = new DataArrayRequest();
-	dataArrayRequest.idOut = array._id;
-	dataArrayRequest.shape = shape;
-	dataArrayRequest.dataType = dataTypeMap[dataType.type];
-	dataArrayRequest.dataBuffer = arrayBuffer.buffer;
-	request.dataArrayRequest = dataArrayRequest;
-	this._postMessage(request.encodeAB());
-
-	return array;
-};
-
-PBContext.prototype.linspace = function(start, stop, samples, includeStop) {
-	if (!util.isReal(start)) {
-		throw new TypeError(start + " is not a real number");
+	if (!isFinite(stop)) {
+		throw new TypeError("stop is not a real number");
 	}
-	if (!util.isReal(stop)) {
-		throw new TypeError(stop + " is not a real number");
-	}
-	if (typeof samples === "undefined") {
-		/* Default value in NumPy */
-		samples = 50;
-	} else if (!util.isInt(samples)) {
-		throw new TypeError(samples + " is not an integer");
-	} else if (samples <= 0) {
+	if (samples === 0) {
 		throw new RangeError("The number of samples must be positive");
-	}
-	if (typeof includeStop === "undefined") {
-		includeStop = true;
-	}
-	if (includeStop && (samples === 1)) {
+	} else if (closed && (samples === 1)) {
 		throw new RangeError("The number of samples must be a least 2 (for start and end points)");
 	}
-	var dataType = new DataType("f64");
-	var array = new NDArray([samples], dataType, this);
-	array._id = allocator.newArrayId();
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.LINSPACE;
-	var linspaceRequest = new LinspaceRequest();
-	linspaceRequest.idOut = array._id;
-	linspaceRequest.start = start;
-	linspaceRequest.stop = stop;
-	linspaceRequest.samples = samples;
-	linspaceRequest.closed = includeStop;
-	linspaceRequest.dataType = dataTypeMap[dataType.type];
-	request.linspaceRequest = linspaceRequest;
-	this._postMessage(request.encodeAB());
-
-	return array;
-};
-
-PBContext.prototype.reshape = function(a, shape) {
-	util.checkNDArray(a, "a");
-	shape = util.checkShape(shape);
-	if (util.computeLength(shape) !== a.length) {
-		throw new RangeError("The shape is not compatible with the array");
-	}
-	var idA = a._id;
-	var releaseA = !a._decRef();
-	var out = new NDArray(shape, a.dataType, this);
-	if (releaseA) {
-		out._id = idA;
-		a._id = 0;
-		releaseA = false;
-	} else {
-		out._id = allocator.newArrayId();
-	}
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.RESHAPE;
-	var reshapeRequest = new ReshapeRequest();
-	reshapeRequest.idA = idA;
-	reshapeRequest.idOut = out._id;
-	reshapeRequest.shapeOut = shape;
-	request.reshapeRequest = reshapeRequest;
-	this._postMessage(request.encodeAB());
-
-	a._tryInvalidate();
-	return out;
-};
-
-PBContext.prototype.repeat = function(a, repeats, axis, out) {
-	util.checkNDArray(a, "a");
-	repeats = util.checkRepeats(repeats);
-	axis = util.checkAxis(axis, a.shape.length);
-	var shapeA = a.shape;
-	var shapeOut = shapeA.slice(0);
-	shapeOut[axis] *= repeats;
-	if (typeof out === "undefined") {
-		out = new NDArray(shapeOut, a.dataType, this);
-		out._id = allocator.newArrayId();
-	} else {
-		util.checkNDArray(out, "out");
-		util.checkShapesCompatibility(out.shape, shapeOut);
-		util.checkDataTypesCompatibility(a.dataType, out.dataType);
-		out._incRef();
-	}
-	var idA = a._id;
-	if (!a._decRef()) {
-		idA = -idA;
-		a._id = 0;
-	}
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.REPEAT;
-	var repeatRequest = new RepeatRequest();
-	repeatRequest.idA = idA;
-	repeatRequest.idOut = out._id;
-	repeatRequest.axis = axis;
-	repeatRequest.repeats = repeats;
-	request.repeatRequest = repeatRequest;
-	this._postMessage(request.encodeAB());
-
-	a._tryInvalidate();
-	return out;
-};
-
-PBContext.prototype._invalidate = function(array) {
-	if (array._id !== 0) {
-		var request = new Request();
-		request.id = allocator.newMessageId();
-		request.type = Request.Type.DEALLOCATE;
-		var deallocateRequest = new DeallocateRequest();
-		deallocateRequest.idA = array._id;
-		request.deallocateRequest = deallocateRequest;
-		this._postMessage(request.encodeAB());
-	}
-};
-
-PBContext.prototype.fetch = function() {
-	if (arguments.length === 0) {
-		throw new Error("Callback argument missing");
-	}
-	var callback = arguments[arguments.length - 1];
-	/* Validate arguments */
-	if (arguments.length === 1) {
-		throw new Error("At least one NDArray argument expected");
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		util.checkNDArray(arguments[i], "argument " + i);
-	}
-	var release = new Array(arguments.length - 1);
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		release[i] = !arguments[i]._decRef();
-	}
-	var callbackWaitArguments = arguments.length - 1;
-	var callbackArguments = new Array(callbackWaitArguments);
-	for (var i = 0; i < callbackWaitArguments; i++) {
-		var array = arguments[i];
-		var messageId = allocator.newMessageId();
-		this._callbacks[messageId] = (function(i, ArrayType) {
-			return function(buffer) {
-				callbackArguments[i] = new ArrayType(buffer);
-				if (--callbackWaitArguments === 0) {
-					callback.apply(null, callbackArguments);
-				}
-			};
-		})(i, array.dataType.arrayType);
-		var arrayId = array._id;
-		if (release[i]) {
-			array._id = 0;
-			arrayId = -arrayId;
-			array._tryInvalidate();
-		}
-
-		var request = new Request();
-		request.id = messageId;
-		request.type = Request.Type.FETCH;
-		var fetchRequest = new FetchRequest();
-		fetchRequest.idA = arrayId;
-		request.fetchRequest = fetchRequest;
-		this._postMessage(request.encodeAB());
-	}
-};
-
-PBContext.prototype.get = function() {
-	if (arguments.length === 0) {
-		throw new Error("Callback argument missing");
-	}
-	var callback = arguments[arguments.length - 1];
-	/* Validate arguments */
-	if (arguments.length === 1) {
-		throw new Error("At least one NDArray argument expected");
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		util.checkNDArray(arguments[i], "argument " + i);
-	}
-	var release = new Array(arguments.length - 1);
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		release[i] = !arguments[i]._decRef();
-	}
-	var callbackWaitArguments = arguments.length - 1;
-	var callbackArguments = new Array(callbackWaitArguments);
-	for (var i = 0; i < callbackWaitArguments; i++) {
-		var array = arguments[i];
-		var messageId = allocator.newMessageId();
-		if (array.shape.length === 0) {
-			this._callbacks[messageId] = (function(i, ArrayType) {
-				return function(buffer) {
-					var typedArray = new ArrayType(buffer);
-					callbackArguments[i] = typedArray[0];
-					if (--callbackWaitArguments === 0) {
-						callback.apply(null, callbackArguments);
-					}
-				};
-			})(i, array.dataType.arrayType);
-		} else {
-			this._callbacks[messageId] = (function(i, ArrayType, shape) {
-				return function(buffer) {
-					var jsarray = new Array(shape[0]);
-					util.createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
-					callbackArguments[i] = jsarray;
-					if (--callbackWaitArguments === 0) {
-						callback.apply(null, callbackArguments);
-					}
-				};
-			})(i, array.dataType.arrayType, array.shape);
-		}
-		var arrayId = array._id;
-		if (release[i]) {
-			array._id = 0;
-			arrayId = -arrayId;
-			array._tryInvalidate();
-		}
-
-		var request = new Request();
-		request.id = messageId;
-		request.type = Request.Type.FETCH;
-		var fetchRequest = new FetchRequest();
-		fetchRequest.idA = arrayId;
-		request.fetchRequest = fetchRequest;
-		this._postMessage(request.encodeAB());
-	}
-};
-
-PBContext.prototype.info = function(callback) {
-	throw new Error("Not implemented");
-/*	var messageId = allocator.newMessageId();
-	messageCallbacks[messageId] = callback;
-	this._pnaclObject.postMessage({
-		"id": messageId,
-		"command": "info"
-	});*/
-};
-
-PBContext.prototype.barrier = function(callback) {
-	var messageId = allocator.newMessageId();
-	this._callbacks[messageId] = callback;
-
-	var request = new Request();
-	request.id = messageId;
-	request.type = Request.Type.BARRIER;
-	this._postMessage(request.encodeAB());
-};
-
-var binaryArithOp = function(a, b, out, context, operation, constOperation, revConstOperation) {
-	var shapeOut = null, dataTypeOut = null, releaseIdA = false, releaseIdB = false, idA = 0, idB = 0;
-	if (a instanceof NDArray) {
-		idA = a._id;
-		shapeOut = a.shape;
-		dataTypeOut = a.dataType;
-		if (b instanceof NDArray) {
-			idB = b._id;
-			util.checkShapesCompatibility(a.shape, b.shape);
-			util.checkDataTypesCompatibility(a.dataType, b.dataType);
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else if (util.isNumber(a)) {
-		idB = b._id;
-		shapeOut = b.shape;
-		dataTypeOut = b.dataType;
-		util.checkNDArray(b, "b");
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	/* The IDs of a and b must be invalidated before we assign ID to out because a/b and out may be the same arrays */
-	if (idA !== 0) {
-		releaseIdA = !a._decRef();
-		if (releaseIdA) {
-			a._id = 0;
-		}
-	}
-	if (idB !== 0) {
-		releaseIdB = !b._decRef();
-		if (releaseIdB) {
-			b._id = 0;
-		}
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, dataTypeOut, context);
-			if (releaseIdA) {
-				out._id = idA;
-				releaseIdA = false;
-			} else if (releaseIdB) {
-				out._id = idB;
-				releaseIdB = false;
-			} else {
-				out._id = allocator.newArrayId();
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(shapeOut, out.shape);
-			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
-			out._incRef();
-		}
-		var request = new Request();
-		request.id = allocator.newMessageId();
-		if (idA !== 0) {
-			if (idB !== 0) {
-				request.type = Request.Type.BINARY_OPERATION;
-				var binaryOperationRequest = new BinaryOperationRequest();
-				binaryOperationRequest.type = operation;
-				binaryOperationRequest.idA = (releaseIdA ? -idA : idA);
-				binaryOperationRequest.idB = (releaseIdB ? -idB : idB);
-				binaryOperationRequest.idOut = out._id;
-				request.binaryOperationRequest = binaryOperationRequest;
-				context._postMessage(request.encodeAB());
-			} else {
-				request.type = Request.Type.BINARY_CONST_OPERATION;
-				var binaryConstOperationRequest = new BinaryConstOperationRequest();
-				binaryConstOperationRequest.type = constOperation;
-				binaryConstOperationRequest.idA = (releaseIdA ? -idA : idA);
-				binaryConstOperationRequest.valueB = b;
-				binaryConstOperationRequest.idOut = out._id;
-				request.binaryConstOperationRequest = binaryConstOperationRequest;
-				context._postMessage(request.encodeAB());
-			}
-		} else {
-			request.type = Request.Type.BINARY_CONST_OPERATION;
-			var binaryConstOperationRequest = new BinaryConstOperationRequest();
-			binaryConstOperationRequest.type = revConstOperation;
-			binaryConstOperationRequest.idA = (releaseIdB ? -idB : idB);
-			binaryConstOperationRequest.valueB = a;
-			binaryConstOperationRequest.idOut = out._id;
-			request.binaryConstOperationRequest = binaryConstOperationRequest;
-			context._postMessage(request.encodeAB());
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		if (idA !== 0) {
-			a._id = idA;
-			a._incRef();
-		}
-		if (idB !== 0) {
-			b._id = idB;
-			b._incRef();
-		}
-		throw e;
-	}
-	/*
-	 * If a or b are arrays, invalidate them as needed.
-	 * If a/b and out are the same, their ref count is non-zero at this point, so they will stay valid.
-	 */
-	if (idA !== 0) {
-		a._tryInvalidate();
-	}
-	if (idB !== 0) {
-		b._tryInvalidate();
-	}
-	return out;
-};
-
-var unaryArithOp = function(a, out, context, operation) {
-	util.checkNDArray(a, "a");
-	var idA = a._id;
-	var releaseIdA = !a._decRef();
-	/* The ID of a must be invalidated before we assign ID to out because a and out may be the same arrays */
-	if (releaseIdA) {
-		a._id = 0;
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, context);
-			if (releaseIdA) {
-				out._id = idA;
-				releaseIdA = false;
-			} else {
-				out._id = allocator.newArrayId();
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._id = idA;
-		a._incRef();
-		throw e;
-	}
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.UNARY_OPERATION;
-	var unaryOperationRequest = new UnaryOperationRequest();
-	unaryOperationRequest.type = operation;
-	unaryOperationRequest.idA = (releaseIdA ? -idA : idA);
-	unaryOperationRequest.idOut = out._id;
-	request.unaryOperationRequest = unaryOperationRequest;
-	context._postMessage(request.encodeAB());
-
-	/* If a and out are the same, their ref count is non-zero at this point, so they will stay valid. */
-	a._tryInvalidate();
-	return out;
-};
-
-var reduceArithOp = function(a, out, context, operation) {
-	util.checkNDArray(a, "a");
-	var idA = a._id;
-	var releaseIdA = !a._decRef();
-	if (releaseIdA) {
-		a._id = 0;
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray([], a.dataType, context);
-			out._id = allocator.newArrayId();
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(out.shape, []);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._id = idA;
-		a._incRef();
-		throw e;
-	}
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.REDUCTION_OPERATION;
-	var reductionRequest = new ReductionRequest();
-	reductionRequest.type = operation;
-	reductionRequest.idA = (releaseIdA ? -idA : idA);
-	reductionRequest.idOut = out._id;
-	request.reductionRequest = reductionRequest;
-	context._postMessage(request.encodeAB());
-
-	a._tryInvalidate();
-	return out;
-};
-
-var axisReduceArithOp = function(a, axis, out, context, operation) {
-	util.checkNDArray(a, "a");
-	var idA = a._id;
-	var releaseIdA = !a._decRef();
-	if (releaseIdA) {
-		a._id = 0;
-	}
-	try {
-		util.checkAxis(axis);
-		if (typeof out === "undefined") {
-			out = new NDArray(util.computeAxisReductionOutShape(a.shape, axis), a.dataType, context);
-			out._id = allocator.newArrayId();
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(out.shape, []);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._id = idA;
-		a._incRef();
-		throw e;
-	}
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.AXIS_REDUCTION_OPERATION;
-	var axisReductionRequest = new AxisReductionRequest();
-	axisReductionRequest.type = operation;
-	axisReductionRequest.idA = (releaseIdA ? -idA : idA);
-	axisReductionRequest.axis = axis;
-	axisReductionRequest.idOut = out._id;
-	request.axisReductionRequest = axisReductionRequest;
-	context._postMessage(request.encodeAB());
-
-	a._tryInvalidate();
-	return out;
-};
-
-var dotArithOp = function(a, b, out, context) {
-	util.checkNDArray(a, "a");
-	util.checkNDArray(b, "b");
-	util.checkDataTypesCompatibility(a.dataType, b.dataType);
-	var idA = a._id;
-	var releaseIdA = !a._decRef();
-	if (releaseIdA) {
-		a._id = 0;
-	}
-	var idB = b._id;
-	var releaseIdB = !b._decRef();
-	if (releaseIdB) {
-		b._id = 0;
-	}
-	try {
-		if (typeof out === "undefined") {
-			var shapeA = a.shape;
-			var shapeB = b.shape;
-			var axisA = Math.max(shapeA.length - 1, 0);
-			var axisB = Math.max(shapeB.length - 2, 0);
-			if (shapeA[axisA] != shapeB[axisB]) {
-				throw new TypeError("Mismatch in reduction dimensions");
-			}
-			var shapeOut = [];
-			for (var i = 0; i < axisA; i++) {
-				shapeOut.push(shapeA[i]);
-			}
-			if (shapeB.length > 1) {
-				for (var i = 0; i < axisB; i++) {
-					shapeOut.push(shapeB[i]);
-				}
-				shapeOut.push(shapeB[shapeB.length - 1]);
-			}
-			out = new NDArray(shapeOut, a.dataType, context);
-			out._id = allocator.newArrayId();
-		} else if (out instanceof NDArray) {
-			util.checkNDArray(out, "out");
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			throw new Error("Not implemented");
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		a._id = idA;
-		a._incRef();
-		b._id = idB;
-		b._incRef();
-		throw e;
-	}
-
-	var request = new Request();
-	request.id = allocator.newMessageId();
-	request.type = Request.Type.DOT_OPERATION;
-	var dotOperationRequest = new DotOperationRequest();
-	dotOperationRequest.idA = (releaseIdA ? -idA : idA);
-	dotOperationRequest.idB = (releaseIdB ? -idB : idB);
-	dotOperationRequest.idOut = out._id;
-	request.dotOperationRequest = dotOperationRequest;
-	context._postMessage(request.encodeAB());
-
-	a._tryInvalidate();
-	b._tryInvalidate();
-	return out;
-};
-
-PBContext.prototype.add = function(a, b, out) {
-	return binaryArithOp(a, b, out, this,
-		BinaryOperationRequest.Type.ADD,
-		BinaryConstOperationRequest.Type.ADDC,
-		BinaryConstOperationRequest.Type.ADDC);
-};
-
-PBContext.prototype.sub = function(a, b, out) {
-	return binaryArithOp(a, b, out, this,
-		BinaryOperationRequest.Type.SUB,
-		BinaryConstOperationRequest.Type.SUBC,
-		BinaryConstOperationRequest.Type.SUBRC);
-};
-
-PBContext.prototype.mul = function(a, b, out) {
-	return binaryArithOp(a, b, out, this,
-		BinaryOperationRequest.Type.MUL,
-		BinaryConstOperationRequest.Type.MULC,
-		BinaryConstOperationRequest.Type.MULC);
-};
-
-PBContext.prototype.div = function(a, b, out) {
-	return binaryArithOp(a, b, out, this,
-		BinaryOperationRequest.Type.DIV,
-		BinaryConstOperationRequest.Type.DIVC,
-		BinaryConstOperationRequest.Type.DIVRC);
-};
-
-PBContext.prototype.neg = function(a, out) {
-	return unaryArithOp(a, out, this,
-		UnaryOperationRequest.Type.NEG);
-};
-
-PBContext.prototype.abs = function(a, out) {
-	return unaryArithOp(a, out, this,
-		UnaryOperationRequest.Type.ABS);
-};
-
-PBContext.prototype.exp = function(a, out) {
-	return unaryArithOp(a, out, this,
-		UnaryOperationRequest.Type.EXP);
-};
-
-PBContext.prototype.log = function(a, out) {
-	return unaryArithOp(a, out, this,
-		UnaryOperationRequest.Type.LOG);
-};
-
-PBContext.prototype.sqrt = function(a, out) {
-	return unaryArithOp(a, out, this,
-		UnaryOperationRequest.Type.SQRT);
-};
-
-PBContext.prototype.square = function(a, out) {
-	return unaryArithOp(a, out, this,
-		UnaryOperationRequest.Type.SQUARE);
-};
-
-PBContext.prototype.min = function(a, axis) {
-	if (typeof axis === "undefined") {
-		return reduceArithOp(a, undefined, this,
-			ReductionRequest.Type.MIN);
-	} else if (util.isInt(axis)) {
-		return axisReduceArithOp(a, axis, undefined, this,
-			AxisReductionRequest.Type.MIN);
-	} else {
-		throw new TypeError("Unsupported axis type");
-	}
-};
-
-PBContext.prototype.max = function(a, axis) {
-	if (typeof axis === "undefined") {
-		return reduceArithOp(a, undefined, this,
-			ReductionRequest.Type.MAX);
-	} else if (util.isInt(axis)) {
-		return axisReduceArithOp(a, axis, undefined, this,
-			AxisReductionRequest.Type.MAX);
-	} else {
-		throw new TypeError("Unsupported axis type");
-	}
-};
-
-PBContext.prototype.sum = function(a, axis) {
-	if (typeof axis === "undefined") {
-		return reduceArithOp(a, undefined, this,
-			ReductionRequest.Type.SUM);
-	} else if (util.isInt(axis)) {
-		return axisReduceArithOp(a, axis, undefined, this,
-			AxisReductionRequest.Type.SUM);
-	} else {
-		throw new TypeError("Unsupported axis type");
-	}
-};
-
-PBContext.prototype.dot = function(a, b, out) {
-	return dotArithOp(a, b, out, this);
-};
-
-module.exports = PBContext;
-
-},{"./DataType":1,"./NDArray":2,"./allocator":5,"./requests.pb":10,"./responses.pb":11,"./util":12}],4:[function(_dereq_,module,exports){
-"use strict";
-
-var PBContext = _dereq_("./PBContext");
-
-function PNaClContext(options, callback) {
-	var self = this;
-	this._pnaclObject = document.createElement("object");
-	this._pnaclObject.width = 0;
-	this._pnaclObject.height = 0;
-	this._pnaclObject.data = PNaClContext.getDefaultManifestURL(options.baseUrl);
-	this._pnaclObject.type = "application/x-pnacl";
-	this._pnaclObject.addEventListener("message", function(e) {
-		self._messagingContext._onMessage(e);
-	}, true);
-	this._messagingContext = new PBContext(options, function(message) {
-		self._pnaclObject.postMessage(message);
-	}, callback);
-	document.body.appendChild(this._pnaclObject);
-}
-
-PNaClContext.isSupported = function() {
-	try {
-		return (typeof navigator.mimeTypes["application/x-pnacl"]) !== "undefined";
-	} catch (e) {
-	}
-	return false;
-};
-
-PNaClContext.getManifestURL = function(baseUrl) {
-	if (baseUrl) {
-		return baseUrl + "furious.nmf";
-	} else {
-		return "furious.nmf";
-	}
-};
-
-PNaClContext.prototype.empty = function(shape, dataType) {
-	return this._messagingContext.empty(shape, dataType);
-};
-
-PNaClContext.prototype.zeros = function(shape, dataType) {
-	return this._messagingContext.zeros(shape, dataType);
-};
-
-PNaClContext.prototype.ones = function(shape, dataType) {
-	return this._messagingContext.ones(shape, dataType);
-};
-
-PNaClContext.prototype.array = function(data, dataType) {
-	return this._messagingContext.array(data, dataType);
-};
-
-PNaClContext.prototype.linspace = function(start, stop, samples, closed) {
-	return this._messagingContext.linspace(start, stop, samples, closed);
-};
-
-PNaClContext.prototype.reshape = function(a, shape) {
-	return this._messagingContext.reshape(a, shape);
-};
-
-PNaClContext.prototype.repeat = function(a, repeats, axis, out) {
-	return this._messagingContext.repeat(a, repeats, axis, out);
-};
-
-PNaClContext.prototype._invalidate = function(array) {
-	return this._messagingContext._invalidate(array);
-};
-
-PNaClContext.prototype.fetch = function() {
-	this._messagingContext.fetch.apply(this._messagingContext, arguments);
-};
-
-PNaClContext.prototype.get = function() {
-	this._messagingContext.get.apply(this._messagingContext, arguments);
-};
-
-PNaClContext.prototype.info = function(callback) {
-	this._messagingContext.info(callback);
-};
-
-PNaClContext.prototype.barrier = function(callback) {
-	this._messagingContext.barrier(callback);
-};
-
-PNaClContext.prototype.add = function(a, b, out) {
-	return this._messagingContext.add(a, b, out);
-};
-
-PNaClContext.prototype.sub = function(a, b, out) {
-	return this._messagingContext.sub(a, b, out);
-};
-
-PNaClContext.prototype.mul = function(a, b, out) {
-	return this._messagingContext.mul(a, b, out);
-};
-
-PNaClContext.prototype.div = function(a, b, out) {
-	return this._messagingContext.div(a, b, out);
-};
-
-PNaClContext.prototype.neg = function(a, out) {
-	return this._messagingContext.neg(a, out);
-};
-
-PNaClContext.prototype.abs = function(a, out) {
-	return this._messagingContext.abs(a, out);
-};
-
-PNaClContext.prototype.exp = function(a, out) {
-	return this._messagingContext.exp(a, out);
-};
-
-PNaClContext.prototype.log = function(a, out) {
-	return this._messagingContext.log(a, out);
-};
-
-PNaClContext.prototype.sqrt = function(a, out) {
-	return this._messagingContext.sqrt(a, out);
-};
-
-PNaClContext.prototype.square = function(a, out) {
-	return this._messagingContext.square(a, out);
-};
-
-PNaClContext.prototype.min = function(a, axis) {
-	return this._messagingContext.min(a, axis);
-};
-
-PNaClContext.prototype.max = function(a, axis) {
-	return this._messagingContext.max(a, axis);
-};
-
-PNaClContext.prototype.sum = function(a, axis) {
-	return this._messagingContext.sum(a, axis);
-};
-
-PNaClContext.prototype.dot = function(a, b, out) {
-	return this._messagingContext.dot(a, b, out);
-};
-
-module.exports = PNaClContext;
-
-},{"./PBContext":3}],5:[function(_dereq_,module,exports){
-"use strict";
-
-var messageId = 1;
-var arrayId = 1;
-
-exports.newMessageId = function() {
-	var id = messageId;
-	messageId = (messageId+1)|0;
-	return id;
-};
-
-exports.newArrayId = function () {
-	var id = arrayId;
-	arrayId = (arrayId+1)|0;
-	return id;
-};
-
-},{}],6:[function(_dereq_,module,exports){
-"use strict";
-
-/**
- * Provides information and support functions
- *
- * @class furious
- */
-
-var DataType = _dereq_("./DataType");
-var JSContext = _dereq_("./js/JSContext");
-var WebWorkerContext = _dereq_("./js/WebWorkerContext");
-var PNaClContext = _dereq_("./PNaClContext");
-var WebCLContext = _dereq_("./webcl/WebCLContext");
-
-var currentScriptUri = null;
-try {
-	currentScriptUri = document.currentScript.src;
-} catch (e) {
-	try {
-		var scripts = document.getElementsByTagName("script");
-		currentScriptUri = scripts[scripts.length - 1].src;
-	} catch (e) {
-	}
-}
-var currentScriptDir = null;
-if (currentScriptUri !== null) {
-	var separatorPos = currentScriptUri.lastIndexOf("/");
-	var currentScriptDir = currentScriptUri.substr(0, separatorPos + 1);
-}
-
-/**
- * Initializes a computational context.
- *
- * @static
- * @method init
- * @async
- *
- * @param {String} [backend] - A string identifier for the backend to use. The following values are supported:
- *
- *     <table>
- *         <tr>
- *             <th>Backend Identifier</th>
- *             <th>Interpretation</th>
- *         </tr>
- *         <tr>
- *             <td>"javascript"</td>
- *             <td>JavaScript backend. Works in all browsers and Node.js, but can not deliver optimal performance.</td>
- *         </tr>
- *         <tr>
- *             <td>"pnacl"</td>
- *             <td>Portable Native Client (PNaCl) backend. Works in Chromium-based browsers. Can accelerate computations through the use of advanced CPU optimization technologies, such as multi-threading and SIMD instructions.</td>
- *         </tr>
- *         <tr>
- *             <td>"webcl"</td>
- *             <td>WebCL backend. Works in browsers and Node.js when a WebCL plugin is available. Can use full power of CPUs and GPUs to accelerate computations.</td>
- *         </tr>
- *     </table>
- *
- * @param {Object} options - Backend-specific options.
- * @param {Function} callback - A callback function that is called when the backend finish initialization.
- * @param {Context} callback.context - A ready to use computational context.
- */
-var init = function(backend, options, callback) {
-	if (typeof callback === "undefined") {
-		if (typeof options === "undefined") {
-			/* Called with one parameter: callback */
-			callback = backend;
-			options = undefined;
-			backend = undefined;
-		} else {
-			/* Called with two parameters: backend and callback */
-			callback = options;
-			options = undefined;
-		}
-	}
-	if (typeof backend === "undefined") {
-		backend = getDefaultBackend();
-	}
-	if (typeof options === "undefined") {
-		options = {};
-	}
-	if (backend === "javascript") {
-		var async = options.async;
-		if (typeof async === "undefined") {
-			async = WebWorkerContext.isSupported();
-		}
-		if (async) {
-			options.baseUrl = currentScriptDir;
-			return new WebWorkerContext(options, callback);
-		} else {
-			return new JSContext(options, callback);
-		}
-	} else if (backend === "pnacl") {
-		options.baseUrl = currentScriptDir;
-		return new PNaClContext(options, callback);
-	} else if (backend === "webcl") {
-		return new WebCLContext(options, callback);
-	} else {
-		throw new Error("Unsupported backend: " + backend);
-	}
-};
-
-/**
- * Detects the optimal backend supported by the browser or JavaScript engine.
- *
- * @static
- * @method getDefaultBackend
- *
- * @return {String} - Default backend identifier from the following table:
- *
- *     <table>
- *         <tr>
- *             <th>Backend Identifier</th>
- *             <th>Interpretation</th>
- *         </tr>
- *         <tr>
- *             <td>"javascript"</td>
- *             <td>JavaScript backend. Works in all browsers and Node.js, but can not deliver optimal performance.</td>
- *         </tr>
- *         <tr>
- *             <td>"asmjs"</td>
- *             <td>Asm.js backend. Works in Firefox 29 and later. Can accelerate computations with a limited use of native CPU instructions.</td>
- *         </tr>
- *         <tr>
- *             <td>"pnacl"</td>
- *             <td>Portable Native Client (PNaCl) backend. Works in Chromium-based browsers. Can accelerate computations through the use of advanced CPU optimization technologies, such as multi-threading and SIMD instructions.</td>
- *         </tr>
- *         <tr>
- *             <td>"webcl"</td>
- *             <td>WebCL backend. Works in browsers and Node.js when a WebCL plugin is available. Can use full power of CPUs and GPUs to accelerate computations.</td>
- *         </tr>
- *     </table>
- */
-var getDefaultBackend = function() {
-	if (WebCLContext.isUsable()) {
-		return "webcl";
-	} else if (PNaClContext.isSupported()) {
-		return "pnacl";
-	} else {
-		return "javascript";
-	}
-};
-
-/**
- * Detects which backends are supported by the system.
- *
- * @static
- * @method getSupportedBackends
- *
- * @return {String[]} - An array of supported backend identifiers in priority order (prioritized backends first). The following identifiers could be present:
- *
- *     <table>
- *         <tr>
- *             <th>Backend Identifier</th>
- *             <th>Interpretation</th>
- *         </tr>
- *         <tr>
- *             <td>"javascript"</td>
- *             <td>JavaScript backend. Works in all browsers and Node.js, but can not deliver optimal performance.</td>
- *         </tr>
- *         <tr>
- *             <td>"asmjs"</td>
- *             <td>Asm.js backend. Works in Firefox 29 and later. Can accelerate computations with a limited use of native CPU instructions.</td>
- *         </tr>
- *         <tr>
- *             <td>"pnacl"</td>
- *             <td>Portable Native Client (PNaCl) backend. Works in Chromium-based browsers. Can accelerate computations through the use of advanced CPU optimization technologies, such as multi-threading and SIMD instructions.</td>
- *         </tr>
- *         <tr>
- *             <td>"webcl"</td>
- *             <td>WebCL backend. Works in browsers and Node.js when a WebCL plugin is available. Can use full power of CPUs and GPUs to accelerate computations.</td>
- *         </tr>
- *     </table>
- */
-var getSupportedBackends = function() {
-	var backends = [];
-	if (WebCLContext.isUsable()) {
-		backends.push("webcl");
-	}
-	if (PNaClContext.isSupported()) {
-		backends.push("pnacl");
-	}
-	if (hasFeature("asm.js")) {
-		backends.push("asm.js");
-	}
-	backends.push("javascript");
-	return backends;
-};
-
-/**
- * Queries possible backend options available on this platform.
- *
- * @param {String} backend - name of the backend to query options for.
- *
- * @static
- * @method getBackendOptions
- *
- * @return {Object} - An object that describes available options.
- * The names of object's properties correspond to backend option names.
- * Object's properties have array values with possible option values.
- * Below are the backend options for the built-in backends:
- *
- *     <table>
- *         <caption>Options of "javascript" and "asmjs" backends</caption>
- *         <tr>
- *             <th>Option name</th>
- *             <th>Option values</th>
- *             <th>Default value</th>
- *         </tr>
- *         <tr>
- *             <td>"async"</td>
- *             <td>[true, false]</td>
- *             <td>true</td>
- *         </tr>
- *     </table>
- *
- *     <table>
- *         <caption>Options of "pnacl" backend</caption>
- *         <tr>
- *             <th>Option name</th>
- *             <th>Option values</th>
- *             <th>Default value</th>
- *         </tr>
- *         <tr>
- *             <td>"manifest"</td>
- *             <td>undefined</td>
- *             <td>URL of "furious.nmf" file in the same directory as "furious.js" library</td>
- *         </tr>
- *     </table>
- *
- *     <table>
- *         <caption>Options of "webcl" backend</caption>
- *         <tr>
- *             <th>Option name</th>
- *             <th>Option values</th>
- *             <th>Default value</th>
- *         </tr>
- *         <tr>
- *             <td>"device"</td>
- *             <td>Depends on the platform</td>
- *             <td>Discrete GPU device, if available. Otherwise integrated GPU device, if available. Otherwise CPU device.</td>
- *         </tr>
- *     </table>
- */
-var getBackendOptions = function(backend) {
-	if (backend === "javascript") {
-		if (WebWorkerContext.isSupported()) {
-			return {
-				"async": [true, false]
-			};
-		} else {
-			return {};
-		}
-	} else if (backend === "pnacl") {
-		return {};
-	} else if (backend === "webcl") {
-		return {
-			"device": WebCLContext.getAvailableDevices()
-		};
-	} else {
-		throw new Error("Unsupported backend: " + backend);
-	}
-};
-
-/**
- * Queries default backend options on this platform.
- *
- * @param {String} backend - name of the backend to query options for.
- *
- * @static
- * @method getBackendOptions
- *
- * @return {Object} - An object that describes available options.
- * The names of object's properties correspond to backend option names.
- * The values of object's properties correspond to default option values.
- */
-var getDefaultBackendOptions = function(backend) {
-	if (backend === "javascript") {
-		return {
-			"async": true
-		};
-	} else if (backend === "pnacl") {
-		if (PNaClContext.isSupported()) {
-			return {
-				"manifest": PNaClContext.getDefaultManifestURL()
-			};
-		} else {
-			return {};
-		}
-	} else if (backend === "webcl") {
-		return {
-			"device": WebCLContext.getDefaultDevice()
-		};
-	} else {
-		throw new Error("Unsupported backend: " + backend);
-	}
-};
-
-/**
- * Detects whether the requested computing feature is available
- *
- * @static
- * @method hasFeature
- *
- * @param {String} name - an identifier of the optional feature to detect. The following identifiers are supported:
- *
- *     <table>
- *         <tr>
- *             <th>Feature Identifier</th>
- *             <th>Interpretation</th>
- *         </tr>
- *         <tr>
- *             <td>"webworkers"</td>
- *             <td>Detect if the JavaScript engine can spawn dedicated Web Workers.</td>
- *         </tr>
- *         <tr>
- *             <td>"asm.js"</td>
- *             <td>Detect if the JavaScript engine recognizes Asm.js directive.</td>
- *         </tr>
- *         <tr>
- *             <td>"simd.js"</td>
- *             <td>Detect if the JavaScript engine provide SIMD.float32x4, SIMD.int32x4, Float32x4Array, and Int32x4Array of SIMD.js</td>
- *         </tr>
- *         <tr>
- *             <td>"webgl"</td>
- *             <td>Detect if the environment supports WebGL (either experimental or stable implementation)</td>
- *         </tr>
- *         <tr>
- *             <td>"webcl"</td>
- *             <td>Detect if the environment supports WebCL</td>
- *         </tr>
- *         <tr>
- *             <td>"pnacl"</td>
- *             <td>Detect if Portable Native Client (PNaCl) is supported and enabled</td>
- *         </tr>
- *         <tr>
- *             <td>"nacl"</td>
- *             <td>Detect if Native Client (NaCl) is supported and enabled</td>
- *         </tr>
- *     </table>
- *
- * @return {Boolean} - true if the feature is supported, false otherwise
- */
-var hasFeature = function(name) {
-	switch (name) {
-		case "asm.js":
-			try {
-				var userAgent = window.navigator.userAgent;
-				var userAgentComponents = userAgent.split(/\s+/);
-				var firefoxRegexp = /[Ff]irefox\/(\d+)/g;
-				for (var i = 0; i < userAgentComponents.length; ++i) {
-					var component = userAgentComponents[i];
-					var match = firefoxRegexp.exec(component);
-					if (match !== null) {
-						var firefoxVersion = parseInt(match[1]);
-						return firefoxVersion >= 29;
-					}
-				}
-				return false;
-			} catch (e) {
-			}
-			return false;
-		case "simd.js":
-			return (typeof SIMD !== "undefined") &&
-				(typeof Float32x4Array !== "undefined") &&
-				(typeof Int32x4Array !== "undefined");
-		case "webworkers":
-			return (typeof Worker !== "undefined");
-		case "webgl":
-			try {
-				var canvas = document.createElement("canvas");
-				try {
-					if (canvas.getContext("webgl") !== null) {
-						return true;
-					}
-				} catch (e) {
-				}
-				try {
-					if (canvas.getContext("experimental-webgl") !== null) {
-						return true;
-					}
-				} catch (e) {
-				}
-			} catch (e) {
-			}
-			return false;
-		case "webcl":
-			return WebCLContext.isSupported();
-		case "pnacl":
-			return PNaClContext.isSupported();
-		case "nacl":
-			try {
-				return (typeof navigator.mimeTypes["application/x-nacl"]) !== "undefined";
-			} catch (e) {
-			}
-			return false;
-		default:
-			throw new Error("Unknown feature: " + name);
-	}
-};
-
-exports.init = init;
-exports.hasFeature = hasFeature;
-exports.getDefaultBackend = getDefaultBackend;
-exports.getSupportedBackends = getSupportedBackends;
-exports.getBackendOptions = getBackendOptions;
-exports.getDefaultBackendOptions = getDefaultBackendOptions;
-exports.DataType = DataType;
-
-},{"./DataType":1,"./PNaClContext":4,"./js/JSContext":7,"./js/WebWorkerContext":8,"./webcl/WebCLContext":13}],7:[function(_dereq_,module,exports){
-"use strict";
-
-var NDArray = _dereq_("./../NDArray");
-var DataType = _dereq_("./../DataType");
-var util = _dereq_("./../util");
-var jsmath = _dereq_("./jsmath");
-
-/**
- * Provides methods for creation, manipulation, and destruction of N-dimensional arrays.
- * Arithmetic operations are possible only on arrays that belong to the same context.
- *
- * @class Context
- * @constructor
- */
-function JSContext(options, callback) {
-	callback(this);
-}
-
-/**
- * Constructs an uninialized N-dimensional array.
- *
- * @method empty
- * @param {Number} shape - the dimensions of the array
- * @param {DataType} dataType - the type of elements in the array.
- */
-JSContext.prototype.empty = function(shape, dataType) {
-	/* The is no way to create uninitialized typed array in JavaScript */
-	return this.zeros(shape, dataType);
-};
-
-/**
- * Constructs an N-dimensional array with elements initialized to zero.
- *
- * @method zeros
- * @param {Number} shape - the dimensions of the array
- * @param {DataType} dataType - the type of elements in the array.
- */
-JSContext.prototype.zeros = function(shape, dataType) {
-	shape = util.checkShape(shape);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else {
-		dataType = util.checkDataType(dataType);
-	}
-	var array = new NDArray(shape, dataType, this);
-	array._data = new dataType.arrayType(array.length);
-	return array;
-};
-
-/**
- * Constructs an N-dimensional array with elements initialized to one.
- *
- * @method ones
- * @param {Number} shape - the dimensions of the array
- * @param {DataType} dataType - the type of elements in the array.
- */
-JSContext.prototype.ones = function(shape, dataType) {
-	/* The is no way to create uninitialized typed array in JavaScript */
-	var array = this.zeros(shape, dataType);
-	jsmath.fill(array._data, 1.0);
-	return array;
-};
-
-/**
- * Constructs an N-dimensional array object with the provided data.
- *
- * @method array
- * @param {Number[]} data - the array data
- * @param {DataType} dataType - the type of elements in the array.
- */
-JSContext.prototype.array = function(data, dataType) {
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else {
-		dataType = util.checkDataType(dataType);
-	}
-	var shape = [];
-	util.discoverArrayShapeRecursive(data, shape, 0);
-	var array = this.empty(shape, dataType);
-	util.copyArrayDataRecursive(array._data, data, shape, 0, 0);
-	return array;
-};
-
-/**
- * De-allocates data associated with the array.
- *
- * @method _invalidate
- * @private
- *
- * @param {NDArray} array - the n-dimensional array object with data to be de-allocated.
- */
-JSContext.prototype._invalidate = function(array) {
-	util.checkNDArray(array, "array");
-	array._data = null;
-};
-
-/**
- * Fetches NDArray data and asynchronously returns it as JavaScript typed arrays.
- *
- * @method fetch
- * @async
- *
- * @param {NDArray} arrays* - NDArrays to fetch.
- * @param {Function} callback - A callback to be called with the data when it is available.
- * @param {ArrayBufferView} callback.arrays* - typed arrays with the data. The element type of the typed array matches the data type of the NDArray. For zero-dimensional arrays the output is returned as a typed array with a single element. Multi-dimensional arrays are returned in row-major storage format.
- */
-JSContext.prototype.fetch = function() {
-	if (arguments.length === 0) {
-		throw new Error("Callback argument missing");
-	}
-	var callback = arguments[arguments.length - 1];
-	/* Validate arguments */
-	if (arguments.length === 1) {
-		throw new Error("At least one NDArray argument expected");
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		util.checkNDArray(arguments[i], "argument " + i);
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		arguments[i]._decRef();
-	}
-	var callbackArguments = new Array(arguments.length - 1);
-	for (var i = 0; i < callbackArguments.length; ++i) {
-		var array = arguments[i];
-		callbackArguments[i] = new array.dataType.arrayType(array._data);
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		arguments[i]._tryInvalidate();
-	}
-	callback.apply(null, callbackArguments);
-};
-
-/**
- * Fetches NDArray data and asynchronously returns it as JavaScript arrays or numbers.
- *
- * @method get
- * @async
- *
- * @param {NDArray} arrays* - NDArrays to fetch.
- * @param {Function} callback - A callback to be called with the data when it is available.
- * @param {Number|Number[]} callback.arrays* - JavaScript numbers or multidimensional arrays with the data. The number and order of arguments matches the NDArrays passed to the method call.
- */
-JSContext.prototype.get = function() {
-	if (arguments.length === 0) {
-		throw new Error("Callback argument missing");
-	}
-	var callback = arguments[arguments.length - 1];
-	/* Validate arguments */
-	if (arguments.length === 1) {
-		throw new Error("At least one NDArray argument expected");
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		util.checkNDArray(arguments[i], "argument " + i);
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		arguments[i]._decRef();
-	}
-	var callbackArguments = new Array(arguments.length - 1);
-	for (var i = 0; i < callbackArguments.length; ++i) {
-		var array = arguments[i];
-		if (array.shape.length === 0) {
-			callbackArguments[i] = array._data[0];
-		} else {
-			var jsarray = new Array(array.shape[0]);
-			util.createArrayRecursive(array._data, jsarray, array.shape, 0, 0);
-			callbackArguments[i] = jsarray;
-		}
-	}
-	for (var i = 0; i < arguments.length - 1; ++i) {
-		arguments[i]._tryInvalidate();
-	}
-	callback.apply(null, callbackArguments);
-};
-
-/**
- * Waits until previous commands finished execution and calls the callback.
- *
- * @method barrier
- * @async
- *
- * @param {Function} callback - A callback to be called after the previous commands retire.
- */
-JSContext.prototype.barrier = function(callback) {
-	callback();
-};
-
-/**
- * Creates another array with the same data, but different dimensions.
- *
- * @method reshape
- * @param {(NDArray|Number)} shape - dimensions of the new array.
- */
-JSContext.prototype.reshape = function(array, shape) {
-	shape = util.checkShape(shape);
-	if (util.computeLength(shape) !== array.length) {
-		throw new RangeError("The shape is not compatible with the array");
-	}
-	var out = new NDArray(shape, array.dataType, this);
-	if (array._decRef()) {
-		out._data = new out.dataType.arrayType(out.length);
-		out._data.set(array._data);
-	} else {
-		out._data = array._data;
-		array._tryInvalidate();
-	}
-	return out;
-};
-
-/**
- * Duplicates array elements along the specified axis.
- *
- * @method repeat
- * @param {NDArray} a - the input array.
- * @param {Number} repeats - the number of times to repeat each element.
- * @param {Number} axis - the axis along which the elements will be duplicated.
- * @param {NDArray} [out] - an output array to store the result.
- * @return {NDArray} - an N-dimensional array with repeated elements of array **a**.
- */
-JSContext.prototype.repeat = function(a, repeats, axis, out) {
-	util.checkNDArray(a, "a");
-	repeats = util.checkRepeats(repeats);
-	axis = util.checkAxis(axis, a.shape.length);
-	var shapeA = a.shape;
-	var shapeOut = shapeA.slice(0);
-	shapeOut[axis] *= repeats;
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = this.empty(shapeOut, a.dataType);
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(out.shape, shapeOut);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var outerStride = util.computeOuterStride(shapeA, axis);
-		var innerStride = util.computeInnerStride(shapeA, axis);
-		jsmath.repeat(a._data, out._data, outerStride, innerStride, shapeA[axis], repeats);
-	} catch (e) {
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
-};
-
-var binaryArithOp = function(a, b, out, context, operation, operationConst, operationRevConst) {
-	var shapeOut = null, dataTypeOut = null;
-	if (a instanceof NDArray) {
-		shapeOut = a.shape;
-		dataTypeOut = a.dataType;
-		if (b instanceof NDArray) {
-			util.checkShapesCompatibility(a.shape, b.shape);
-			util.checkDataTypesCompatibility(a.dataType, b.dataType);
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else if (util.isNumber(a)) {
-		shapeOut = b.shape;
-		dataTypeOut = b.dataType;
-		util.checkNDArray(b, "b");
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (a instanceof NDArray) {
-		a._decRef();
-	}
-	if (b instanceof NDArray) {
-		b._decRef();
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, dataTypeOut, context);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else if ((b instanceof NDArray) && !b._hasRefs()) {
-				out._data = b._data;
-			} else {
-				out._data = new dataTypeOut.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(shapeOut, out.shape);
-			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
-			out._incRef();
-		}
-		if (a instanceof NDArray) {
-			if (b instanceof NDArray) {
-				operation(a._data, b._data, out._data);
-			} else {
-				operationConst(a._data, +b, out._data);
-			}
-		} else {
-			operationRevConst(b._data, +a, out._data);
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		if (a instanceof NDArray) {
-			a._incRef();
-		}
-		if (b instanceof NDArray) {
-			b._incRef();
-		}
-		throw e;
-	}
-	if (a instanceof NDArray) {
-		a._tryInvalidate();
-	}
-	if (b instanceof NDArray) {
-		b._tryInvalidate();
-	}
-	return out;
-};
-
-var unaryArithOp = function(a, out, context, operation) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, context);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._data = a._data;
-			} else {
-				out._data = new a.dataType.arrayType(out.length);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		operation(a._data, out._data);
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
-};
-
-var axisReduceOp = function(a, axis, out, context, operation, axisOperation) {
-	util.checkNDArray(a, "a");
-	if (typeof axis === "undefined") {
-		if (typeof out === "undefined") {
-			out = context.empty([], a.dataType);
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility([], out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		operation(a._data, out._data);
-		a._tryRelease();
-		return out;
-	} else {
-		axis = util.checkAxis(axis, a.shape.length);
-		var shapeOut = util.computeAxisReductionOutShape(a.shape, axis);
-		if (typeof out === "undefined") {
-			out = context.empty(shapeOut, a.dataType);
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility([], out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		axisOperation(a._data, out._data,
-			util.computeOuterStride(a.shape, axis),
-			util.computeInnerStride(a.shape, axis),
-			a.shape[axis]);
-		a._tryRelease();
-		return out;
-	}
-};
-
-/**
- * Adds one number or array with another number or array.
- * Addition is performed element-by-element.
- *
- * @method add
- * @param {(NDArray|Number)} a - one number or array to add. If **b** is a *Number*, **a** must be an *NDArray*.
- * @param {(NDArray|Number)} b - another number or array to add. If **a** is a *Number*, **b** must be an *NDArray*.
- * @param {NDArray} [out] - the array where the result is to be stored. If provided, must match the shape and data type of input arrays.
- * @return {NDArray} - the result of element-wise addition of **a** and **b**.
- */
-JSContext.prototype.add = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, jsmath.add, jsmath.addConst, jsmath.addConst);
-};
-
-/**
- * Subtracts one number or array from another number or array.
- * Subtraction is performed element-by-element.
- *
- * @method sub
- * @param {(NDArray|Number)} a - the number or array to subtract from. If **b** is a *Number*, **a** must be an *NDArray*.
- * @param {(NDArray|Number)} b - the number or array to subtract. If **a** is a *Number*, **b** must be an *NDArray*.
- * @param {NDArray} [out] - the array where the result is to be stored. If provided, must match the shape and data type of input arrays.
- * @return {NDArray} - the result of element-wise subtraction of **b** from **a**.
- */
-JSContext.prototype.sub = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, jsmath.sub, jsmath.subConst, jsmath.subRevConst);
-};
-
-/**
- * Multiplies one number or array by another number or array.
- * Multiplication is performed element-by-element.
- *
- * @method mul
- * @param {(NDArray|Number)} a - one number or array to multiply. If **b** is a *Number*, **a** must be an *NDArray*.
- * @param {(NDArray|Number)} b - another number or array to multiply. If **a** is a *Number*, **b** must be an *NDArray*.
- * @param {NDArray} [out] - the array where the result is to be stored. If provided, must match the shape and data type of input arrays.
- * @return {NDArray} - the result of element-wise multiplication of **a** and **b**.
- */
-JSContext.prototype.mul = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, jsmath.mul, jsmath.mulConst, jsmath.mulConst);
-};
-
-/**
- * Divides one number or array by another number or array.
- * Division is performed element-by-element.
- *
- * @method div
- * @param {(NDArray|Number)} a - the number or array to divide. If **b** is a *Number*, **a** must be an *NDArray*.
- * @param {(NDArray|Number)} b - the number or array to divide by. If **a** is a *Number*, **b** must be an *NDArray*.
- * @param {NDArray} [out] - the array where the result is to be stored. If provided, must match the shape and data type of input arrays.
- * @return {NDArray} - the result of element-wise division of **a** by **b**.
- */
-JSContext.prototype.div = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, jsmath.div, jsmath.divConst, jsmath.divRevConst);
-};
-
-JSContext.prototype.min = function(a, axis, out) {
-	return axisReduceOp(a, axis, out, this, jsmath.min, jsmath.axisMin);
-};
-
-JSContext.prototype.max = function(a, axis, out) {
-	return axisReduceOp(a, axis, out, this, jsmath.max, jsmath.axisMax);
-};
-
-JSContext.prototype.sum = function(a, axis, out) {
-	return axisReduceOp(a, axis, out, this, jsmath.sum, jsmath.axisSum);
-};
-
-/**
- * Negates array elements.
- *
- * @method neg
- * @param {NDArray} a - the array of elements to be negated.
- * @param {NDArray} [out] - the array for negated elements. If supplied, must match the dimensions and data type of the **a** array.
- */
-JSContext.prototype.neg = function(a, out) {
-	return unaryArithOp(a, out, this, jsmath.neg);
-};
-
-/**
- * Computes absolute value of array elements.
- *
- * @method abs
- * @param {NDArray} a - the array of input elements.
- * @param {NDArray} [out] - the array for computed absolute values. If supplied, must match the dimensions and data type of the **a** array.
- */
-JSContext.prototype.abs = function(a, out) {
-	return unaryArithOp(a, out, this, jsmath.abs);
-};
-
-/**
- * Exponentiates array elements.
- *
- * @method exp
- * @param {NDArray} a - the array of elements to be exponentiated.
- * @param {NDArray} [out] - the array for exponentiated elements. If supplied, must match the dimensions and data type of the **a** array.
- */
-JSContext.prototype.exp = function(a, out) {
-	return unaryArithOp(a, out, this, jsmath.exp);
-};
-
-/**
- * Computes logarithm of array elements.
- *
- * @method log
- * @param {NDArray} a - the array of input elements.
- * @param {NDArray} [out] - the array for computed logarithm values. If supplied, must match the dimensions and data type of the **a** array.
- */
-JSContext.prototype.log = function(a, out) {
-	return unaryArithOp(a, out, this, jsmath.log);
-};
-
-/**
- * Computes square root of array elements.
- *
- * @method sqrt
- * @param {NDArray} a - the array of input elements.
- * @param {NDArray} [out] - the array for computed square root values. If supplied, must match the dimensions and data type of the **a** array.
- */
-JSContext.prototype.sqrt = function(a, out) {
-	return unaryArithOp(a, out, this, jsmath.sqrt);
-};
-
-/**
- * Squares array elements.
- *
- * @method square
- * @param {NDArray} a - the array of elements to be squared.
- * @param {NDArray} [out] - the array for squared elements. If supplied, must match the dimensions and data type of the **a** array.
- */
-JSContext.prototype.square = function(a, out) {
-	return unaryArithOp(a, out, this, jsmath.square);
-};
-
-/**
- * Computes the dot product of two N-dimensional arrays.
- *
- * @method dot
- * @param {NDArray} a - the first input array.
- * @param {NDArray} b - the second input array.
- * @param {NDArray} [out] - the output array. If supplied, must match the data type of **a** and **b** arrays and have the expected shape. Can not be the same array as **a** or **b**.
- * @return {NDArray} - the array with the dot product of **a** and **b**.
- */
-JSContext.prototype.dot = function(a, b, out) {
-	util.checkNDArray(a, "a");
-	util.checkNDArray(b, "b");
-	util.checkDataTypesCompatibility(a.dataType, b.dataType);
-
-	/* The axis of b used in reduction: axis 0 for 1D array, second-to-last axis for ND array */
-	var aAxis = Math.max(a.shape.length - 1, 0);
-	var bAxis = Math.max(b.shape.length - 2, 0);
-	var reductionDim = a.shape[aAxis];
-	if (reductionDim !== b.shape[bAxis]) {
-		throw new RangeError("Arrays have incompatible reduction dimensions");
-	}
-	var shapeOut = [], strideA = 1, outerStrideB = 1, innerStrideB = 1;
-	for (var i = 0; i < aAxis; i++) {
-		shapeOut.push(a.shape[i]);
-		strideA *= a.shape[i];
-	}
-	for (var i = 0; i < b.shape.length; i++) {
-		var dim = b.shape[i];
-		if (i < bAxis) {
-			outerStrideB *= dim;
-			shapeOut.push(dim);
-		} else if (i > bAxis) {
-			innerStrideB *= dim;
-			shapeOut.push(dim);
-		}
-	}
-	if (typeof out === "undefined") {
-		out = this.empty(shapeOut, a.dataType);
-	} else if (out instanceof NDArray) {
-		util.checkNDArray(out, "out");
-		util.checkShapesCompatibility(out.shape, shapeOut);
-		util.checkDataTypesCompatibility(out.dataType, a.dataType);
-		util.checkDifferentNDArrays(a, out, "a", "out");
-		util.checkDifferentNDArrays(b, out, "b", "out");
-		out._incRef();
-	}
-	jsmath.dot(a._data, b._data, out._data, strideA, outerStrideB, innerStrideB, reductionDim);
-	a._tryRelease();
-	b._tryRelease();
-	return out;
-};
-
-/**
- * Creates an arithmetic sequence.
- *
- * @method linspace
- * @param {Number} start - the starting endpoint of the sequence. Must be a finite number.
- * @param {Number} stop - the final endpoint of the sequence. Must be a finite number.
- * @param {Number} [samples=50] - the number of samples in the sequency. Must be a positive integer.
- * @param {Boolean} [closed=true] - an indicator of whether the final endpoint (`stop` argument) should be included in the sequence.
- */
-JSContext.prototype.linspace = function(start, stop, samples, closed) {
-	if (!util.isReal(start)) {
-		throw new TypeError(start + " is not a real number");
-	}
-	if (!util.isReal(stop)) {
-		throw new TypeError(stop + " is not a real number");
-	}
-	if (typeof samples === "undefined") {
-		/* Default value in NumPy */
-		samples = 50;
-	} else if (!util.isInt(samples)) {
-		throw new TypeError(samples + " is not an integer");
-	} else if (samples <= 0) {
-		throw new RangeError("The number of samples must be positive");
-	}
-	if (typeof closed === "undefined") {
-		closed = true;
-	}
-	if (closed && (samples === 1)) {
-		throw new RangeError("The number of samples must be a least 2 (for start and end points)");
-	}
-	var array = this.empty(samples, new DataType("f64"));
-	var data = array._data;
+	var arrayOut = new MaybeNDArray([samples], dataType, null);
+	var data = arrayOut.data;
 	var range = stop - start;
 	var n = (closed) ? samples - 1 : samples;
 	var step = range / n;
 	for (var i = 0; i < samples; i++) {
 		data[i] = start + step * i;
 	}
-	return array;
-};
-
-module.exports = JSContext;
-
-},{"./../DataType":1,"./../NDArray":2,"./../util":12,"./jsmath":9}],8:[function(_dereq_,module,exports){
-"use strict";
-
-var PBContext = _dereq_("./../PBContext.js");
-
-function WebWorkerContext(options, callback) {
-	var self = this;
-	this._worker = new Worker(WebWorkerContext.getWorkerURL(options.baseUrl));
-	this._worker.addEventListener("message", function(e) {
-		self._messagingContext._onMessage(e);
-	}, true);
-	this._messagingContext = new PBContext(options, function(message) {
-		self._worker.postMessage(message, [message]);
-	}, callback);
+	idMap[idOut] = arrayOut;
 }
 
-WebWorkerContext.isSupported = function() {
-	return typeof Worker !== "undefined";
-};
-
-WebWorkerContext.getWorkerURL = function(baseUrl) {
-	if (baseUrl) {
-		return baseUrl + "furious-worker.min.js";
-	} else {
-		return "furious-worker.min.js";
+function reshape(requestId, idA, idOut, shapeOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
 	}
+	if (arrayA.length !== util.computeLength(shapeOut)) {
+		throw new Error("Incompatible length");
+	}
+	var arrayOut = idMap[idOut];
+	if (typeof arrayOut !== "undefined") {
+		if (arrayOut.length !== arrayA.length) {
+			throw new Error("Incompatible length");
+		}
+		if (!arrayOut.dataType.equals(arrayA.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+		arrayOut.shape = shapeOut;
+		if (arrayOut !== arrayA) {
+			arrayOut.data.set(arrayA.data);
+		}
+		if (idA < 0) {
+			delete idMap[-idA];
+		}
+	} else {
+		if (idA < 0) {
+			arrayA.shape = shapeOut;
+			delete idMap[-idA];
+			idMap[idOut] = arrayA;
+		} else {
+			arrayOut = new MaybeNDArray(shapeOut, arrayA.dataType, null);
+			arrayOut.data.set(arrayA.data);
+			idMap[idOut] = arrayOut;
+		}
+	}
+}
+
+function repeat(requestId, idA, idOut, axis, repeats) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	if (axis >= arrayA.shape.length) {
+		throw new Error("Invalid axis");
+	}
+	if (repeats < 2) {
+		throw new Error("Invalid repeat count");
+	}
+	var arrayOut = idMap[idOut];
+	var shapeOut = arrayA.shape.slice(0);
+	shapeOut[axis] *= repeats;
+	if (typeof arrayOut !== "undefined") {
+		/* Validate output array */
+		if (arrayOut.shape.length !== shapeOut.length) {
+			throw new Error("Incompatible number of dimensions");
+		}
+		for (var i = 0; i < shapeOut.length; ++i) {
+			if (arrayOut.shape[i] !== shapeOut[i]) {
+				throw new Error("Incompatible shape");
+			}
+		}
+		if (!arrayOut.dataType.equals(arrayA.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+	} else {
+		/* Allocate output array */
+		arrayOut = new MaybeNDArray(shapeOut, arrayA.dataType, null);
+		idMap[idOut] = arrayOut;
+	}
+	var outerStride = util.computeOuterStride(arrayA.shape, axis);
+	var innerStride = util.computeInnerStride(arrayA.shape, axis);
+	jsmath.repeat(arrayA.data, arrayOut.data, outerStride, innerStride, arrayA.shape[axis], repeats);
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+}
+
+function deallocate(requestId, idA) {
+	var arrayA = idMap[idA];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	arrayA.deallocate();
+	delete idMap[idA];
+}
+
+function fetch(requestId, idA) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+
+	var response = new Response();
+	response.id = requestId;
+	response.type = Response.Type.FETCH;
+	var fetchResponse = new FetchResponse();
+	fetchResponse.dataBuffer = arrayA.data.buffer;
+	response.fetchResponse = fetchResponse;
+	var message = response.encodeAB();
+	self.postMessage(message, [message]);
+
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+}
+
+function barrier(requestId) {
+	var response = new Response();
+	response.id = requestId;
+	response.type = Response.Type.BARRIER;
+	var message = response.encodeAB();
+	self.postMessage(message, [message]);
+}
+
+binaryOperationMap = {};
+binaryOperationMap[BinaryOperationRequest.Type.ADD] = jsmath.add;
+binaryOperationMap[BinaryOperationRequest.Type.SUB] = jsmath.sub;
+binaryOperationMap[BinaryOperationRequest.Type.MUL] = jsmath.mul;
+binaryOperationMap[BinaryOperationRequest.Type.DIV] = jsmath.div;
+
+function binaryOperation(requestId, type, idA, idB, idOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	var arrayB = idMap[Math.abs(idB)];
+	if (typeof arrayB === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	if (!arrayA.dataType.equals(arrayB.dataType)) {
+		throw new Error("Incompatible data type");
+	}
+	if (!util.arrayEquals(arrayA.shape, arrayB.shape)) {
+		throw new Error("Incompatible shapes");
+	}
+	var arrayOut = idMap[idOut];
+	if (typeof arrayOut === "undefined") {
+		arrayOut = new MaybeNDArray(arrayA.shape, arrayA.dataType, null);
+		idMap[idOut] = arrayOut;
+	} else {
+		if (!arrayA.dataType.equals(arrayOut.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+		if (!util.arrayEquals(arrayA.shape, arrayOut.shape)) {
+			throw new Error("Incompatible shapes");
+		}
+	}
+	binaryOperationMap[type](arrayA.data, arrayB.data, arrayOut.data);
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+	if (idB < 0) {
+		arrayB.deallocate();
+		delete idMap[-idB];
+	}
+}
+
+binaryConstOperationMap = {};
+binaryConstOperationMap[BinaryConstOperationRequest.Type.ADDC]  = jsmath.addConst;
+binaryConstOperationMap[BinaryConstOperationRequest.Type.SUBC]  = jsmath.subConst;
+binaryConstOperationMap[BinaryConstOperationRequest.Type.SUBRC] = jsmath.subRevConst;
+binaryConstOperationMap[BinaryConstOperationRequest.Type.MULC]  = jsmath.mulConst;
+binaryConstOperationMap[BinaryConstOperationRequest.Type.DIVC]  = jsmath.divConst;
+binaryConstOperationMap[BinaryConstOperationRequest.Type.DIVRC] = jsmath.divRevConst;
+
+function binaryConstOperation(requestId, type, idA, valueB, idOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	var arrayOut = idMap[idOut];
+	if (typeof arrayOut === "undefined") {
+		arrayOut = new MaybeNDArray(arrayA.shape, arrayA.dataType, null);
+		idMap[idOut] = arrayOut;
+	} else {
+		if (!arrayA.dataType.equals(arrayOut.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+		if (!util.arrayEquals(arrayA.shape, arrayOut.shape)) {
+			throw new Error("Incompatible shapes");
+		}
+	}
+	binaryConstOperationMap[type](arrayA.data, valueB, arrayOut.data);
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+}
+
+unaryOperationMap = {};
+unaryOperationMap[UnaryOperationRequest.Type.NEG]    = jsmath.neg;
+unaryOperationMap[UnaryOperationRequest.Type.ABS]    = jsmath.abs;
+unaryOperationMap[UnaryOperationRequest.Type.EXP]    = jsmath.exp;
+unaryOperationMap[UnaryOperationRequest.Type.LOG]    = jsmath.log;
+unaryOperationMap[UnaryOperationRequest.Type.SQRT]   = jsmath.sqrt;
+unaryOperationMap[UnaryOperationRequest.Type.SQUARE] = jsmath.square;
+
+function unaryOperation(requestId, type, idA, idOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	var arrayOut = idMap[idOut];
+	if (typeof arrayOut === "undefined") {
+		arrayOut = new MaybeNDArray(arrayA.shape, arrayA.dataType, null);
+		idMap[idOut] = arrayOut;
+	} else {
+		if (!arrayA.dataType.equals(arrayOut.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+		if (!util.arrayEquals(arrayA.shape, arrayOut.shape)) {
+			throw new Error("Incompatible shapes");
+		}
+	}
+	unaryOperationMap[type](arrayA.data, arrayOut.data);
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+}
+
+reductionMap = {};
+reductionMap[ReductionRequest.Type.SUM] = jsmath.sum;
+reductionMap[ReductionRequest.Type.MAX] = jsmath.max;
+reductionMap[ReductionRequest.Type.MIN] = jsmath.min;
+
+function reduction(requestId, type, idA, idOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	var arrayOut = idMap[idOut];
+	var shapeOut = [];
+	if (typeof arrayOut === "undefined") {
+		arrayOut = new MaybeNDArray(shapeOut, arrayA.dataType, null);
+		idMap[idOut] = arrayOut;
+	} else {
+		if (!arrayA.dataType.equals(arrayOut.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+		if (!util.arrayEquals(shapeOut, arrayOut.shape)) {
+			throw new Error("Incompatible shapes");
+		}
+	}
+	reductionMap[type](arrayA.data, arrayOut.data);
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+}
+
+axisReductionMap = {};
+axisReductionMap[AxisReductionRequest.Type.SUM] = jsmath.axisSum;
+axisReductionMap[AxisReductionRequest.Type.MAX] = jsmath.axisMax;
+axisReductionMap[AxisReductionRequest.Type.MIN] = jsmath.axisMin;
+
+function axisReduction(requestId, type, idA, axis, idOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	if (axis >= arrayA.shape.length) {
+		throw new Error("Invalid axis");
+	}
+	var shapeOut = util.computeAxisReductionOutShape(arrayA.shape, axis);
+	var arrayOut = idMap[idOut];
+	if (typeof arrayOut === "undefined") {
+		arrayOut = new MaybeNDArray(shapeOut, arrayA.dataType, null);
+		idMap[idOut] = arrayOut;
+	} else {
+		if (!arrayA.dataType.equals(arrayOut.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+		if (!util.arrayEquals(shapeOut, arrayOut.shape)) {
+			throw new Error("Incompatible shapes");
+		}
+	}
+	axisReductionMap[type](arrayA.data, arrayOut.data,
+		util.computeOuterStride(arrayA.shape, axis),
+		util.computeInnerStride(arrayA.shape, axis),
+		arrayA.shape[axis]);
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+}
+
+function dotOperation(requestId, type, idA, idB, idOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	var arrayB = idMap[Math.abs(idB)];
+	if (typeof arrayB === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	if (!arrayA.dataType.equals(arrayB.dataType)) {
+		throw new Error("Incompatible data type");
+	}
+
+	/* The axis of b used in reduction: axis 0 for 1D array, second-to-last axis for ND array */
+	var axisA = Math.max(arrayA.shape.length - 1, 0);
+	var axisB = Math.max(arrayB.shape.length - 2, 0);
+	var reductionDim = arrayA.shape[axisA];
+	if (reductionDim !== arrayB.shape[axisB]) {
+		throw new RangeError("Arrays have incompatible reduction dimensions");
+	}
+	var shapeOut = [], strideA = 1, outerStrideB = 1, innerStrideB = 1;
+	for (var i = 0; i < axisA; i++) {
+		shapeOut.push(arrayA.shape[i]);
+		strideA *= arrayA.shape[i];
+	}
+	for (var i = 0; i < arrayB.shape.length; i++) {
+		var dim = arrayB.shape[i];
+		if (i < axisB) {
+			outerStrideB *= dim;
+			shapeOut.push(dim);
+		} else if (i > axisB) {
+			innerStrideB *= dim;
+			shapeOut.push(dim);
+		}
+	}
+	var arrayOut = idMap[idOut];
+	if (typeof arrayOut === "undefined") {
+		arrayOut = new MaybeNDArray(shapeOut, arrayA.dataType, null);
+		idMap[idOut] = arrayOut;
+	} else {
+		if (!arrayOut.dataType.equals(arrayA.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+		if (!util.arrayEquals(shapeOut, arrayOut.shape)) {
+			throw new Error("Incompatible shape");
+		}
+	}
+	jsmath.dot(arrayA.data, arrayB.data, arrayOut.data,
+		strideA, outerStrideB, innerStrideB, reductionDim);
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+	if (idB < 0) {
+		arrayB.deallocate();
+		delete idMap[-idB];
+	}
+}
+
+function init() {
+	var response = new Response();
+	response.id = 0;
+	response.type = Response.Type.INIT;
+	var initResponse = new InitResponse();
+	response.initResponse = initResponse;
+	var message = response.encodeAB();
+	self.postMessage(message, [message]);
+}
+
+function onMessage(event) {
+	var message = event.data;
+	var request = Request.decode(message);
+	switch (request.type) {
+		case Request.Type.EMPTY_ARRAY:
+			var emptyArrayRequest = request.emptyArrayRequest;
+			createEmptyArray(request.id,
+				emptyArrayRequest.idOut,
+				emptyArrayRequest.shape,
+				dataTypeMap[emptyArrayRequest.dataType]);
+			break;
+		case Request.Type.DATA_ARRAY:
+			var dataArrayRequest = request.dataArrayRequest;
+			createDataArray(request.id,
+				dataArrayRequest.idOut,
+				dataArrayRequest.shape,
+				dataTypeMap[dataArrayRequest.dataType],
+				dataArrayRequest.dataBuffer.toArrayBuffer());
+			break;
+		case Request.Type.CONST_ARRAY:
+			var constArrayRequest = request.constArrayRequest;
+			createConstArray(request.id,
+				constArrayRequest.idOut,
+				constArrayRequest.shape,
+				dataTypeMap[constArrayRequest.dataType],
+				constArrayRequest.fillValue);
+			break;
+		case Request.Type.LINSPACE:
+			var linspaceRequest = request.linspaceRequest;
+			linspace(request.id,
+				linspaceRequest.idOut,
+				linspaceRequest.start,
+				linspaceRequest.stop,
+				linspaceRequest.samples,
+				linspaceRequest.closed,
+				dataTypeMap[linspaceRequest.dataType]);
+			break;
+		case Request.Type.RESHAPE:
+			var reshapeRequest = request.reshapeRequest;
+			reshape(request.id,
+				reshapeRequest.idA,
+				reshapeRequest.idOut,
+				reshapeRequest.shapeOut);
+			break;
+		case Request.Type.REPEAT:
+			var repeatRequest = request.repeatRequest;
+			repeat(request.id,
+				repeatRequest.idA,
+				repeatRequest.idOut,
+				repeatRequest.axis,
+				repeatRequest.repeats);
+			break;
+		case Request.Type.DEALLOCATE:
+			var deallocateRequest = request.deallocateRequest;
+			deallocate(request.id,
+				deallocateRequest.idA);
+			break;
+		case Request.Type.FETCH:
+			var fetchRequest = request.fetchRequest;
+			fetch(request.id,
+				fetchRequest.idA);
+			break;
+		case Request.Type.BARRIER:
+			barrier(request.id);
+			break;
+		case Request.Type.INFO:
+			break;
+		case Request.Type.BINARY_OPERATION:
+			var binaryOperationRequest = request.binaryOperationRequest;
+			binaryOperation(request.id,
+				binaryOperationRequest.type,
+				binaryOperationRequest.idA,
+				binaryOperationRequest.idB,
+				binaryOperationRequest.idOut);
+			break;
+		case Request.Type.BINARY_CONST_OPERATION:
+			var binaryConstOperationRequest = request.binaryConstOperationRequest;
+			binaryConstOperation(request.id,
+				binaryConstOperationRequest.type,
+				binaryConstOperationRequest.idA,
+				binaryConstOperationRequest.valueB,
+				binaryConstOperationRequest.idOut);
+			break;
+		case Request.Type.UNARY_OPERATION:
+			var unaryOperationRequest = request.unaryOperationRequest;
+			unaryOperation(request.id,
+				unaryOperationRequest.type,
+				unaryOperationRequest.idA,
+				unaryOperationRequest.idOut);
+			break;
+		case Request.Type.REDUCTION_OPERATION:
+			var reductionRequest = request.reductionRequest;
+			reduction(request.id,
+				reductionRequest.type,
+				reductionRequest.idA,
+				reductionRequest.idOut);
+			break;
+		case Request.Type.AXIS_REDUCTION_OPERATION:
+			var axisReductionRequest = request.axisReductionRequest;
+			axisReduction(request.id,
+				axisReductionRequest.type,
+				axisReductionRequest.idA,
+				axisReductionRequest.axis,
+				axisReductionRequest.idOut);
+			break;
+		case Request.Type.DOT_OPERATION:
+			var dotOperationRequest = request.dotOperationRequest;
+			dotOperation(request.id,
+				dotOperationRequest.type,
+				dotOperationRequest.idA,
+				dotOperationRequest.idB,
+				dotOperationRequest.idOut);
+			break;
+	}
+}
+
+self.addEventListener("message", onMessage, false);
+init();
+
+},{"./../DataType":1,"./../requests.pb":6,"./../responses.pb":7,"./../util":8,"./MaybeNDArray":4,"./jsmath":5}],4:[function(require,module,exports){
+"use strict";
+
+var util = require("./../util");
+
+function MaybeNDArray(shape, dataType, dataBuffer) {
+	this.shape = shape;
+	this.dataType = dataType;
+	this.length = util.computeLength(this.shape);
+	if (dataBuffer === null) {
+		this.data = new dataType.arrayType(this.length);
+	} else {
+		this.data = new dataType.arrayType(dataBuffer);
+	}
+}
+
+MaybeNDArray.prototype.deallocate = function() {
+	this.data = null;
 };
 
-WebWorkerContext.prototype.empty = function(shape, dataType) {
-	return this._messagingContext.empty(shape, dataType);
+MaybeNDArray.prototype.hasData = function() {
+	return this.data !== null;
 };
 
-WebWorkerContext.prototype.zeros = function(shape, dataType) {
-	return this._messagingContext.zeros(shape, dataType);
-};
+module.exports = MaybeNDArray;
 
-WebWorkerContext.prototype.ones = function(shape, dataType) {
-	return this._messagingContext.ones(shape, dataType);
-};
-
-WebWorkerContext.prototype.array = function(data, dataType) {
-	return this._messagingContext.array(data, dataType);
-};
-
-WebWorkerContext.prototype.linspace = function(start, stop, samples, closed) {
-	return this._messagingContext.linspace(start, stop, samples, closed);
-};
-
-WebWorkerContext.prototype.reshape = function(a, shape) {
-	return this._messagingContext.reshape(a, shape);
-};
-
-WebWorkerContext.prototype.repeat = function(a, repeats, axis, out) {
-	return this._messagingContext.repeat(a, repeats, axis, out);
-};
-
-WebWorkerContext.prototype._invalidate = function(array) {
-	return this._messagingContext._invalidate(array);
-};
-
-WebWorkerContext.prototype.fetch = function() {
-	this._messagingContext.fetch.apply(this._messagingContext, arguments);
-};
-
-WebWorkerContext.prototype.get = function() {
-	this._messagingContext.get.apply(this._messagingContext, arguments);
-};
-
-WebWorkerContext.prototype.info = function(callback) {
-	this._messagingContext.info(callback);
-};
-
-WebWorkerContext.prototype.barrier = function(callback) {
-	this._messagingContext.barrier(callback);
-};
-
-WebWorkerContext.prototype.add = function(a, b, out) {
-	return this._messagingContext.add(a, b, out);
-};
-
-WebWorkerContext.prototype.sub = function(a, b, out) {
-	return this._messagingContext.sub(a, b, out);
-};
-
-WebWorkerContext.prototype.mul = function(a, b, out) {
-	return this._messagingContext.mul(a, b, out);
-};
-
-WebWorkerContext.prototype.div = function(a, b, out) {
-	return this._messagingContext.div(a, b, out);
-};
-
-WebWorkerContext.prototype.neg = function(a, out) {
-	return this._messagingContext.neg(a, out);
-};
-
-WebWorkerContext.prototype.abs = function(a, out) {
-	return this._messagingContext.abs(a, out);
-};
-
-WebWorkerContext.prototype.exp = function(a, out) {
-	return this._messagingContext.exp(a, out);
-};
-
-WebWorkerContext.prototype.log = function(a, out) {
-	return this._messagingContext.log(a, out);
-};
-
-WebWorkerContext.prototype.sqrt = function(a, out) {
-	return this._messagingContext.sqrt(a, out);
-};
-
-WebWorkerContext.prototype.square = function(a, out) {
-	return this._messagingContext.square(a, out);
-};
-
-WebWorkerContext.prototype.min = function(a, axis) {
-	return this._messagingContext.min(a, axis);
-};
-
-WebWorkerContext.prototype.max = function(a, axis) {
-	return this._messagingContext.max(a, axis);
-};
-
-WebWorkerContext.prototype.sum = function(a, axis) {
-	return this._messagingContext.sum(a, axis);
-};
-
-WebWorkerContext.prototype.dot = function(a, b, out) {
-	return this._messagingContext.dot(a, b, out);
-};
-
-module.exports = WebWorkerContext;
-
-},{"./../PBContext.js":3}],9:[function(_dereq_,module,exports){
+},{"./../util":8}],5:[function(require,module,exports){
 "use strict";
 
 /**
@@ -3053,21 +1534,21 @@ exports.repeat = function(dataA, dataOut, outerStride, innerStride, expansionDim
 	}
 };
 
-},{}],10:[function(_dereq_,module,exports){
+},{}],6:[function(require,module,exports){
 
-var protobufjs = _dereq_("protobufjs");
+var protobufjs = require("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
 var requestsProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nenum DataType {\r\n\tFLOAT64 = 0;\r\n\tFLOAT32 = 1;\r\n}\r\n\r\nmessage Request {\r\n\tenum Type {\r\n\t\tEMPTY_ARRAY              =  0;\r\n\t\tDATA_ARRAY               =  1;\r\n\t\tCONST_ARRAY              =  2;\r\n\t\tLINSPACE                 =  3;\r\n\t\tRESHAPE                  =  4;\r\n\t\tREPEAT                   =  5;\r\n\t\tDEALLOCATE               =  6;\r\n\t\tFETCH                    =  7;\r\n\t\tBARRIER                  =  8;\r\n\t\tINFO                     =  9;\r\n\t\tBINARY_OPERATION         = 10;\r\n\t\tBINARY_CONST_OPERATION   = 11;\r\n\t\tUNARY_OPERATION          = 12;\r\n\t\tREDUCTION_OPERATION      = 13;\r\n\t\tAXIS_REDUCTION_OPERATION = 14;\r\n\t\tDOT_OPERATION            = 15;\r\n\t}\r\n\trequired fixed32                     id                             =  1;\r\n\trequired Type                        type                           =  2;\r\n\r\n\toptional EmptyArrayRequest           empty_array_request            =  3;\r\n\toptional DataArrayRequest            data_array_request             =  4;\r\n\toptional ConstArrayRequest           const_array_request            =  5;\r\n\toptional LinspaceRequest             linspace_request               =  6;\r\n\toptional ReshapeRequest              reshape_request                =  7;\r\n\toptional RepeatRequest               repeat_request                 =  8;\r\n\toptional DeallocateRequest           deallocate_request             =  9;\r\n\toptional FetchRequest                fetch_request                  = 10;\r\n\toptional BinaryOperationRequest      binary_operation_request       = 11;\r\n\toptional BinaryConstOperationRequest binary_const_operation_request = 12;\r\n\toptional UnaryOperationRequest       unary_operation_request        = 13;\r\n\toptional ReductionRequest            reduction_request              = 14;\r\n\toptional AxisReductionRequest        axis_reduction_request         = 15;\r\n\toptional DotOperationRequest         dot_operation_request          = 16;\r\n}\r\n\r\nmessage EmptyArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n}\r\n\r\nmessage DataArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired bytes    data_buffer = 4;\r\n}\r\n\r\nmessage ConstArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired double   fill_value  = 4;\r\n}\r\n\r\nmessage LinspaceRequest {\r\n\trequired sfixed32  id_out     = 1;\r\n\trequired double    start      = 2;\r\n\trequired double    stop       = 3;\r\n\trequired uint32    samples    = 4;\r\n\trequired bool      closed     = 5;\r\n\trequired DataType  data_type  = 6;\r\n}\r\n\r\nmessage ReshapeRequest {\r\n\trequired sfixed32  id_a      = 1;\r\n\trequired fixed32   id_out    = 2;\r\n\trepeated uint32    shape_out = 3 [packed=true];\r\n}\r\n\r\nmessage RepeatRequest {\r\n\trequired sfixed32 id_a    = 1;\r\n\trequired fixed32  id_out  = 2;\r\n\trequired uint32   axis    = 3;\r\n\trequired uint32   repeats = 4;\r\n}\r\n\r\nmessage DeallocateRequest {\r\n\trequired fixed32 id_a = 1;\r\n}\r\n\r\nmessage FetchRequest {\r\n\trequired sfixed32 id_a = 1;\r\n}\r\n\r\nmessage BinaryOperationRequest {\r\n\tenum Type {\r\n\t\tADD = 0;\r\n\t\tSUB = 1;\r\n\t\tMUL = 2;\r\n\t\tDIV = 3;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired sfixed32 id_b   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage BinaryConstOperationRequest {\r\n\tenum Type {\r\n\t\tADDC  = 0;\r\n\t\tSUBC  = 1;\r\n\t\tSUBRC = 2;\r\n\t\tMULC  = 3;\r\n\t\tDIVC  = 4;\r\n\t\tDIVRC = 5;\r\n\t}\r\n\trequired Type     type    = 1;\r\n\trequired sfixed32 id_a    = 2;\r\n\trequired double   value_b = 3;\r\n\trequired fixed32  id_out  = 4;\r\n}\r\n\r\nmessage UnaryOperationRequest {\r\n\tenum Type {\r\n\t\tNEG    = 0;\r\n\t\tABS    = 1;\r\n\t\tEXP    = 2;\r\n\t\tLOG    = 3;\r\n\t\tSQRT   = 4;\r\n\t\tSQUARE = 5;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage ReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage AxisReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired uint32   axis   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage DotOperationRequest {\r\n\trequired sfixed32 id_a   = 1;\r\n\trequired sfixed32 id_b   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n";
 module.exports = protobufjs.loadProto(requestsProto).build("furious");
 
-},{"protobufjs":18}],11:[function(_dereq_,module,exports){
+},{"protobufjs":13}],7:[function(require,module,exports){
 
-var protobufjs = _dereq_("protobufjs");
+var protobufjs = require("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
 var responsesProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nmessage Response {\r\n\tenum Type {\r\n\t\tFETCH   = 0;\r\n\t\tERROR   = 1;\r\n\t\tINIT    = 2;\r\n\t\tBARRIER = 3;\r\n\t\tINFO    = 4;\r\n\t}\r\n\trequired fixed32         id               = 1;\r\n\trequired Type            type             = 2;\r\n\r\n\toptional FetchResponse   fetch_response   = 3;\r\n\toptional ErrorResponse   error_response   = 4;\r\n\toptional InitResponse    init_response    = 5;\r\n\toptional InfoResponse    info_response    = 7;\r\n}\r\n\r\nmessage FetchResponse {\r\n\trequired bytes data_buffer = 1;\r\n}\r\n\r\nmessage ErrorResponse {\r\n\tenum Type {\r\n\t\tRUNTIME  = 0;\r\n\t\tARGUMENT = 1;\r\n\t\tPARSE    = 2;\r\n\t}\r\n\trequired Type   type        = 1;\r\n\toptional string description = 2;\r\n}\r\n\r\nmessage InitResponse {\r\n\toptional uint32 concurrency = 1;\r\n}\r\n\r\nmessage InfoResponse {\r\n}\r\n";
 module.exports = protobufjs.loadProto(responsesProto).build("furious");
 
-},{"protobufjs":18}],12:[function(_dereq_,module,exports){
+},{"protobufjs":13}],8:[function(require,module,exports){
 "use strict";
 
 /**
@@ -3278,7 +1759,7 @@ exports.computeLength = function(shape) {
  * @method checkDataType
  */
 exports.checkDataType = function(dataType) {
-	var DataType = _dereq_("./DataType");
+	var DataType = require("./DataType");
 	if (!(dataType instanceof DataType)) {
 		throw new TypeError("dataType is not an instance of DataType");
 	}
@@ -3322,7 +1803,7 @@ exports.checkDataTypesCompatibility = function(dataTypeA, dataTypeB) {
  * @method checkNDArray
  */
 exports.checkNDArray = function(array, varname) {
-	var NDArray = _dereq_("./NDArray");
+	var NDArray = require("./NDArray");
 	if (!(array instanceof NDArray)) {
 		throw new TypeError(varname + " is not an NDArray");
 	}
@@ -3567,1124 +2048,9 @@ var createArrayRecursive = function(dataBuffer, dataArray, shape, level, offset)
 };
 exports.createArrayRecursive = createArrayRecursive;
 
-},{"./DataType":1,"./NDArray":2}],13:[function(_dereq_,module,exports){
-"use strict";
+},{"./DataType":1,"./NDArray":2}],9:[function(require,module,exports){
 
-var NDArray = _dereq_("../NDArray");
-var DataType = _dereq_("../DataType");
-var util = _dereq_("../util");
-
-
-/* Buggy in Chromium-WebCL */
-var useBufferCreationWithInit = false;
-
-var isNodeWebCL = false;
-var cl = void 0;
-var availableDevices = null;
-var availableDevicesDescriptions = null;
-var defaultDeviceIndex = -1;
-
-/**
- * If the global cl variable is undefined, this method would initialize it with a WebCL instance.
- * Works for both browser and Node.js
- *
- * @private
- * @static
- * @method initWebCL
- * @return {WebCL} - an instance of WebCL object from WebCL specification. If WebCL is not supported, return null.
- */
-var initWebCL = function() {
-	if (typeof cl === "undefined") {
-		if (typeof window === "object") {
-			cl = (typeof window.webcl !== "undefined") ? window.webcl : null;
-		} else {
-			try {
-				cl = _dereq_("node-webcl");
-				isNodeWebCL = true;
-			} catch (e) {
-				cl = null;
-			}
-		}
-	}
-	return cl;
-};
-
-/**
- * Creates an empty WebCLEvent.
- * Works for both browser and Node.js
- *
- * @private
- * @static
- * @method createEvent
- * @return {WebCLEvent} - an empty instance of WebCLEvent.
- */
-var createEvent = function() {
-	if (isNodeWebCL) {
-		return new cl.WebCLEvent();
-	} else {
-		return new WebCLEvent();
-	}
-};
-
-/**
- * Tries to release a WebCL resource and ignores any errors in the process.
- *
- * @private
- * @method tryRlease
- * @param {Object} webclObject - a WebCL object.
- * @return {Boolean} - true if the object was successfully released and false otherwise.
- */
-var tryRelease = function(webclResource) {
-	if (webclResource !== null) {
-		try {
-			webclResource.release();
-			return true;
-		} catch (e) {
-			/* Silently ignore */
-		}
-	}
-	return false;
-};
-
-/**
- * Checks if a WebCL device supports KHR_fp64 extension.
- *
- * @private
- * @method isFP64Capable
- * @param {WebCLDevice} device - the device to check for KHR_fp64 support.
- * @return {Boolean} - true if the device supports KHR_fp64 and false otherwise.
- */
-var isFP64Capable = function(device) {
-	var extensions = device.getSupportedExtensions();
-	if (extensions.indexOf("KHR_fp64") === -1) {
-		return false;
-	}
-	/*
-	 * Due to a bug WebKit-WebCL may report KHR_fp64 even if it is not supported by the underlying OpenCL device.
-	 * See bug https://github.com/SRA-SiliconValley/webkit-webcl/issues/536
-	 */
-	var testSource = "kernel void foo(global double* bar) { }";
-	var context = null, program = null;
-	try {
-		context = cl.createContext(device);
-		program = context.createProgram(testSource);
-		program.build();
-		return true;
-	} catch (e) {
-		return false;
-	} finally {
-		tryRelease(program);
-		tryRelease(context);
-	}
-};
-
-/**
- * Initialises and returns a list of WebCL devices suitable for computation.
- *
- * @private
- * @static
- * @method getAvailableDevices
- * @return {WebCLDevice[]} - a list of GPU and CPU WebCL devices that support KHR_FP64 (may be empty).
- */
-var getAvailableDevices = function() {
-	if (availableDevices === null) {
-		availableDevices = [];
-		var webcl = initWebCL();
-		if (webcl !== null) {
-			var platforms = cl.getPlatforms();
-			for (var i = 0; i < platforms.length; ++i) {
-				var platform = platforms[i];
-				var devices = platform.getDevices(cl.DEVICE_TYPE_ALL);
-				for (var j = 0; j < devices.length; ++j) {
-					var device = devices[j];
-					if (isFP64Capable(device)) {
-						availableDevices.push(device);
-					}
-				}
-			}
-		}
-		generateAvailableDevicesDescriptions();
-	}
-	return availableDevices;
-};
-
-var generateAvailableDevicesDescriptions = function() {
-	availableDevicesDescriptions = [];
-	/* If devices names are available, use them */
-	var haveNames = true;
-	for (var i = 0; i < availableDevices.length; ++i) {
-		var device = availableDevices[i];
-		var name = device.getInfo(cl.DEVICE_NAME);
-		if ((name === null) || (name === "")) {
-			haveNames = false;
-			break;
-		}
-		availableDevicesDescriptions[i] = name;
-	}
-	if (!haveNames) {
-		/* At least some names are not available: try to assign names based on classification (e.g. "CPU", "dGPU", "iGPU") */
-		var cpuCount = 0, igpuCount = 0, dgpuCount = 0;
-		for (var i = 0; i < availableDevices.length; ++i) {
-			var device = availableDevices[i];
-			var classification = classifyDevice(device);
-			if (classification === "cpu") {
-				++cpuCount;
-				availableDevicesDescriptions[i] = "CPU";
-			} else if (classification === "igpu") {
-				++igpuCount;
-				availableDevicesDescriptions[i] = "iGPU";
-			} else if (classification === "dgpu") {
-				++dgpuCount;
-				availableDevicesDescriptions[i] = "dGPU";
-			} else {
-				throw new Error("Impossible device classification: " + classification);
-			}
-		}
-		if ((cpuCount > 1) || (igpuCount > 1) || (dgpuCount > 1)) {
-			/* We have multiple devices of the same type. Need to use more complicated naming scheme */
-			var cpuIndex = 0, igpuIndex = 0, dgpuIndex = 0;
-			for (var i = 0; i < availableDevices.length; ++i) {
-				var device = availableDevices[i];
-				var classification = classifyDevice(device);
-				if (classification === "cpu") {
-					if (cpuCount > 1) {
-						++cpuIndex;
-						availableDevicesDescriptions[i] = "CPU #" + cpuIndex;
-					}
-				} else if (classification === "igpu") {
-					if (igpuCount > 1) {
-						++igpuIndex;
-						availableDevicesDescriptions[i] = "iGPU #" + igpuIndex;
-					}
-				} else if (classification === "dgpu") {
-					if (dgpuCount > 1) {
-						++dgpuCount;
-						availableDevicesDescriptions[i] = "dGPU #" + dgpuIndex;
-					}
-				} else {
-					throw new Error("Impossible device classification: " + classification);
-				}
-			}
-		}
-	}
-};
-
-/**
- * Classifies WebCL device to one of four categories:
- * - "cpu" for CPU devices.
- * - "igpu" for GPUs integrated with CPU package or chipset.
- * - "dgpu" for discrete GPUs.
- * - "unknown" for other types of devices (e.g. FPGAs)
- *
- * @private
- * @method classifyDevice
- * @param {WebCLDevice} device - the WebCL device to classify.
- * @return {String} - one of the strings described above.
- */
-var classifyDevice = function(device) {
-	try {
-		var deviceType = device.getInfo(cl.DEVICE_TYPE);
-		if (deviceType === cl.DEVICE_TYPE_CPU) {
-			return "cpu";
-		} else if (deviceType === cl.DEVICE_TYPE_GPU) {
-			var isHostUnifiedMemory = device.getInfo(cl.DEVICE_HOST_UNIFIED_MEMORY);
-			return (isHostUnifiedMemory ? "igpu" : "dgpu");
-		}
-	} catch (e) {
-	}
-	return "unknown";
-};
-
-/**
- * Selects the optimal WebCL device among the available devices.
- * The priority of devices: "dgpu" > "igpu" > "cpu"
- *
- * @private
- * @method getDefaultDeviceIndex
- * @return {WebCLDevice} - the selected device from the list.
- */
-var getDefaultDeviceIndex = function() {
-	if (defaultDeviceIndex === -1) {
-		var availableDevices = getAvailableDevices();
-		if (availableDevices.length === 0) {
-			defaultDeviceIndex = -2;
-			return defaultDeviceIndex;
-		}
-		var deviceClassifications = [];
-		/* Search for "dgpu" */
-		for (var i = 0; i < availableDevices.length; ++i) {
-			var device = availableDevices[i];
-			var deviceClass = classifyDevice(device);
-			if (deviceClass === "dgpu") {
-				defaultDeviceIndex = i;
-				return i;
-			}
-			deviceClassifications.push(deviceClass);
-		}
-		/* Search for "igpu" */
-		for (var i = 0; i < availableDevices.length; ++i) {
-			if (deviceClassifications[i] === "igpu") {
-				defaultDeviceIndex = i;
-				return i;
-			}
-		}
-		/* Search for "cpu" */
-		for (var i = 0; i < availableDevices.length; ++i) {
-			if (deviceClassifications[i] === "cpu") {
-				defaultDeviceIndex = i;
-				return i;
-			}
-		}
-	}
-	return defaultDeviceIndex;
-};
-
-var createKernels = function(program) {
-	var kernels = {
-		set: {
-			f32: program.createKernel("set_f32"),
-			f64: program.createKernel("set_f64")
-		},
-		linspace: {
-			f32: program.createKernel("linspace_f32"),
-			f64: program.createKernel("linspace_f64")
-		},
-		repeat: {
-			f32: program.createKernel("repeat_f32"),
-			f64: program.createKernel("repeat_f64")
-		},
-		add: {
-			f32: program.createKernel("add_f32"),
-			f64: program.createKernel("add_f64")
-		},
-		sub: {
-			f32: program.createKernel("sub_f32"),
-			f64: program.createKernel("sub_f64")
-		},
-		mul: {
-			f32: program.createKernel("mul_f32"),
-			f64: program.createKernel("mul_f64")
-		},
-		div: {
-			f32: program.createKernel("div_f32"),
-			f64: program.createKernel("div_f64")
-		},
-		addc: {
-			f32: program.createKernel("addc_f32"),
-			f64: program.createKernel("addc_f64")
-		},
-		subc: {
-			f32: program.createKernel("subc_f32"),
-			f64: program.createKernel("subc_f64")
-		},
-		subrc: {
-			f32: program.createKernel("subrc_f32"),
-			f64: program.createKernel("subrc_f64")
-		},
-		mulc: {
-			f32: program.createKernel("mulc_f32"),
-			f64: program.createKernel("mulc_f64")
-		},
-		divc: {
-			f32: program.createKernel("divc_f32"),
-			f64: program.createKernel("divc_f64")
-		},
-		divrc: {
-			f32: program.createKernel("divrc_f32"),
-			f64: program.createKernel("divrc_f64")
-		},
-		neg: {
-			f32: program.createKernel("neg_f32"),
-			f64: program.createKernel("neg_f64")
-		},
-		abs: {
-			f32: program.createKernel("abs_f32"),
-			f64: program.createKernel("abs_f64")
-		},
-		exp: {
-			f32: program.createKernel("exp_f32"),
-			f64: program.createKernel("exp_f64")
-		},
-		log: {
-			f32: program.createKernel("log_f32"),
-			f64: program.createKernel("log_f64")
-		},
-		sqrt: {
-			f32: program.createKernel("sqrt_f32"),
-			f64: program.createKernel("sqrt_f64")
-		},
-		square: {
-			f32: program.createKernel("square_f32"),
-			f64: program.createKernel("square_f64")
-		},
-		sum: {
-			f32: program.createKernel("sum_f32_gpu"),
-			f64: program.createKernel("sum_f64_gpu")
-		},
-		min: {
-			f32: program.createKernel("min_f32_gpu"),
-			f64: program.createKernel("min_f64_gpu")
-		},
-		max: {
-			f32: program.createKernel("max_f32_gpu"),
-			f64: program.createKernel("max_f64_gpu")
-		},
-		asum: {
-			f32: program.createKernel("asum_f32"),
-			f64: program.createKernel("asum_f64")
-		},
-		amin: {
-			f32: program.createKernel("amin_f32"),
-			f64: program.createKernel("amin_f64")
-		},
-		amax: {
-			f32: program.createKernel("amax_f32"),
-			f64: program.createKernel("amax_f64")
-		},
-		dot: {
-			f32: program.createKernel("dot_f32"),
-			f64: program.createKernel("dot_f64")
-		}
-	};
-	return kernels;
-};
-
-function WebCLContext(options, callback) {
-	initWebCL();
-	var binaryKernelsSource = "kernel void add_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void add_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void sub_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void sub_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void mul_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void mul_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void div_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void div_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void addc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void addc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void subc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void subc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void subrc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\nkernel void subrc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\nkernel void mulc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void mulc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void divc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void divc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void divrc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\nkernel void divrc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\n";
-	var unaryKernelsSource = "kernel void neg_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void neg_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void abs_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void abs_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void exp_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void exp_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void log_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void log_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void sqrt_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void sqrt_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void square_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst float aVal = a[id]; \r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\nkernel void square_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst double aVal = a[id];\r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\n";
-	var reductionKernelsSource = "kernel void sum_f32_gpu(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tlocal float* scratch,\r\n\tglobal float* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tfloat accumulator = 0.0f;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator += a[globalIndex];\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void sum_f64_gpu(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tlocal double* scratch,\r\n\tglobal double* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tdouble accumulator = 0.0;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator += a[globalIndex];\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void min_f32_gpu(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tlocal float* scratch,\r\n\tglobal float* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tfloat accumulator = INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = min(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void min_f64_gpu(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tlocal double* scratch,\r\n\tglobal double* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tdouble accumulator = INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = min(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void max_f32_gpu(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tlocal float* scratch,\r\n\tglobal float* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tfloat accumulator = -INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = max(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void max_f64_gpu(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tlocal double* scratch,\r\n\tglobal double* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tdouble accumulator = -INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = max(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n";
-	var axisReductionKernelsSource = "kernel void asum_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tfloat accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator += *a;\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void asum_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tdouble accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator += *a;\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amin_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tfloat accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = min(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amin_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tdouble accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = min(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amax_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tfloat accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = max(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amax_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tdouble accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = max(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n";
-	var productKernelsSource = "kernel void dot_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\tconst uint l = get_global_id(2);\r\n\tconst uint outerStrideB = get_global_size(1);\r\n\tconst uint innerStrideB = get_global_size(2);\r\n\r\n\tfloat accumulator = 0.0f;\r\n\tfor (uint j = 0; j < reductionDim; ++j) {\r\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\r\n\t}\r\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\r\n}\r\n\r\nkernel void dot_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\tconst uint l = get_global_id(2);\r\n\tconst uint outerStrideB = get_global_size(1);\r\n\tconst uint innerStrideB = get_global_size(2);\r\n\r\n\tdouble accumulator = 0.0;\r\n\tfor (uint j = 0; j < reductionDim; ++j) {\r\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\r\n\t}\r\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\r\n}\r\n";
-	var utilKernelsSource = "kernel void set_f32(\r\n\tuint length,\r\n\tglobal float* out,\r\n\tfloat value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\nkernel void set_f64(\r\n\tuint length,\r\n\tglobal double* out,\r\n\tdouble value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\n\r\nkernel void linspace_f32(\r\n\tuint length,\r\n\tglobal float* out,\r\n\tfloat start,\r\n\tfloat step)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = start + step * ((float) id);\r\n\t}\r\n}\r\nkernel void linspace_f64(\r\n\tuint length,\r\n\tglobal double* out,\r\n\tdouble start,\r\n\tdouble step)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = start + step * ((double) id);\r\n\t}\r\n}\r\n\r\nkernel void repeat_f32(\r\n\tuint expansionDim,\r\n\tuint innerStride,\r\n\tuint repeats,\r\n\tglobal float *restrict a,\r\n\tglobal float *restrict out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint j = get_global_id(1);\r\n\tconst uint k = get_global_id(2);\r\n\tconst float value = a[(i * expansionDim + j) * innerStride + k];\r\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\r\n\tfor (uint c = 0; c < repeats; ++c) {\r\n\t\tout[offsetOut] = value;\r\n\t\toffsetOut += innerStride;\r\n\t}\r\n}\r\nkernel void repeat_f64(\r\n\tuint expansionDim,\r\n\tuint innerStride,\r\n\tuint repeats,\r\n\tglobal double *restrict a,\r\n\tglobal double *restrict out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint j = get_global_id(1);\r\n\tconst uint k = get_global_id(2);\r\n\tconst double value = a[(i * expansionDim + j) * innerStride + k];\r\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\r\n\tfor (uint c = 0; c < repeats; ++c) {\r\n\t\tout[offsetOut] = value;\r\n\t\toffsetOut += innerStride;\r\n\t}\r\n}\r\n";
-	var source = binaryKernelsSource + unaryKernelsSource + 
-		reductionKernelsSource + axisReductionKernelsSource + 
-		productKernelsSource + utilKernelsSource;
-
-	var asyncCallbacks = options.asyncCallbacks;
-	if (typeof asyncCallbacks === "undefined") {
-		/* Currently only Node-WebCL supports asynchronous callbacks */
-		this.asyncCallbacks = isNodeWebCL;
-	} else {
-		this.asyncCallbacks = !!asyncCallbacks;
-	}
-	var deviceName = options.device;
-	if (deviceName) {
-		var deviceIndex = availableDevicesDescriptions.indexOf(deviceName);
-		if (deviceIndex === -1) {
-			throw new Error("Invalid WebCL device name: " + deviceName);
-		}
-		this.device = availableDevices[deviceIndex];
-	} else {
-		var deviceIndex = getDefaultDeviceIndex();
-		if (deviceIndex < 0) {
-			throw new Error("No suitable WebCL device found");
-		}
-		this.device = availableDevices[deviceIndex];
-	}
-	this.device.enableExtension("KHR_fp64");
-	this.deviceInfo = {
-		deviceClass: classifyDevice(this.device),
-		localMemorySize: this.device.getInfo(cl.DEVICE_LOCAL_MEM_SIZE),
-		maxComputeUnits: this.device.getInfo(cl.DEVICE_MAX_COMPUTE_UNITS),
-		maxWorkGroupSize: this.device.getInfo(cl.DEVICE_MAX_WORK_GROUP_SIZE),
-		maxWorkItemSizes: this.device.getInfo(cl.DEVICE_MAX_WORK_ITEM_SIZES)
-	};
-	this.context = cl.createContext(this.device);
-	this.queue = this.context.createCommandQueue(this.device);
-	this.program = this.context.createProgram(source);
-	try {
-		/* Chromium-WebCL requires a list of devices */
-		this.program.build([this.device]);
-	} catch (e) {
-		if (e.name === "INVALID_DEVICE") {
-			/* Nokia-WebCL only works with no arguments to WebCLProgram.build */
-			this.program.build();
-		} else {
-			throw e;
-		}
-	}
-	this.kernels = createKernels(this.program);
-	/* Context is ready for computations */
-	callback(this);
-}
-
-/**
- * Returns the names of devices that can be used for computation.
- * Any of these names can be passed as a "device" option when creating a WebCL context.
- *
- * @static
- * @method getAvailableDevices
- * @return {String[]} - a possibly empty list of available device names.
- */
-WebCLContext.getAvailableDevices = function() {
-	if (WebCLContext.isUsable()) {
-		return availableDevicesDescriptions;
-	} else {
-		return [];
-	}
-};
-
-/**
- * Returns the name of the default device used for computation.
- *
- * @static
- * @method getDefaultDevice
- * @return {String} - the name of the default WebCL device or null if no suitable device available.
- */
-WebCLContext.getDefaultDevice = function() {
-	var deviceIndex = getDefaultDeviceIndex();
-	if (deviceIndex < 0) {
-		return null;
-	} else {
-		return availableDevicesDescriptions[deviceIndex];
-	}
-};
-
-/**
- * Checks if WebCL is supported by the environment.
- *
- * @static
- * @method isSupported
- * @return {Boolean} - true if WebCL is supported on this system and false otherwise.
- */
-WebCLContext.isSupported = function() {
-	return initWebCL() !== null;
-};
-
-/**
- * Checks if WebCL can be used for computation.
- * WebCL is usable for computations if it is supported by JS engine (or Node.js) and there is at least one CPU or GPU device with KHR_fp64 extension.
- *
- * @static
- * @method isUsable
- * @return {Boolean} - true if WebCL is usable on this system and false otherwise.
- */
-WebCLContext.isUsable = function() {
-	var webcl = initWebCL();
-	if (webcl === null) {
-		return false;
-	}
-	var availableDevices = getAvailableDevices();
-	return availableDevices.length !== 0;
-};
-
-WebCLContext.prototype.empty = function(shape, dataType) {
-	shape = util.checkShape(shape);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
-	}
-	var array = new NDArray(shape, dataType, this);
-	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
-	return array;
-};
-
-WebCLContext.prototype.zeros = function(shape, dataType) {
-	shape = util.checkShape(shape);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
-	}
-	var array = new NDArray(shape, dataType, this);
-	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
-	var kernel = this.kernels.set[dataType.type];
-	kernel.setArg(0, new Uint32Array([array.length]));
-	kernel.setArg(1, array._buffer);
-	kernel.setArg(2, new dataType.arrayType([0.0]));
-	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
-	return array;
-};
-
-WebCLContext.prototype.ones = function(shape, dataType) {
-	shape = util.checkShape(shape);
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else if (!(dataType instanceof DataType)) {
-		throw new TypeError(dataType + " is not an instance of DataType");
-	}
-	var array = new NDArray(shape, dataType, this);
-	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, array.length * dataType.size);
-	var kernel = this.kernels.set[dataType.type];
-	kernel.setArg(0, new Uint32Array([array.length]));
-	kernel.setArg(1, array._buffer);
-	kernel.setArg(2, new dataType.arrayType([1.0]));
-	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
-	return array;
-};
-
-WebCLContext.prototype.array = function(data, dataType) {
-	if (typeof dataType === "undefined") {
-		dataType = new DataType("f64");
-	} else {
-		dataType = util.checkDataType(dataType);
-	}
-	var shape = [];
-	util.discoverArrayShapeRecursive(data, shape, 0);
-	var array = new NDArray(shape, dataType, this);
-	var buffer = new dataType.arrayType(array.length);
-	util.copyArrayDataRecursive(buffer, data, shape, 0, 0);
-	if (useBufferCreationWithInit) {
-		array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength, buffer);
-	} else {
-		array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, buffer.byteLength);
-		this.queue.enqueueWriteBuffer(array._buffer, false, 0, buffer.byteLength, buffer);
-	}
-	return array;
-};
-
-WebCLContext.prototype.linspace = function(start, stop, samples, closed) {
-	if (!util.isReal(start)) {
-		throw new TypeError(start + " is not a real number");
-	}
-	if (!util.isReal(stop)) {
-		throw new TypeError(stop + " is not a real number");
-	}
-	if (typeof samples === "undefined") {
-		/* Default value in NumPy */
-		samples = 50;
-	} else if (!util.isInt(samples)) {
-		throw new TypeError(samples + " is not an integer");
-	} else if (samples <= 0) {
-		throw new RangeError("The number of samples must be positive");
-	}
-	if (typeof closed === "undefined") {
-		closed = true;
-	}
-	if (closed && (samples === 1)) {
-		throw new RangeError("The number of samples must be a least 2 (for start and end points)");
-	}
-
-	var dataType = new DataType("f64");
-	var array = new NDArray(samples, dataType, this);
-	array._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, samples * dataType.size);
-
-	var range = stop - start;
-	var n = (closed) ? samples - 1 : samples;
-	var step = range / n;
-
-	var kernel = this.kernels.linspace[dataType.type];
-	kernel.setArg(0, new Uint32Array([array.length]));
-	kernel.setArg(1, array._buffer);
-	kernel.setArg(2, new dataType.arrayType([start]));
-	kernel.setArg(3, new dataType.arrayType([step]));
-	this.queue.enqueueNDRangeKernel(kernel, 1, null, [array.length]);
-
-	return array;
-};
-
-WebCLContext.prototype._invalidate = function(array) {
-	if (array._buffer !== null) {
-		/* Work-around for Chromium-WebCL that currently lacks WebCLMemObject.release method */
-		if (typeof array._buffer.release !== "undefined") {
-			array._buffer.release();
-		}
-		array._buffer = null;
-	}
-};
-
-WebCLContext.prototype.fetch = function() {
-	if (arguments.length === 0) {
-		throw new Error("Callback argument missing");
-	}
-	var callback = arguments[arguments.length - 1];
-	/* Validate arguments */
-	if (arguments.length === 1) {
-		throw new Error("At least one NDArray argument expected");
-	}
-	for (var i = 0; i < arguments.length - 1; i++) {
-		if (!(arguments[i] instanceof NDArray)) {
-			throw new TypeError("Argument " + i + " is not an NDArray");
-		}
-	}
-	var callbackWaitArguments = arguments.length - 1;
-	var callbackArguments = new Array(callbackWaitArguments);
-	if (this.asyncCallbacks) {
-		var asyncEvents = [];
-		for (var i = 0; i < callbackWaitArguments; i++) {
-			var array = arguments[i];
-			(function(queue, i, shape, ArrayType) {
-				var buffer = new ArrayType(array.length);
-				var readFinishEvent = createEvent();
-				asyncEvents.push(readFinishEvent);
-				queue.enqueueReadBuffer(array._buffer, false, 0, buffer.byteLength, buffer, null, readFinishEvent);
-				readFinishEvent.setCallback(cl.COMPLETE, function() {
-					readFinishEvent.release();
-					callbackArguments[i] = buffer;
-					if (--callbackWaitArguments === 0) {
-						callback.apply(null, callbackArguments);
-						/* OpenCL standard: commands enqueued in a callback won't start until clFlush */
-						queue.flush();
-					}
-				});
-			})(this.queue, i, array.shape, array.dataType.arrayType);
-			/* This line mostly serializes execution. Unfortunately, without it nothing works */
-			cl.waitForEvents(asyncEvents);
-		}
-	} else {
-		for (var i = 0; i < callbackWaitArguments; i++) {
-			var array = arguments[i];
-			var buffer = new array.dataType.arrayType(array.length);
-			this.queue.enqueueReadBuffer(array._buffer, true, 0, buffer.byteLength, buffer);
-			callbackArguments[i] = buffer;
-		}
-		callback.apply(null, callbackArguments);
-	}
-};
-
-WebCLContext.prototype.get = function() {
-	if (arguments.length === 0) {
-		throw new Error("Callback argument missing");
-	}
-	var callback = arguments[arguments.length - 1];
-	/* Validate arguments */
-	if (arguments.length === 1) {
-		throw new Error("At least one NDArray argument expected");
-	}
-	for (var i = 0; i < arguments.length - 1; i++) {
-		if (!(arguments[i] instanceof NDArray)) {
-			throw new TypeError("Argument " + i + " is not an NDArray");
-		}
-	}
-	var callbackWaitArguments = arguments.length - 1;
-	var callbackArguments = new Array(callbackWaitArguments);
-	if (this.asyncCallbacks) {
-		var asyncEvents = [];
-		for (var i = 0; i < callbackWaitArguments; i++) {
-			var array = arguments[i];
-			(function(queue, i, shape, ArrayType) {
-				var buffer = new ArrayType(array.length);
-				var readFinishEvent = createEvent();
-				asyncEvents.push(readFinishEvent);
-				queue.enqueueReadBuffer(array._buffer, false, 0, buffer.byteLength, buffer, null, readFinishEvent);
-				if (shape.length === 0) {
-					readFinishEvent.setCallback(cl.COMPLETE, function() {
-						readFinishEvent.release();
-						callbackArguments[i] = buffer[0];
-						if (--callbackWaitArguments === 0) {
-							callback.apply(null, callbackArguments);
-							/* OpenCL standard: commands enqueued in a callback won't start until clFlush */
-							queue.flush();
-						}
-					});
-				} else {
-					readFinishEvent.setCallback(cl.COMPLETE, function() {
-						readFinishEvent.release();
-						var jsarray = new Array(shape[0]);
-						util.createArrayRecursive(new ArrayType(buffer), jsarray, shape, 0, 0);
-						callbackArguments[i] = jsarray;
-						if (--callbackWaitArguments === 0) {
-							callback.apply(null, callbackArguments);
-							/* OpenCL standard: commands enqueued in a callback won't start until clFlush */
-							queue.flush();
-						}
-					});
-				}
-			})(this.queue, i, array.shape, array.dataType.arrayType);
-			/* This line mostly serializes execution. Unfortunately, without it nothing works */
-			cl.waitForEvents(asyncEvents);
-		}
-	} else {
-		for (var i = 0; i < callbackWaitArguments; i++) {
-			var array = arguments[i];
-			var buffer = new array.dataType.arrayType(array.length);
-			this.queue.enqueueReadBuffer(array._buffer, true, 0, buffer.byteLength, buffer);
-			if (array.shape.length === 0) {
-				callbackArguments[i] = buffer[0];
-			} else {
-				var jsarray = new Array(array.shape[0]);
-				util.createArrayRecursive(new array.dataType.arrayType(buffer), jsarray, array.shape, 0, 0);
-				callbackArguments[i] = jsarray;
-			}
-		}
-		callback.apply(null, callbackArguments);
-	}
-};
-
-WebCLContext.prototype.barrier = function(callback) {
-	var barrierEvent = createEvent();
-	this.queue.enqueueMarker(barrierEvent);
-	if (this.asyncCallbacks) {
-		var queue = this.queue;
-		barrierEvent.setCallback(cl.COMPLETE, function() {
-			barrierEvent.release();
-			callback();
-			/* OpenCL standard: commands enqueued in a callback won't start until clFlush */
-			queue.flush();
-		});
-		cl.waitForEvents([barrierEvent]);
-	} else {
-		cl.waitForEvents([barrierEvent]);
-		callback();
-	}
-};
-
-WebCLContext.prototype.reshape = function(a, shape) {
-	shape = util.checkShape(shape);
-	if (util.computeLength(shape) !== a.length) {
-		throw new RangeError("The shape is not compatible with the array");
-	}
-	var out = new NDArray(shape, a.dataType, this);
-	if (a._decRef()) {
-		out._buffer = this.context.createBuffer(webcl.MEM_READ_WRITE, out.length * out.dataType.size);
-		this.queue.enqueueCopyBuffer(a._buffer, out._buffer, 0, 0, out.length * out.dataType.size);
-	} else {
-		out._buffer = a._buffer;
-		a._buffer = null;
-	}
-	return out;
-};
-
-WebCLContext.prototype.repeat = function(a, repeats, axis, out) {
-	util.checkNDArray(a, "a");
-	repeats = util.checkRepeats(repeats);
-	axis = util.checkAxis(axis, a.shape.length);
-	var shapeA = a.shape;
-	var shapeOut = shapeA.slice(0);
-	shapeOut[axis] *= repeats;
-	a._decRef();
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, a.dataType, this);
-			out._buffer = this.context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(out.shape, shapeOut);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var outerStride = util.computeOuterStride(shapeA, axis);
-		var expansionDim = shapeA[axis];
-		var innerStride = util.computeInnerStride(shapeA, axis);
-		var kernel = this.kernels.repeat[a.dataType.type];
-		kernel.setArg(0, new Uint32Array([expansionDim]));
-		kernel.setArg(1, new Uint32Array([innerStride]));
-		kernel.setArg(2, new Uint32Array([repeats]));
-		kernel.setArg(3, a._buffer);
-		kernel.setArg(4, out._buffer);
-		this.queue.enqueueNDRangeKernel(kernel, 3, null, [outerStride, expansionDim, innerStride]);
-	} catch (e) {
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
-};
-
-var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryConstOpKernels, binaryRevConstKernels) {
-	var shapeOut = null, dataTypeOut = null;
-	var bufferA = null, bufferB = null;
-	if (a instanceof NDArray) {
-		bufferA = a._buffer;
-		shapeOut = a.shape;
-		dataTypeOut = a.dataType;
-		if (b instanceof NDArray) {
-			bufferB = b._buffer;
-			util.checkShapesCompatibility(a.shape, b.shape);
-			util.checkDataTypesCompatibility(a.dataType, b.dataType);
-		} else if (!util.isNumber(b)) {
-			throw new TypeError("Unsupported type of b");
-		}
-	} else if (util.isNumber(a)) {
-		util.checkNDArray(b, "b");
-		bufferB = b._buffer;
-		shapeOut = b.shape;
-		dataTypeOut = b.dataType;
-	} else {
-		throw new TypeError("Unsupported type of a");
-	}
-	if (a instanceof NDArray) {
-		a._decRef();
-	}
-	if (b instanceof NDArray) {
-		b._decRef();
-	}
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, dataTypeOut, furiousContext);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._buffer = a._buffer;
-				a._buffer = null;
-			} else if ((b instanceof NDArray) && !b._hasRefs()) {
-				out._buffer = b._buffer;
-				b._buffer = null;
-			} else {
-				out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(shapeOut, out.shape);
-			util.checkDataTypesCompatibility(dataTypeOut, out.dataType);
-			out._incRef();
-		}
-		if (a instanceof NDArray) {
-			if (b instanceof NDArray) {
-				var kernel = binaryOpKernels[dataTypeOut.type];
-				kernel.setArg(0, new Uint32Array([out.length]));
-				kernel.setArg(1, bufferA);
-				kernel.setArg(2, bufferB);
-				kernel.setArg(3, out._buffer);
-				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-			} else {
-				var kernel = binaryConstOpKernels[dataTypeOut.type];
-				kernel.setArg(0, new Uint32Array([out.length]));
-				kernel.setArg(1, bufferA);
-				kernel.setArg(2, new dataTypeOut.arrayType([b]));
-				kernel.setArg(3, out._buffer);
-				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-			}
-		} else {
-			var kernel = binaryRevConstKernels[dataTypeOut.type];
-			kernel.setArg(0, new Uint32Array([out.length]));
-			kernel.setArg(1, bufferB);
-			kernel.setArg(2, new dataTypeOut.arrayType([a]));
-			kernel.setArg(3, out._buffer);
-			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-		}
-	} catch (e) {
-		/* Restore the previous state */
-		if (a instanceof NDArray) {
-			a._incRef();
-		}
-		if (b instanceof NDArray) {
-			b._incRef();
-		}
-		throw e;
-	}
-	if (a instanceof NDArray) {
-		a._tryInvalidate();
-	}
-	if (b instanceof NDArray) {
-		b._tryInvalidate();
-	}
-	return out;
-};
-
-var unaryArithOp = function(a, out, furiousContext, unaryOpKernels) {
-	util.checkNDArray(a, "a");
-	a._decRef();
-	var bufferA = a._buffer;
-	try {
-		if (typeof out === "undefined") {
-			out = new NDArray(a.shape, a.dataType, furiousContext);
-			if ((a instanceof NDArray) && !a._hasRefs()) {
-				out._buffer = a._buffer;
-				a._buffer = null;
-			} else {
-				out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, out.length * out.dataType.size);
-			}
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility(a.shape, out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var kernel = unaryOpKernels[a.dataType.type];
-		kernel.setArg(0, new Uint32Array([out.length]));
-		kernel.setArg(1, bufferA);
-		kernel.setArg(2, out._buffer);
-		furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [out.length]);
-	} catch (e) {
-		/* Restore the previous state */
-		a._incRef();
-		throw e;
-	}
-	a._tryInvalidate();
-	return out;
-};
-
-var axisReduceOp = function(a, axis, out, furiousContext, reduceKernels, axisReduceKernels) {
-	util.checkNDArray(a, "a");
-	if (typeof axis === "undefined") {
-		if (typeof out === "undefined") {
-			out = new NDArray([], a.dataType, furiousContext);
-			out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, a.dataType.size);
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility([], out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var lengthA = a.length;
-		var maxWorkItemsPerCU = Math.min(
-			Math.min(furiousContext.deviceInfo.maxWorkGroupSize,
-				furiousContext.deviceInfo.maxWorkItemSizes[0]), 
-			furiousContext.deviceInfo.localMemorySize / a.dataType.size);
-		/* The minimal ammount of parallelism that justifies switching to two-pass reduction */
-		var parallelisationThreshold = 16;
-		var kernel = reduceKernels[a.dataType.type];
-		if (lengthA < maxWorkItemsPerCU * parallelisationThreshold) {
-			/* One reduction is enough */
-			kernel.setArg(0, new Uint32Array([lengthA]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, new Uint32Array([maxWorkItemsPerCU * a.dataType.size]));
-			kernel.setArg(3, out._buffer);
-			/* Important: use only one work group */
-			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null, [maxWorkItemsPerCU], [maxWorkItemsPerCU]);
-		} else {
-			/* Two-step reduction */
-			var maxComputeUnits = furiousContext.deviceInfo.maxComputeUnits;
-			var workGroupSizeMultiple = kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE);
-			var tempBuffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, maxComputeUnits * a.dataType.size);
-
-			kernel.setArg(0, new Uint32Array([lengthA]));
-			kernel.setArg(1, a._buffer);
-			kernel.setArg(2, new Uint32Array([maxWorkItemsPerCU * a.dataType.size]));
-			kernel.setArg(3, tempBuffer);
-			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null,
-				[maxWorkItemsPerCU * maxComputeUnits],
-				[maxWorkItemsPerCU]);
-
-			var workGroupSize = Math.min(maxWorkItemsPerCU,
-				util.roundUp(maxComputeUnits, workGroupSizeMultiple));
-			kernel.setArg(0, new Uint32Array([maxComputeUnits]));
-			kernel.setArg(1, tempBuffer);
-			kernel.setArg(2, new Uint32Array([workGroupSize * a.dataType.size]));
-			kernel.setArg(3, out._buffer);
-			/* Important: use only one work group */
-			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, null,
-				[workGroupSize],
-				[workGroupSize]);
-
-			tempBuffer.release();
-		}
-		a._tryRelease();
-		return out;
-	} else {
-		axis = util.checkAxis(axis, a.shape.length);
-		var shapeOut = util.computeAxisReductionOutShape(a.shape, axis);
-		if (typeof out === "undefined") {
-			out = new NDArray(shapeOut, a.dataType, furiousContext);
-			out._buffer = furiousContext.context.createBuffer(cl.MEM_READ_WRITE, a.dataType.size * out.length);
-		} else {
-			util.checkNDArray(out, "out");
-			util.checkShapesCompatibility([], out.shape);
-			util.checkDataTypesCompatibility(a.dataType, out.dataType);
-			out._incRef();
-		}
-		var outerStride = util.computeOuterStride(a.shape, axis);
-		var reductionDim = a.shape[axis];
-		var innerStride = util.computeInnerStride(a.shape, axis);
-		var kernel = axisReduceKernels[a.dataType.type];
-		kernel.setArg(0, new Uint32Array([reductionDim]));
-		kernel.setArg(1, a._buffer);
-		kernel.setArg(2, out._buffer);
-		furiousContext.queue.enqueueNDRangeKernel(kernel, 2, null,
-			[outerStride, innerStride]);
-		a._tryRelease();
-		return out;
-	}
-};
-
-
-WebCLContext.prototype.add = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, this.kernels.add, this.kernels.addc, this.kernels.addc);
-};
-
-WebCLContext.prototype.sub = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, this.kernels.sub, this.kernels.subc, this.kernels.subrc);
-};
-
-WebCLContext.prototype.mul = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, this.kernels.mul, this.kernels.mulc, this.kernels.mulc);
-};
-
-WebCLContext.prototype.div = function(a, b, out) {
-	return binaryArithOp(a, b, out, this, this.kernels.div, this.kernels.divc, this.kernels.divrc);
-};
-
-WebCLContext.prototype.neg = function(a, out) {
-	return unaryArithOp(a, out, this, this.kernels.neg);
-};
-
-WebCLContext.prototype.abs = function(a, out) {
-	return unaryArithOp(a, out, this, this.kernels.abs);
-};
-
-WebCLContext.prototype.exp = function(a, out) {
-	return unaryArithOp(a, out, this, this.kernels.exp);
-};
-
-WebCLContext.prototype.log = function(a, out) {
-	return unaryArithOp(a, out, this, this.kernels.log);
-};
-
-WebCLContext.prototype.sqrt = function(a, out) {
-	return unaryArithOp(a, out, this, this.kernels.sqrt);
-};
-
-WebCLContext.prototype.square = function(a, out) {
-	return unaryArithOp(a, out, this, this.kernels.square);
-};
-
-WebCLContext.prototype.min = function(a, axis, out) {
-	return axisReduceOp(a, axis, out, this, this.kernels.min, this.kernels.amin);
-};
-
-WebCLContext.prototype.max = function(a, axis, out) {
-	return axisReduceOp(a, axis, out, this, this.kernels.max, this.kernels.amax);
-};
-
-WebCLContext.prototype.sum = function(a, axis, out) {
-	return axisReduceOp(a, axis, out, this, this.kernels.sum, this.kernels.asum);
-};
-
-WebCLContext.prototype.dot = function(a, b, out) {
-	util.checkNDArray(a, "a");
-	util.checkNDArray(b, "b");
-	util.checkDataTypesCompatibility(a.dataType, b.dataType);
-
-	/* The axis of b used in reduction: axis 0 for 1D array, second-to-last axis for ND array */
-	var aAxis = Math.max(a.shape.length - 1, 0);
-	var bAxis = Math.max(b.shape.length - 2, 0);
-	var reductionDim = a.shape[aAxis];
-	if (reductionDim !== b.shape[bAxis]) {
-		throw new RangeError("Arrays have incompatible reduction dimensions");
-	}
-	var shapeOut = [], strideA = 1, outerStrideB = 1, innerStrideB = 1;
-	for (var i = 0; i < aAxis; i++) {
-		shapeOut.push(a.shape[i]);
-		strideA *= a.shape[i];
-	}
-	for (var i = 0; i < b.shape.length; i++) {
-		var dim = b.shape[i];
-		if (i < bAxis) {
-			outerStrideB *= dim;
-			shapeOut.push(dim);
-		} else if (i > bAxis) {
-			innerStrideB *= dim;
-			shapeOut.push(dim);
-		}
-	}
-	if (typeof out === "undefined") {
-		out = this.empty(shapeOut, a.dataType);
-	} else if (out instanceof NDArray) {
-		util.checkNDArray(out, "out");
-		util.checkShapesCompatibility(out.shape, shapeOut);
-		util.checkDataTypesCompatibility(out.dataType, a.dataType);
-		util.checkDifferentNDArrays(a, out, "a", "out");
-		util.checkDifferentNDArrays(b, out, "b", "out");
-		out._incRef();
-	}
-	var kernel = this.kernels.dot[out.dataType.type];
-	kernel.setArg(0, new Uint32Array([reductionDim]));
-	kernel.setArg(1, a._buffer);
-	kernel.setArg(2, b._buffer);
-	kernel.setArg(3, out._buffer);
-	this.queue.enqueueNDRangeKernel(kernel, 3, null,
-		[strideA, outerStrideB, innerStrideB]);
-	a._tryRelease();
-	b._tryRelease();
-	return out;
-};
-
-module.exports = WebCLContext;
-
-},{"../DataType":1,"../NDArray":2,"../util":12}],14:[function(_dereq_,module,exports){
-
-},{}],15:[function(_dereq_,module,exports){
+},{}],10:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -4911,8 +2277,8 @@ var substr = 'ab'.substr(-1) === 'b'
     }
 ;
 
-}).call(this,_dereq_("+NscNm"))
-},{"+NscNm":16}],16:[function(_dereq_,module,exports){
+}).call(this,require("+NscNm"))
+},{"+NscNm":11}],11:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -4977,7 +2343,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],17:[function(_dereq_,module,exports){
+},{}],12:[function(require,module,exports){
 /*
  Copyright 2013 Daniel Wirtz <dcode@dcode.io>
 
@@ -5243,9 +2609,9 @@ process.chdir = function (dir) {
                 // There is no reliable way to detect node.js as an environment, so our
                 // best bet is to feature-detect what we actually need.
                 Util.IS_NODE =
-                    typeof _dereq_ === 'function' &&
-                    typeof _dereq_("fs").readFileSync === 'function' &&
-                    typeof _dereq_("path").resolve === 'function';
+                    typeof require === 'function' &&
+                    typeof require("fs").readFileSync === 'function' &&
+                    typeof require("path").resolve === 'function';
             } catch (e) {}
 
             /**
@@ -5287,7 +2653,7 @@ process.chdir = function (dir) {
                     callback = null;
                 if (Util.IS_NODE) {
                     if (callback) {
-                        _dereq_("fs").readFile(path, function(err, data) {
+                        require("fs").readFile(path, function(err, data) {
                             if (err)
                                 callback(null);
                             else
@@ -5295,7 +2661,7 @@ process.chdir = function (dir) {
                         });
                     } else
                         try {
-                            return _dereq_("fs").readFileSync(path);
+                            return require("fs").readFileSync(path);
                         } catch (e) {
                             return null;
                         }
@@ -8575,7 +5941,7 @@ process.chdir = function (dir) {
             Builder.prototype["import"] = function(json, filename) {
                 if (typeof filename === 'string') {
                     if (ProtoBuf.Util.IS_NODE)
-                        filename = _dereq_("path")['resolve'](filename);
+                        filename = require("path")['resolve'](filename);
                     if (this.files[filename] === true) {
                         this.reset();
                         return this; // Skip duplicate imports
@@ -8968,7 +6334,7 @@ process.chdir = function (dir) {
     }
 
     /* CommonJS */ if (typeof module !== 'undefined' && module["exports"])
-        module["exports"] = init(_dereq_("bytebuffer"));
+        module["exports"] = init(require("bytebuffer"));
     /* AMD */ else if (typeof define === 'function' && define["amd"])
         define(["ByteBuffer"], init);
     /* Global */ else
@@ -8976,7 +6342,7 @@ process.chdir = function (dir) {
 
 })(this);
 
-},{"bytebuffer":19,"fs":14,"path":15}],18:[function(_dereq_,module,exports){
+},{"bytebuffer":14,"fs":9,"path":10}],13:[function(require,module,exports){
 /*
  Copyright 2013 Daniel Wirtz <dcode@dcode.io>
 
@@ -8992,11 +6358,11 @@ process.chdir = function (dir) {
  See the License for the specific language governing permissions and
  limitations under the License.
  */
-var ProtoBuf = _dereq_("./dist/ProtoBuf.js");
+var ProtoBuf = require("./dist/ProtoBuf.js");
 
 module.exports = ProtoBuf;
 
-},{"./dist/ProtoBuf.js":17}],19:[function(_dereq_,module,exports){
+},{"./dist/ProtoBuf.js":12}],14:[function(require,module,exports){
 /*
  ByteBuffer.js (c) 2013-2014 Daniel Wirtz <dcode@dcode.io>
  This version of ByteBuffer.js uses an ArrayBuffer (AB) as its backing buffer and is compatible with modern browsers.
@@ -9084,9 +6450,9 @@ c){var e=null;"number"===typeof a&&(e=a,a=function(){return null});for(;null!==e
 a||65535<a)throw RangeError("Illegal char code: "+a);return a},m:function(a){if("number"!==typeof a||a!==a)throw TypeError("Illegal code point: "+typeof a);if(0>a||1114111<a)throw RangeError("Illegal code point: "+a);return a},h:function(a){return 128>a?1:2048>a?2:65536>a?3:4},n:function(b){for(var c,d=0;null!==(c=b());)d+=a.h(c);return d},b:function(b){var c=0,d=0;a.f(b,function(b){++c;d+=a.h(b)});return[c,d]}};return a}(),s=String.fromCharCode;k.a=function(a){var b=0;return function(){return b<
 a.length?a.charCodeAt(b++):null}};k.c=function(){var a=[],b=[];return function(){if(0===arguments.length)return b.join("")+s.apply(String,a);1024<a.length+arguments.length&&(b.push(s.apply(String,a)),a.length=0);Array.prototype.push.apply(a,arguments)}};d.prototype.toUTF8=function(a,b){"undefined"===typeof a&&(a=this.offset);"undefined"===typeof b&&(b=this.limit);if(!this.noAssert){if("number"!==typeof a||0!==a%1)throw new TypeError("Illegal begin: Not an integer");a>>>=0;if("number"!==typeof b||
 0!==b%1)throw new TypeError("Illegal end: Not an integer");b>>>=0;if(0>a||a>b||b>this.buffer.byteLength)throw new RangeError("Illegal range: 0 <= "+a+" <= "+b+" <= "+this.buffer.byteLength);}var c=this,d;try{k.d(function(){return a<b?c.view.getUint8(a++):null},d=k.c())}catch(h){if(a!==b)throw new RangeError("Illegal range: Truncated data, "+a+" != "+b);}return d()};d.fromUTF8=function(a,b,c){if(!c&&"string"!==typeof a)throw new TypeError("Illegal str: Not a string");var e=new d(k.b(k.a(a),!0)[1],
-b,c),h=0;k.e(k.a(a),function(a){e.view.setUint8(h++,a)});e.limit=h;return e};return d}"undefined"!=typeof module&&module.exports?module.exports=s(_dereq_("long")):"undefined"!==typeof define&&define.amd?define("ByteBuffer",["Math/Long"],function(l){return s(l)}):(r.dcodeIO||(r.dcodeIO={}),r.dcodeIO.ByteBuffer=s(r.dcodeIO.Long))})(this);
+b,c),h=0;k.e(k.a(a),function(a){e.view.setUint8(h++,a)});e.limit=h;return e};return d}"undefined"!=typeof module&&module.exports?module.exports=s(require("long")):"undefined"!==typeof define&&define.amd?define("ByteBuffer",["Math/Long"],function(l){return s(l)}):(r.dcodeIO||(r.dcodeIO={}),r.dcodeIO.ByteBuffer=s(r.dcodeIO.Long))})(this);
 
-},{"long":21}],20:[function(_dereq_,module,exports){
+},{"long":16}],15:[function(require,module,exports){
 /*
  Copyright 2013 Daniel Wirtz <dcode@dcode.io>
  Copyright 2009 The Closure Library Authors. All Rights Reserved.
@@ -10038,7 +7404,7 @@ b,c),h=0;k.e(k.a(a),function(a){e.view.setUint8(h++,a)});e.limit=h;return e};ret
 
 })(this);
 
-},{}],21:[function(_dereq_,module,exports){
+},{}],16:[function(require,module,exports){
 /*
  Copyright 2013 Daniel Wirtz <dcode@dcode.io>
  Copyright 2009 The Closure Library Authors. All Rights Reserved.
@@ -10056,8 +7422,6 @@ b,c),h=0;k.e(k.a(a),function(a){e.view.setUint8(h++,a)});e.limit=h;return e};ret
  limitations under the License.
  */
 
-module.exports = _dereq_("./dist/Long.js");
+module.exports = require("./dist/Long.js");
 
-},{"./dist/Long.js":20}]},{},[6])
-(6)
-});
+},{"./dist/Long.js":15}]},{},[3]);
