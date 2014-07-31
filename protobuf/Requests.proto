@@ -92,7 +92,7 @@ message DeallocateRequest {
 }
 
 message FetchRequest {
-	required fixed32 id_a = 1;
+	required sfixed32 id_a = 1;
 }
 
 message BinaryOperationRequest {
