@@ -24,7 +24,7 @@ module.exports = function(grunt) {
 		},
 
 		browserify: {
-			furious: {
+			library: {
 				options: {
 					exclude: ["node-webcl"],
 					transform: ["brfs"],
@@ -35,6 +35,17 @@ module.exports = function(grunt) {
 				},
 				files: {
 					"furious.js": ["lib/furious.js"]
+				}
+			},
+			worker: {
+				options: {
+					transform: ["brfs"],
+					bundleOptions : {
+						debug: false
+					}
+				},
+				files: {
+					"furious-worker.js": ["lib/js/JSWorker.js"]
 				}
 			},
 			test: {
@@ -52,9 +63,14 @@ module.exports = function(grunt) {
 		},
 
 		uglify: {
-			dist: {
+			library: {
 				files: {
 					"furious.min.js": ["furious.js"]
+				}
+			},
+			worker: {
+				files: {
+					"furious-worker.min.js": ["furious-worker.js"]
 				}
 			}
 		},
