@@ -533,4 +533,113 @@ describe("Context", function(){
 			}
 		});
 	});
+	describe("dot", function() {
+		it("Correct shape for 2-dimensional arrays", function() {
+			var x = context.empty([2, 5]);
+			var y = context.empty([5, 11]);
+			var z = context.dot(x, y);
+			expect(z.shape).to.deep.equal([2, 11]);
+			z.invalidate();
+		});
+		it("Correct shape for 3-dimensional arrays", function() {
+			var x = context.empty([2, 3, 4]);
+			var y = context.empty([7, 4, 8]);
+			var z = context.dot(x, y);
+			expect(z.shape).to.deep.equal([2, 3, 7, 8]);
+			z.invalidate();
+		});
+		it("Correct shape for 4-dimensional arrays", function() {
+			var x = context.empty([2, 3, 4, 5]);
+			var y = context.empty([6, 7, 5, 8]);
+			var z = context.dot(x, y);
+			expect(z.shape).to.deep.equal([2, 3, 4, 6, 7, 8]);
+			z.invalidate();
+		});
+		it("Correct value for 1-dimensional arrays", function(done) {
+			var x = context.array([2, 5]);
+			var y = context.array([5, 11]);
+			context.dot(x, y).get(function(z) {
+				expect(z).to.deep.equal(65);
+				done();
+			});
+		});
+		it("Correct value for 2-dimensional arrays", function(done) {
+			var x = context.array([[64,  2,  3],
+			                       [61, 60,  6]]);
+			var y = context.array([[92, 99,  1,  8, 15],
+			                       [67, 74, 51, 58, 40],
+			                       [98, 80,  7, 14, 16]]);
+			var z = context.dot(x, y);
+			z.get(function(result) {
+				expect(result).to.deep.equal([[  6316,  6724,  187,  670, 1088],
+				                              [ 10220, 10959, 3163, 4052, 3411]]);
+				done();
+			});
+		});
+	});
+	describe("cholesky", function() {
+		var xRef = [[1155,  870,  715,  690,  795],
+		            [ 870, 1055,  845,  765,  690],
+		            [ 715,  845, 1105,  845,  715],
+		            [ 690,  765,  845, 1055,  870],
+		            [ 795,  690,  715,  870, 1155]];
+		var lRef = [[ 33.985290935932859213,  0.0                 ,  0.0                 ,  0.0                 ,  0.0                 ],
+		            [ 25.599310055637733541, 19.991881469119530124,  0.0                 ,  0.0                 ,  0.0                 ],
+		            [ 21.038513436529861167, 15.327650471612518146, 20.674720878430960624,  0.0                 ,  0.0                 ],
+		            [ 20.302901078609238539, 12.267966906395521676, 11.115895371451522067, 19.202241167809937394,  0.0                 ],
+		            [ 23.392472981875862104,  4.560292702297942924,  7.39833786233360069 , 13.377618959392336251, 18.796272133421663142]];
+		var dataTypes = ["f32", "f64"];
+		it("Produces an output matrix of the same shape as input matrix", function() {
+			var x = context.array([[1, 0], [0, 1]]);
+			var c = context.cholesky(x);
+			expect(c.shape).to.deep.equal(x.shape);
+			c.invalidate();
+		});
+		it("Produces an output matrix of the same data type as input matrix", function() {
+			var x = context.array([[1, 0], [0, 1]]);
+			var c = context.cholesky(x);
+			expect(c.dataType).to.equal(x.dataType);
+			c.invalidate();
+		});
+		it("Produces a lower triangular matrix with kind = \"L\"", function(done) {
+			var x = context.array(xRef);
+			var l = context.cholesky(x, "L");
+			l.get(function(lVal) {
+				for (var i = 0; i < l.shape[0]; i++) {
+					for (var j = i + 1; j < l.shape[1]; j++) {
+						expect(lVal[i][j]).to.equal(0.0);
+					}
+				}
+				done();
+			});
+		});
+		it("Produces an upper triangular matrix with kind = \"U\"", function(done) {
+			var x = context.array(xRef);
+			var u = context.cholesky(x, "U");
+			u.get(function(uVal) {
+				for (var i = 0; i < u.shape[0]; i++) {
+					for (var j = 0; j < i; j++) {
+						expect(uVal[i][j]).to.equal(0.0);
+					}
+				}
+				done();
+			});
+		});
+		for (var i = 0; i < dataTypes.length; i++) {
+			(function(dataType) {
+				it("Produces a Cholesky decomposition (" + dataType + " data type)", function(done) {
+					var x = context.array(xRef);
+					var l = context.cholesky(x, "L");
+					l.get(function(lVal) {
+						for (var i = 0; i < l.shape[0]; i++) {
+							for (var j = 0; j < l.shape[1]; j++) {
+								expect(lVal[i][j]).to.be.closeTo(lRef[i][j], Math.abs(lRef[i][j]) * 10.0 * l.dataType.epsilon);
+							}
+						}
+						done();
+					});
+				});
+			})(dataTypes[i]);
+		}
+	});
 });

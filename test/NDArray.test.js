@@ -409,48 +409,4 @@ describe("NDArray", function() {
 			});
 		});
 	});
-	describe("dot", function() {
-		it("Correct shape for 2-dimensional arrays", function() {
-			var x = context.empty([2, 5]);
-			var y = context.empty([5, 11]);
-			var z = context.dot(x, y);
-			expect(z.shape).to.deep.equal([2, 11]);
-			z.invalidate();
-		});
-		it("Correct shape for 3-dimensional arrays", function() {
-			var x = context.empty([2, 3, 4]);
-			var y = context.empty([7, 4, 8]);
-			var z = context.dot(x, y);
-			expect(z.shape).to.deep.equal([2, 3, 7, 8]);
-			z.invalidate();
-		});
-		it("Correct shape for 4-dimensional arrays", function() {
-			var x = context.empty([2, 3, 4, 5]);
-			var y = context.empty([6, 7, 5, 8]);
-			var z = context.dot(x, y);
-			expect(z.shape).to.deep.equal([2, 3, 4, 6, 7, 8]);
-			z.invalidate();
-		});
-		it("Correct value for 1-dimensional arrays", function(done) {
-			var x = context.array([2, 5]);
-			var y = context.array([5, 11]);
-			context.dot(x, y).get(function(z) {
-				expect(z).to.deep.equal(65);
-				done();
-			});
-		});
-		it("Correct value for 2-dimensional arrays", function(done) {
-			var x = context.array([[64,  2,  3],
-			                       [61, 60,  6]]);
-			var y = context.array([[92, 99,  1,  8, 15],
-			                       [67, 74, 51, 58, 40],
-			                       [98, 80,  7, 14, 16]]);
-			var z = context.dot(x, y);
-			z.get(function(result) {
-				expect(result).to.deep.equal([[  6316,  6724,  187,  670, 1088],
-				                              [ 10220, 10959, 3163, 4052, 3411]]);
-				done();
-			});
-		});
-	});
 });
