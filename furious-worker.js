@@ -1538,14 +1538,14 @@ exports.repeat = function(dataA, dataOut, outerStride, innerStride, expansionDim
 
 var protobufjs = require("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
-var requestsProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nenum DataType {\r\n\tFLOAT64 = 0;\r\n\tFLOAT32 = 1;\r\n}\r\n\r\nmessage Request {\r\n\tenum Type {\r\n\t\tEMPTY_ARRAY              =  0;\r\n\t\tDATA_ARRAY               =  1;\r\n\t\tCONST_ARRAY              =  2;\r\n\t\tLINSPACE                 =  3;\r\n\t\tRESHAPE                  =  4;\r\n\t\tREPEAT                   =  5;\r\n\t\tDEALLOCATE               =  6;\r\n\t\tFETCH                    =  7;\r\n\t\tBARRIER                  =  8;\r\n\t\tINFO                     =  9;\r\n\t\tBINARY_OPERATION         = 10;\r\n\t\tBINARY_CONST_OPERATION   = 11;\r\n\t\tUNARY_OPERATION          = 12;\r\n\t\tREDUCTION_OPERATION      = 13;\r\n\t\tAXIS_REDUCTION_OPERATION = 14;\r\n\t\tDOT_OPERATION            = 15;\r\n\t}\r\n\trequired fixed32                     id                             =  1;\r\n\trequired Type                        type                           =  2;\r\n\r\n\toptional EmptyArrayRequest           empty_array_request            =  3;\r\n\toptional DataArrayRequest            data_array_request             =  4;\r\n\toptional ConstArrayRequest           const_array_request            =  5;\r\n\toptional LinspaceRequest             linspace_request               =  6;\r\n\toptional ReshapeRequest              reshape_request                =  7;\r\n\toptional RepeatRequest               repeat_request                 =  8;\r\n\toptional DeallocateRequest           deallocate_request             =  9;\r\n\toptional FetchRequest                fetch_request                  = 10;\r\n\toptional BinaryOperationRequest      binary_operation_request       = 11;\r\n\toptional BinaryConstOperationRequest binary_const_operation_request = 12;\r\n\toptional UnaryOperationRequest       unary_operation_request        = 13;\r\n\toptional ReductionRequest            reduction_request              = 14;\r\n\toptional AxisReductionRequest        axis_reduction_request         = 15;\r\n\toptional DotOperationRequest         dot_operation_request          = 16;\r\n}\r\n\r\nmessage EmptyArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n}\r\n\r\nmessage DataArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired bytes    data_buffer = 4;\r\n}\r\n\r\nmessage ConstArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired double   fill_value  = 4;\r\n}\r\n\r\nmessage LinspaceRequest {\r\n\trequired sfixed32  id_out     = 1;\r\n\trequired double    start      = 2;\r\n\trequired double    stop       = 3;\r\n\trequired uint32    samples    = 4;\r\n\trequired bool      closed     = 5;\r\n\trequired DataType  data_type  = 6;\r\n}\r\n\r\nmessage ReshapeRequest {\r\n\trequired sfixed32  id_a      = 1;\r\n\trequired fixed32   id_out    = 2;\r\n\trepeated uint32    shape_out = 3 [packed=true];\r\n}\r\n\r\nmessage RepeatRequest {\r\n\trequired sfixed32 id_a    = 1;\r\n\trequired fixed32  id_out  = 2;\r\n\trequired uint32   axis    = 3;\r\n\trequired uint32   repeats = 4;\r\n}\r\n\r\nmessage DeallocateRequest {\r\n\trequired fixed32 id_a = 1;\r\n}\r\n\r\nmessage FetchRequest {\r\n\trequired sfixed32 id_a = 1;\r\n}\r\n\r\nmessage BinaryOperationRequest {\r\n\tenum Type {\r\n\t\tADD = 0;\r\n\t\tSUB = 1;\r\n\t\tMUL = 2;\r\n\t\tDIV = 3;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired sfixed32 id_b   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage BinaryConstOperationRequest {\r\n\tenum Type {\r\n\t\tADDC  = 0;\r\n\t\tSUBC  = 1;\r\n\t\tSUBRC = 2;\r\n\t\tMULC  = 3;\r\n\t\tDIVC  = 4;\r\n\t\tDIVRC = 5;\r\n\t}\r\n\trequired Type     type    = 1;\r\n\trequired sfixed32 id_a    = 2;\r\n\trequired double   value_b = 3;\r\n\trequired fixed32  id_out  = 4;\r\n}\r\n\r\nmessage UnaryOperationRequest {\r\n\tenum Type {\r\n\t\tNEG    = 0;\r\n\t\tABS    = 1;\r\n\t\tEXP    = 2;\r\n\t\tLOG    = 3;\r\n\t\tSQRT   = 4;\r\n\t\tSQUARE = 5;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage ReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage AxisReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired uint32   axis   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage DotOperationRequest {\r\n\trequired sfixed32 id_a   = 1;\r\n\trequired sfixed32 id_b   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n";
+var requestsProto = "package furious;\n\noption optimize_for = LITE_RUNTIME;\n\nenum DataType {\n\tFLOAT64 = 0;\n\tFLOAT32 = 1;\n}\n\nmessage Request {\n\tenum Type {\n\t\tEMPTY_ARRAY              =  0;\n\t\tDATA_ARRAY               =  1;\n\t\tCONST_ARRAY              =  2;\n\t\tLINSPACE                 =  3;\n\t\tRESHAPE                  =  4;\n\t\tREPEAT                   =  5;\n\t\tDEALLOCATE               =  6;\n\t\tFETCH                    =  7;\n\t\tBARRIER                  =  8;\n\t\tINFO                     =  9;\n\t\tBINARY_OPERATION         = 10;\n\t\tBINARY_CONST_OPERATION   = 11;\n\t\tUNARY_OPERATION          = 12;\n\t\tREDUCTION_OPERATION      = 13;\n\t\tAXIS_REDUCTION_OPERATION = 14;\n\t\tDOT_OPERATION            = 15;\n\t}\n\trequired fixed32                     id                             =  1;\n\trequired Type                        type                           =  2;\n\n\toptional EmptyArrayRequest           empty_array_request            =  3;\n\toptional DataArrayRequest            data_array_request             =  4;\n\toptional ConstArrayRequest           const_array_request            =  5;\n\toptional LinspaceRequest             linspace_request               =  6;\n\toptional ReshapeRequest              reshape_request                =  7;\n\toptional RepeatRequest               repeat_request                 =  8;\n\toptional DeallocateRequest           deallocate_request             =  9;\n\toptional FetchRequest                fetch_request                  = 10;\n\toptional BinaryOperationRequest      binary_operation_request       = 11;\n\toptional BinaryConstOperationRequest binary_const_operation_request = 12;\n\toptional UnaryOperationRequest       unary_operation_request        = 13;\n\toptional ReductionRequest            reduction_request              = 14;\n\toptional AxisReductionRequest        axis_reduction_request         = 15;\n\toptional DotOperationRequest         dot_operation_request          = 16;\n}\n\nmessage EmptyArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n}\n\nmessage DataArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n\trequired bytes    data_buffer = 4;\n}\n\nmessage ConstArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n\trequired double   fill_value  = 4;\n}\n\nmessage LinspaceRequest {\n\trequired sfixed32  id_out     = 1;\n\trequired double    start      = 2;\n\trequired double    stop       = 3;\n\trequired uint32    samples    = 4;\n\trequired bool      closed     = 5;\n\trequired DataType  data_type  = 6;\n}\n\nmessage ReshapeRequest {\n\trequired sfixed32  id_a      = 1;\n\trequired fixed32   id_out    = 2;\n\trepeated uint32    shape_out = 3 [packed=true];\n}\n\nmessage RepeatRequest {\n\trequired sfixed32 id_a    = 1;\n\trequired fixed32  id_out  = 2;\n\trequired uint32   axis    = 3;\n\trequired uint32   repeats = 4;\n}\n\nmessage DeallocateRequest {\n\trequired fixed32 id_a = 1;\n}\n\nmessage FetchRequest {\n\trequired sfixed32 id_a = 1;\n}\n\nmessage BinaryOperationRequest {\n\tenum Type {\n\t\tADD = 0;\n\t\tSUB = 1;\n\t\tMUL = 2;\n\t\tDIV = 3;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired sfixed32 id_b   = 3;\n\trequired fixed32  id_out = 4;\n}\n\nmessage BinaryConstOperationRequest {\n\tenum Type {\n\t\tADDC  = 0;\n\t\tSUBC  = 1;\n\t\tSUBRC = 2;\n\t\tMULC  = 3;\n\t\tDIVC  = 4;\n\t\tDIVRC = 5;\n\t}\n\trequired Type     type    = 1;\n\trequired sfixed32 id_a    = 2;\n\trequired double   value_b = 3;\n\trequired fixed32  id_out  = 4;\n}\n\nmessage UnaryOperationRequest {\n\tenum Type {\n\t\tNEG    = 0;\n\t\tABS    = 1;\n\t\tEXP    = 2;\n\t\tLOG    = 3;\n\t\tSQRT   = 4;\n\t\tSQUARE = 5;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired fixed32  id_out = 3;\n}\n\nmessage ReductionRequest {\n\tenum Type {\n\t\tSUM = 0;\n\t\tMIN = 1;\n\t\tMAX = 2;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired fixed32  id_out = 3;\n}\n\nmessage AxisReductionRequest {\n\tenum Type {\n\t\tSUM = 0;\n\t\tMIN = 1;\n\t\tMAX = 2;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired uint32   axis   = 3;\n\trequired fixed32  id_out = 4;\n}\n\nmessage DotOperationRequest {\n\trequired sfixed32 id_a   = 1;\n\trequired sfixed32 id_b   = 2;\n\trequired fixed32  id_out = 3;\n}\n";
 module.exports = protobufjs.loadProto(requestsProto).build("furious");
 
 },{"protobufjs":13}],7:[function(require,module,exports){
 
 var protobufjs = require("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
-var responsesProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nmessage Response {\r\n\tenum Type {\r\n\t\tFETCH   = 0;\r\n\t\tERROR   = 1;\r\n\t\tINIT    = 2;\r\n\t\tBARRIER = 3;\r\n\t\tINFO    = 4;\r\n\t}\r\n\trequired fixed32         id               = 1;\r\n\trequired Type            type             = 2;\r\n\r\n\toptional FetchResponse   fetch_response   = 3;\r\n\toptional ErrorResponse   error_response   = 4;\r\n\toptional InitResponse    init_response    = 5;\r\n\toptional InfoResponse    info_response    = 7;\r\n}\r\n\r\nmessage FetchResponse {\r\n\trequired bytes data_buffer = 1;\r\n}\r\n\r\nmessage ErrorResponse {\r\n\tenum Type {\r\n\t\tRUNTIME  = 0;\r\n\t\tARGUMENT = 1;\r\n\t\tPARSE    = 2;\r\n\t}\r\n\trequired Type   type        = 1;\r\n\toptional string description = 2;\r\n}\r\n\r\nmessage InitResponse {\r\n\toptional uint32 concurrency = 1;\r\n}\r\n\r\nmessage InfoResponse {\r\n}\r\n";
+var responsesProto = "package furious;\n\noption optimize_for = LITE_RUNTIME;\n\nmessage Response {\n\tenum Type {\n\t\tFETCH   = 0;\n\t\tERROR   = 1;\n\t\tINIT    = 2;\n\t\tBARRIER = 3;\n\t\tINFO    = 4;\n\t}\n\trequired fixed32         id               = 1;\n\trequired Type            type             = 2;\n\n\toptional FetchResponse   fetch_response   = 3;\n\toptional ErrorResponse   error_response   = 4;\n\toptional InitResponse    init_response    = 5;\n\toptional InfoResponse    info_response    = 7;\n}\n\nmessage FetchResponse {\n\trequired bytes data_buffer = 1;\n}\n\nmessage ErrorResponse {\n\tenum Type {\n\t\tRUNTIME  = 0;\n\t\tARGUMENT = 1;\n\t\tPARSE    = 2;\n\t}\n\trequired Type   type        = 1;\n\toptional string description = 2;\n}\n\nmessage InitResponse {\n\toptional uint32 concurrency = 1;\n}\n\nmessage InfoResponse {\n}\n";
 module.exports = protobufjs.loadProto(responsesProto).build("furious");
 
 },{"protobufjs":13}],8:[function(require,module,exports){
@@ -2277,8 +2277,8 @@ var substr = 'ab'.substr(-1) === 'b'
     }
 ;
 
-}).call(this,require("+NscNm"))
-},{"+NscNm":11}],11:[function(require,module,exports){
+}).call(this,require("JkpR2F"))
+},{"JkpR2F":11}],11:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -2384,7 +2384,7 @@ process.chdir = function (dir) {
          * @const
          * @expose
          */
-        ProtoBuf.VERSION = "3.2.1";
+        ProtoBuf.VERSION = "3.2.2";
 
         /**
          * Wire types.
@@ -4411,7 +4411,7 @@ process.chdir = function (dir) {
                      * @function
                      * @param {!ByteBuffer|!ArrayBuffer|!Buffer|string} buffer Buffer to decode from
                      * @param {string=} enc Encoding if buffer is a string: hex, utf8 (not recommended), defaults to base64
-                     * @return {!ProtoBuf.Builder.Message} Decoded message
+                     * @return {ProtoBuf.Builder.Message} Decoded message or `null` if not enough bytes are available yet
                      * @throws {Error} If the message cannot be decoded or if required fields are missing. The later still
                      *  returns the decoded message with missing fields in the `decoded` property on the error.
                      * @expose
@@ -4420,10 +4420,22 @@ process.chdir = function (dir) {
                         if (typeof buffer === 'string')
                             buffer = ByteBuffer.wrap(buffer, enc ? enc : "base64");
                         buffer = buffer instanceof ByteBuffer ? buffer : ByteBuffer.wrap(buffer); // May throw
-                        var len = buffer.readVarint32();
-                        var msg = T.decode(buffer.slice(buffer.offset, buffer.offset + len).LE());
-                        buffer.offset += len;
-                        return msg;
+                        if (buffer.remaining() < 1)
+                            return null;
+                        var off = buffer.offset,
+                            len = buffer.readVarint32();
+                        if (buffer.remaining() < len) {
+                            buffer.offset = off;
+                            return null;
+                        }
+                        try {
+                            var msg = T.decode(buffer.slice(buffer.offset, buffer.offset + len).LE());
+                            buffer.offset += len;
+                            return msg;
+                        } catch (err) {
+                            buffer.offset += len;
+                            throw err;
+                        }
                     };
 
                     /**
@@ -5168,7 +5180,7 @@ process.chdir = function (dir) {
                 var value, nBytes;
                 if (wireType != this.type.wireType && (skipRepeated || (wireType != ProtoBuf.WIRE_TYPES.LDELIM || !this.repeated)))
                     throw Error("Illegal wire type for field "+this.toString(true)+": "+wireType+" ("+this.type.wireType+" expected)");
-                if (wireType == ProtoBuf.WIRE_TYPES.LDELIM && this.repeated && this.options["packed"]) {
+                if (wireType == ProtoBuf.WIRE_TYPES.LDELIM && this.repeated && this.options["packed"] && ProtoBuf.PACKABLE_WIRE_TYPES.indexOf(this.type.wireType) >= 0) {
                     if (!skipRepeated) {
                         nBytes = buffer.readVarint32();
                         nBytes = buffer.offset + nBytes; // Limit
