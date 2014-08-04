@@ -628,7 +628,7 @@ describe("Context", function(){
 		for (var i = 0; i < dataTypes.length; i++) {
 			(function(dataType) {
 				it("Produces a Cholesky decomposition (" + dataType + " data type)", function(done) {
-					var x = context.array(xRef);
+					var x = context.array(xRef, new furious.DataType(dataType));
 					var l = context.cholesky(x, "L");
 					l.get(function(lVal) {
 						for (var i = 0; i < l.shape[0]; i++) {
