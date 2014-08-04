@@ -7,6 +7,16 @@ enum DataType {
 	FLOAT32 = 1;
 }
 
+enum TriangularMatrixType {
+	UPPER = 0;
+	LOWER = 1;
+}
+
+enum TranspositionType {
+	NORMAL    = 0;
+	TRANSPOSE = 1;
+}
+
 message Request {
 	enum Type {
 		EMPTY_ARRAY              =  0;
@@ -25,24 +35,28 @@ message Request {
 		REDUCTION_OPERATION      = 13;
 		AXIS_REDUCTION_OPERATION = 14;
 		DOT_OPERATION            = 15;
+		CHOLESKY_DECOMPOSITION   = 16;
+		SOLVE_TRIANGULAR         = 17;
 	}
-	required fixed32                     id                             =  1;
-	required Type                        type                           =  2;
+	required fixed32                      id                             =  1;
+	required Type                         type                           =  2;
 
-	optional EmptyArrayRequest           empty_array_request            =  3;
-	optional DataArrayRequest            data_array_request             =  4;
-	optional ConstArrayRequest           const_array_request            =  5;
-	optional LinspaceRequest             linspace_request               =  6;
-	optional ReshapeRequest              reshape_request                =  7;
-	optional RepeatRequest               repeat_request                 =  8;
-	optional DeallocateRequest           deallocate_request             =  9;
-	optional FetchRequest                fetch_request                  = 10;
-	optional BinaryOperationRequest      binary_operation_request       = 11;
-	optional BinaryConstOperationRequest binary_const_operation_request = 12;
-	optional UnaryOperationRequest       unary_operation_request        = 13;
-	optional ReductionRequest            reduction_request              = 14;
-	optional AxisReductionRequest        axis_reduction_request         = 15;
-	optional DotOperationRequest         dot_operation_request          = 16;
+	optional EmptyArrayRequest            empty_array_request            =  3;
+	optional DataArrayRequest             data_array_request             =  4;
+	optional ConstArrayRequest            const_array_request            =  5;
+	optional LinspaceRequest              linspace_request               =  6;
+	optional ReshapeRequest               reshape_request                =  7;
+	optional RepeatRequest                repeat_request                 =  8;
+	optional DeallocateRequest            deallocate_request             =  9;
+	optional FetchRequest                 fetch_request                  = 10;
+	optional BinaryOperationRequest       binary_operation_request       = 11;
+	optional BinaryConstOperationRequest  binary_const_operation_request = 12;
+	optional UnaryOperationRequest        unary_operation_request        = 13;
+	optional ReductionRequest             reduction_request              = 14;
+	optional AxisReductionRequest         axis_reduction_request         = 15;
+	optional DotOperationRequest          dot_operation_request          = 16;
+	optional CholeskyDecompositionRequest cholesky_decomposition_request = 17;
+	optional SolveTriangularRequest       solve_triangular_request       = 18;
 }
 
 message EmptyArrayRequest {
@@ -164,4 +178,19 @@ message DotOperationRequest {
 	required sfixed32 id_a   = 1;
 	required sfixed32 id_b   = 2;
 	required fixed32  id_out = 3;
+}
+
+message CholeskyDecompositionRequest {
+	required sfixed32             id_a   = 1;
+	required TriangularMatrixType a_type = 2;
+	required fixed32              id_out = 3;
+}
+
+message SolveTriangularRequest {
+	required sfixed32             id_a            = 1;
+	required TriangularMatrixType a_type          = 2;
+	required TranspositionType    a_transposition = 3;
+	required bool                 unit_diagonal   = 4;
+	required sfixed32             id_y            = 5;
+	required fixed32              id_x            = 6;
 }
