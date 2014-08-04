@@ -697,7 +697,7 @@ describe("Context", function(){
 					x.get(function(xVal) {
 						var xRef = [-0.067702381514358714, -0.08916921803995792 , -0.024092896202783431, 0.016540514630543533, -0.046380011211266621];
 						for (var i = 0; i < x.length; i++) {
-							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 20.0 * x.dataType.epsilon);
 						}
 						done();
 					});
@@ -714,7 +714,7 @@ describe("Context", function(){
 						            [-0.050489183560310742, -0.105347885225572757]];
 						for (var i = 0; i < X.shape[0]; i++) {
 							for (var j = 0; j < X.shape[1]; j++) {
-								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 20.0 * X.dataType.epsilon);
 							}
 						}
 						done();
@@ -727,7 +727,7 @@ describe("Context", function(){
 					x.get(function(xVal) {
 						var xRef = [0.006218968531873263, -0.031877026069015428,  0.018755998896487252, 0.023166230517867335, -0.046380011211266621];
 						for (var i = 0; i < x.length; i++) {
-							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 20.0 * x.dataType.epsilon);
 						}
 						done();
 					});
@@ -744,7 +744,7 @@ describe("Context", function(){
 						            [-0.050489183560310742, -0.105347885225572757]];
 						for (var i = 0; i < X.shape[0]; i++) {
 							for (var j = 0; j < X.shape[1]; j++) {
-								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 20.0 * X.dataType.epsilon);
 							}
 						}
 						done();
@@ -757,7 +757,7 @@ describe("Context", function(){
 					x.get(function(xVal) {
 						var xRef = [-0.067702381514358714,  0.222261736926092163, -0.105843734318100208, 0.017536415776942829, -0.118042738057165877];
 						for (var i = 0; i < x.length; i++) {
-							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 20.0 * x.dataType.epsilon);
 						}
 						done();
 					});
@@ -774,7 +774,7 @@ describe("Context", function(){
 						            [ 0.419687829882886054, -0.171847427453019841]];
 						for (var i = 0; i < X.shape[0]; i++) {
 							for (var j = 0; j < X.shape[1]; j++) {
-								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 20.0 * X.dataType.epsilon);
 							}
 						}
 						done();
@@ -787,7 +787,7 @@ describe("Context", function(){
 					x.get(function(xVal) {
 						var xRef = [-0.067702381514358714,  0.235802213228963942, -0.145855443209582575, 0.024040368492497136, -0.00422457163512407];
 						for (var i = 0; i < x.length; i++) {
-							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 20.0 * x.dataType.epsilon);
 						}
 						done();
 					});
@@ -804,7 +804,7 @@ describe("Context", function(){
 						            [ 0.22683286519823273 , -0.231225152880548401]];
 						for (var i = 0; i < X.shape[0]; i++) {
 							for (var j = 0; j < X.shape[1]; j++) {
-								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 20.0 * X.dataType.epsilon);
 							}
 						}
 						done();
@@ -817,7 +817,7 @@ describe("Context", function(){
 					x.get(function(xVal) {
 						var xRef = [-0.039375205677707963, -0.013862369020948569,  0.034469009007106602, 0.020957658555426067, -0.046380011211266621];
 						for (var i = 0; i < x.length; i++) {
-							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 20.0 * x.dataType.epsilon);
 						}
 						done();
 					});
@@ -834,7 +834,7 @@ describe("Context", function(){
 						            [-0.050489183560310742, -0.105347885225572757]];
 						for (var i = 0; i < X.shape[0]; i++) {
 							for (var j = 0; j < X.shape[1]; j++) {
-								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 20.0 * X.dataType.epsilon);
 							}
 						}
 						done();
