@@ -1,4 +1,6 @@
 import numpy
+import scipy
+import scipy.linalg
 import string
 
 datafile = open("forex-libor.csv", "r")
@@ -40,7 +42,7 @@ y = usd_eur_rate
 l = 50
 XTX = numpy.dot(X.T, X)
 L = numpy.linalg.cholesky(XTX + l * numpy.eye(X.shape[1]))
-beta = numpy.linalg.solve(L.T, numpy.linalg.solve(L, numpy.dot(X.T, y)))
+beta = scipy.linalg.solve_triangular(L, scipy.linalg.solve_triangular(L, numpy.dot(X.T, y), lower=True), trans='T', lower=True)
 y_hat = numpy.dot(X, beta)
 
 import matplotlib
