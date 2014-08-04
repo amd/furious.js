@@ -642,4 +642,205 @@ describe("Context", function(){
 			})(dataTypes[i]);
 		}
 	});
+	describe("solveTriangular", function() {
+		var Dref = [[17,  0,  0,  0,  0],
+		            [ 0,  5,  0,  0,  0],
+		            [ 0,  0, 13,  0,  0],
+		            [ 0,  0,  0, 21,  0],
+		            [ 0,  0,  0,  0,  9]];
+		var Lref = [[17,  0,  0,  0,  0],
+		            [23,  5,  0,  0,  0],
+		            [ 4,  6, 13,  0,  0],
+		            [10, 12, 19, 21,  0],
+		            [11, 18, 25,  2,  9]];
+		var Uref = [[17, 24,  1,  8, 15],
+		            [ 0,  5,  7, 14, 16],
+		            [ 0,  0, 13, 20, 22],
+		            [ 0,  0,  0, 21,  3],
+		            [ 0,  0,  0,  0,  9]];
+		var Bref = [[ 1.043853493141967403,  1.6372060525736436  ],
+		            [-0.256567502623645749,  2.910931198527798802],
+		            [-1.293144653712114067, -0.253521960140791869],
+		            [-0.52110688571667263 , -0.904890851117336581],
+		            [-0.454402652042796729, -0.94813096703015487 ]];
+		var bRef = [-1.15094048574409813, -0.445846090199789602, -0.313207650636184609, 0.347350807241414206, -0.417420100901399582];
+		var dataTypes = ["f32", "f64"];
+		it("Produces a solution matrix of the same shape as right-hand size matrix", function() {
+			var A = context.array(Dref).retain();
+			var B = context.array(Bref);
+			var b = context.array(bRef);
+			var X = context.solveTriangular(A, B);
+			var x = context.solveTriangular(A, b);
+			expect(X.shape).to.deep.equal(B.shape);
+			expect(x.shape).to.deep.equal(b.shape);
+			X.invalidate();
+			x.invalidate();
+		});
+		it("Produces a solution matrix of the same data type as input matrices", function() {
+			var A = context.array(Dref, new furious.DataType("f64"));
+			var a = context.array(Dref, new furious.DataType("f32"));
+			var B = context.array(Bref, new furious.DataType("f64"));
+			var b = context.array(bRef, new furious.DataType("f32"));
+			var X = context.solveTriangular(A, B);
+			var x = context.solveTriangular(a, b);
+			expect(X.dataType).to.equal(B.dataType);
+			expect(x.dataType).to.equal(b.dataType);
+			X.invalidate();
+			x.invalidate();
+		});
+		for (var i = 0; i < dataTypes.length; i++) {
+			(function(dataType) {
+				it("Matches scipy.solve_triangular (diagonal matrix of " + dataType + " data type, vector r.h.s.)", function(done) {
+					var A = context.array(Dref, new furious.DataType(dataType));
+					var y = context.array(bRef, new furious.DataType(dataType));
+					var x = context.solveTriangular(A, y);
+					x.get(function(xVal) {
+						var xRef = [-0.067702381514358714, -0.08916921803995792 , -0.024092896202783431, 0.016540514630543533, -0.046380011211266621];
+						for (var i = 0; i < x.length; i++) {
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (diagonal matrix of " + dataType + " data type, matrix r.h.s.)", function(done) {
+					var A = context.array(Dref, new furious.DataType(dataType));
+					var Y = context.array(Bref, new furious.DataType(dataType));
+					var X = context.solveTriangular(A, Y);
+					X.get(function(Xval) {
+						var Xref = [[ 0.061403146655409843,  0.096306238386684923],
+						            [-0.051313500524729154,  0.582186239705559827],
+						            [-0.099472665670162622, -0.019501689241599375],
+						            [-0.024814613605555837, -0.043090040529396981],
+						            [-0.050489183560310742, -0.105347885225572757]];
+						for (var i = 0; i < X.shape[0]; i++) {
+							for (var j = 0; j < X.shape[1]; j++) {
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+							}
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (upper triangular matrix of " + dataType + " data type, vector r.h.s.)", function(done) {
+					var A = context.array(Uref, new furious.DataType(dataType));
+					var y = context.array(bRef, new furious.DataType(dataType));
+					var x = context.solveTriangular(A, y);
+					x.get(function(xVal) {
+						var xRef = [0.006218968531873263, -0.031877026069015428,  0.018755998896487252, 0.023166230517867335, -0.046380011211266621];
+						for (var i = 0; i < x.length; i++) {
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (upper triangular matrix of " + dataType + " data type, matrix r.h.s.)", function(done) {
+					var A = context.array(Uref, new furious.DataType(dataType));
+					var Y = context.array(Bref, new furious.DataType(dataType));
+					var X = context.solveTriangular(A, Y);
+					X.get(function(Xval) {
+						var Xref = [[-0.085967221880329306, -0.819012561113931836],
+						            [ 0.141266609603164062,  0.715126761460139981],
+						            [ 0.013050372811809438,  0.201918335970953683],
+						            [-0.017601873096940019, -0.028040342640029439],
+						            [-0.050489183560310742, -0.105347885225572757]];
+						for (var i = 0; i < X.shape[0]; i++) {
+							for (var j = 0; j < X.shape[1]; j++) {
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+							}
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (lower triangular matrix of " + dataType + " data type, vector r.h.s.)", function(done) {
+					var A = context.array(Lref, new furious.DataType(dataType));
+					var y = context.array(bRef, new furious.DataType(dataType));
+					var x = context.solveTriangular(A, y, "L");
+					x.get(function(xVal) {
+						var xRef = [-0.067702381514358714,  0.222261736926092163, -0.105843734318100208, 0.017536415776942829, -0.118042738057165877];
+						for (var i = 0; i < x.length; i++) {
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (lower triangular matrix of " + dataType + " data type, matrix r.h.s.)", function(done) {
+					var A = context.array(Lref, new furious.DataType(dataType));
+					var Y = context.array(Bref, new furious.DataType(dataType));
+					var X = context.solveTriangular(A, Y, "L");
+					X.get(function(Xval) {
+						var Xref = [[ 0.061403146655409843,  0.096306238386684923],
+						            [-0.333767975139614481,  0.139177543126809161],
+						            [ 0.035680816192610251, -0.113370167111414344],
+						            [ 0.104387706749762249, -0.065907170351858238],
+						            [ 0.419687829882886054, -0.171847427453019841]];
+						for (var i = 0; i < X.shape[0]; i++) {
+							for (var j = 0; j < X.shape[1]; j++) {
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+							}
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (transposed upper triangular matrix of " + dataType + " data type, vector r.h.s.)", function(done) {
+					var A = context.array(Uref, new furious.DataType(dataType));
+					var y = context.array(bRef, new furious.DataType(dataType));
+					var x = context.solveTriangular(A, y, "U", "T");
+					x.get(function(xVal) {
+						var xRef = [-0.067702381514358714,  0.235802213228963942, -0.145855443209582575, 0.024040368492497136, -0.00422457163512407];
+						for (var i = 0; i < x.length; i++) {
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (transposed upper triangular matrix of " + dataType + " data type, matrix r.h.s.)", function(done) {
+					var A = context.array(Uref, new furious.DataType(dataType));
+					var Y = context.array(Bref, new furious.DataType(dataType));
+					var X = context.solveTriangular(A, Y, "U", "T");
+					X.get(function(Xval) {
+						var Xref = [[ 0.061403146655409843,  0.096306238386684923],
+						            [-0.346048604470696408,  0.119916295449472188],
+						            [ 0.082137879302103922, -0.091480174359521715],
+						            [ 0.104266229408939051, -0.072598352729190102],
+						            [ 0.22683286519823273 , -0.231225152880548401]];
+						for (var i = 0; i < X.shape[0]; i++) {
+							for (var j = 0; j < X.shape[1]; j++) {
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+							}
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (transposed lower triangular matrix of " + dataType + " data type, vector r.h.s.)", function(done) {
+					var A = context.array(Lref, new furious.DataType(dataType));
+					var y = context.array(bRef, new furious.DataType(dataType));
+					var x = context.solveTriangular(A, y, "L", "T");
+					x.get(function(xVal) {
+						var xRef = [-0.039375205677707963, -0.013862369020948569,  0.034469009007106602, 0.020957658555426067, -0.046380011211266621];
+						for (var i = 0; i < x.length; i++) {
+							expect(xVal[i]).to.be.closeTo(xRef[i], Math.abs(xRef[i]) * 10.0 * x.dataType.epsilon);
+						}
+						done();
+					});
+				});
+				it("Matches scipy.solve_triangular (transposed lower triangular matrix of " + dataType + " data type, matrix r.h.s.)", function(done) {
+					var A = context.array(Lref, new furious.DataType(dataType));
+					var Y = context.array(Bref, new furious.DataType(dataType));
+					var X = context.solveTriangular(A, Y, "L", "T");
+					X.get(function(Xval) {
+						var Xref = [[-0.098317734340139518, -0.902946202316054825],
+						            [ 0.14622828991420761 ,  0.763089997876717385],
+						            [ 0.026861631848108854,  0.231404341073724207],
+						            [-0.020006119933145293, -0.033056908603151955],
+						            [-0.050489183560310742, -0.105347885225572757]];
+						for (var i = 0; i < X.shape[0]; i++) {
+							for (var j = 0; j < X.shape[1]; j++) {
+								expect(Xval[i][j]).to.be.closeTo(Xref[i][j], Math.abs(Xref[i][j]) * 10.0 * X.dataType.epsilon);
+							}
+						}
+						done();
+					});
+				});
+			})(dataTypes[i]);
+		}
+	});
 });
