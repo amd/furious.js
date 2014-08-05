@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=1024" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<title>Furious.js</title>
+	<meta name="author" content="Marat Dukhan" />
+	<link href="http://fonts.googleapis.com/css?family=Open+Sans:regular,semibold,italic,italicsemibold|PT+Sans:400,700,400italic,700italic|PT+Serif:400,700,400italic,700italic" rel="stylesheet" />
+
+	<link href="css/impress-demo.css" rel="stylesheet" />
+	<link rel="shortcut icon" href="favicon.png" />
+	<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+</head>
+<body class="impress-not-supported">
+	<div class="fallback-message">
+		<p>Your browser <b>doesn't support the features required</b> by impress.js, so you are presented with a simplified version of this presentation.</p>
+		<p>For the best experience please use the latest <b>Chrome</b>, <b>Safari</b> or <b>Firefox</b> browser.</p>
+	</div>
+
+	<div id="impress">
+		<div id="title" class="step" data-x="0" data-y="0">
+			<h1>Furious.js</h1>
+			<h2>Scientific computing for the Web</h2>
+		</div>
+		<div id="atwoodslaw" class="step" data-x="2000" data-y="0" data-z="1500" data-rotate-y="240">
+			<p>Atwood's Law: any application that can be written in JavaScript, will eventually be written in JavaScript</p>
+			<ul>
+				<img src="img/gmail.jpg"/>
+				<li>GMail</li>
+				<li>Google Docs</li>
+				<li>Microsoft Office 365</li>
+				<li>Adobe Creative Cloud</li>
+				<li>Cloud9 IDE</li>
+				<li>Prezi</li>
+			</ul>
+		</div>
+		<div id="webcomputing" class="step" data-x="2000" data-y="0" data-z="1500" data-rotate-y="240">
+			<p>Significant interest in porting scientific computing applications on the Web</p>
+			<ul>
+				<li><img src="img/matlab.jpg"/></li>
+				<li>R Fiddle</li>
+				<li>Shiny</li>
+				<li>Python Anywhere</li>
+			</ul>
+		</div>
+	    <div id="overview" class="step" data-x="3000" data-y="1500" data-scale="10">
+	    </div>
+	</div>
+
+	<!--
+	    
+	    Hint is not related to impress.js in any way.
+	    
+	    But it can show you how to use impress.js features in creative way.
+	    
+	    When the presentation step is shown (selected) its element gets the class of "active" and the body element
+	    gets the class based on active step id `impress-on-ID` (where ID is the step's id)... It may not be
+	    so clear because of all these "ids" in previous sentence, so for example when the first step (the one with
+	    the id of `bored`) is active, body element gets a class of `impress-on-bored`.
+	    
+	    This class is used by this hint below. Check CSS file to see how it's shown with delayed CSS animation when
+	    the first step of presentation is visible for a couple of seconds.
+	    
+	    ...
+	    
+	    And when it comes to this piece of JavaScript below ... kids, don't do this at home ;)
+	    It's just a quick and dirty workaround to get different hint text for touch devices.
+	    In a real world it should be at least placed in separate JS file ... and the touch content should be
+	    probably just hidden somewhere in HTML - not hard-coded in the script.
+	    
+	    Just sayin' ;)
+	    
+	-->
+	<div class="hint">
+	    <p>Use a spacebar or arrow keys to navigate</p>
+	</div>
+	<script>
+	if ("ontouchstart" in document.documentElement) { 
+	    document.querySelector(".hint").innerHTML = "<p>Tap on the left or right to navigate</p>";
+	}
+	</script>
+
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/impress.js/0.5.3/impress.min.js"></script>
+			<script>
+				var api = impress();
+				api.init();
+
+				window.addEventListener('impress:stepenter', function() {
+				});
+				window.addEventListener('impress:stepleave', function() {
+				});
+			</script>
+</body>
+</html>
