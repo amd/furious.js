@@ -34,6 +34,7 @@ enum FJS_StringVariable {
 	FJS_StringVariable_MismatchingLength,
 	FJS_StringVariable_InvalidLength,
 	FJS_StringVariable_InvalidDimensions,
+	FJS_StringVariable_InvalidShape,
 	FJS_StringVariable_AxisOutOfRange,
 	FJS_StringVariable_RepeatsOutOfRange,
 	FJS_StringVariable_OutOfMemory,

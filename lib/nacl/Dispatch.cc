@@ -231,8 +231,13 @@ extern "C" enum FJS_Error FJS_Dispatch_Request(PP_Instance instance, const void*
 				dotOperationRequest.id_out());
 		}
 		case furious::Request_Type_CHOLESKY_DECOMPOSITION:
-			FJS_LOG_INFO("CHOLESKY_DECOMPOSITION");
-			return FJS_Error_Ok;
+		{
+			const furious::CholeskyDecompositionRequest& choleskyDecomposition = request.cholesky_decomposition_request();
+			return FJS_Execute_CholeskyDecomposition(instance,
+				choleskyDecomposition.id_a(),
+				choleskyDecomposition.a_type() == furious::TriangularMatrixType::LOWER,
+				choleskyDecomposition.id_out());
+		}
 		case furious::Request_Type_SOLVE_TRIANGULAR:
 			FJS_LOG_INFO("SOLVE_TRIANGULAR");
 			return FJS_Error_Ok;

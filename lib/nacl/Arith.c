@@ -72,6 +72,10 @@ static void dotF64(size_t aStride, size_t bOuterStride, size_t bInnerStride, siz
 	const double b[restrict static bOuterStride*reductionLength*bInnerStride],
 	double out[restrict static aStride*bOuterStride*bInnerStride]);
 
+typedef void (*CholeskyDecompositionFunction)(size_t, void*, bool);
+static void choleskyF32(size_t n, float data[restrict static n*n], bool isLower);
+static void choleskyF64(size_t n, double data[restrict static n*n], bool isLower);
+
 static const BinaryOpFunction binaryOpFunctions[][FJS_DataType_Max] = {
 	[FJS_BinaryOperationType_Add] = {
 		[FJS_DataType_F64] = (BinaryOpFunction) addF64,
@@ -178,6 +182,11 @@ static const AxisReduceOpFunction axisReductionFunctions[][FJS_DataType_Max] = {
 static const DotOpFunction dotFunctions[] = {
 	[FJS_DataType_F64] = (DotOpFunction) dotF64,
 	[FJS_DataType_F32] = (DotOpFunction) dotF32
+};
+
+static const CholeskyDecompositionFunction choleskyDecompositionFunctions[] = {
+	[FJS_DataType_F64] = (CholeskyDecompositionFunction) choleskyF64,
+	[FJS_DataType_F32] = (CholeskyDecompositionFunction) choleskyF32
 };
 
 enum FJS_Error FJS_Execute_BinaryOperation(PP_Instance instance,
@@ -792,6 +801,105 @@ enum FJS_Error FJS_Execute_DotOperation(PP_Instance instance,
 	if (idB < 0) {
 		FJS_NDArray_Delete(arrayB);
 		FJS_ReleaseId(instance, __builtin_abs(idB));
+	}
+
+	return FJS_Error_Ok;
+}
+
+enum FJS_Error FJS_Execute_CholeskyDecomposition(PP_Instance instance,
+	int32_t idA,
+	bool isLower,
+	uint32_t idOut)
+{
+	/* Validate the id for input array A and get NDArray object for array A */
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
+	if (arrayA == NULL) {
+		return FJS_Error_InvalidId;
+	}
+
+	/* Load information on the input array A */
+	const uint32_t lengthA = arrayA->length;
+	const uint32_t dimensionsA = arrayA->dimensions;
+	const uint32_t* shapeA = FJS_NDArray_GetShape(arrayA);
+	const void* dataA = FJS_NDArray_GetData(arrayA);
+	const enum FJS_DataType dataTypeA = arrayA->dataType;
+
+	/* Check the dimension of input array A */
+	if (dimensionsA != 2) {
+		return FJS_Error_InvalidDimensions;
+	}
+
+	/* Check that A is a square matrix */
+	if (shapeA[0] != shapeA[1]) {
+		return FJS_Error_InvalidShape;
+	}
+
+	/*
+	 * Validate input data type and choose the compute function for this data type
+	 */
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const CholeskyDecompositionFunction computeFunction = choleskyDecompositionFunctions[dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
+	}
+
+	/*
+	 * Try to get NDArray for the provided output id.
+	 * If there is an NDArray associated with the supplied id, validate it.
+	 * Otherwise, create an NDArray and associate it with the provided id.
+	 */
+	struct NDArray* arrayOut = FJS_GetPointerFromId(instance, idOut);
+	if (arrayOut == NULL) {
+		/* Create output array */
+		arrayOut = FJS_NDArray_Create(dimensionsA, lengthA, shapeA, dataTypeA);
+		if (arrayOut == NULL) {
+			return FJS_Error_OutOfMemory;
+		}
+
+		/* Associate the output array with its id */
+		FJS_AllocateId(instance, idOut, arrayOut);
+	} else {
+		/* Load information on the output array */
+		const uint32_t lengthOut = arrayOut->length;
+		const uint32_t dimensionsOut = arrayOut->dimensions;
+		const uint32_t* shapeOut = FJS_NDArray_GetShape(arrayOut);
+		const enum FJS_DataType dataTypeOut = arrayOut->dataType;
+
+		/* Check the dimension of the output array */
+		if (dimensionsOut != 2) {
+			return FJS_Error_InvalidDimensions;
+		}
+
+		/* Check that output array is a square matrix */
+		if (shapeOut[0] != shapeOut[1]) {
+			return FJS_Error_InvalidShape;
+		}
+
+		/* Check that output array has the same shape as input array */
+		if (shapeOut[0] != shapeA[0]) {
+			return FJS_Error_MismatchingShape;
+		}
+
+		/* Check that the output array has the same data type as input array */
+		if (dataTypeOut != dataTypeA) {
+			return FJS_Error_MismatchingDataType;
+		}
+	}
+	/* Initialize output array with input data (short-cut: no copy for in-place operation) */
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
+	if (dataOut != dataA) {
+		memcpy(dataOut, dataA, lengthA * FJS_DataType_GetSize(dataTypeA));
+	}
+
+	/* Do the cholesky decomposition */
+	computeFunction(shapeA[0], dataOut, isLower);
+
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, -idA);
 	}
 
 	return FJS_Error_Ok;
@@ -1484,6 +1592,82 @@ static void dotF64(size_t aStride, size_t bOuterStride, size_t bInnerStride, siz
 				for (size_t l = 0; l < bInnerStride; l++) {
 					out[(i*bOuterStride + k) * bInnerStride + l] += a[i*reductionLength+j] * b[(k*reductionLength+j)*bInnerStride+l];
 				}
+			}
+		}
+	}
+}
+
+static void choleskyF32(size_t n, float data[restrict static n*n], bool isLower) {
+	for (size_t i = 0; i < n; i++) {
+		/* Compute the diagonal value */
+		const float Lii = sqrtf(data[i*n+i]);
+		data[i*n+i] = Lii;
+		const float rcpLii = 1.0f / Lii;
+		/* Update the ith column */
+		for (size_t j = i + 1; j < n; j++) {
+			data[j*n+i] *= rcpLii;
+		}
+		/* Update the ith row */
+		for (size_t j = i + 1; j < n; j++) {
+			data[i*n+j] *= rcpLii;
+		}
+		/* Compute Schur complement */
+		for (size_t j = i + 1; j < n; j++) {
+			for (size_t k = i + 1; k < n; k++) {
+				data[j*n+k] -= data[j*n+i] * data[i*n+k];
+			}
+		}
+	}
+	if (isLower) {
+		/* Zero-out the upper sub-diagonals */
+		for (size_t i = 0; i < n; i++) {
+			for (size_t j = i + 1; j < n; j++) {
+				data[i*n+j] = 0.0f;
+			}
+		}
+	} else {
+		/* Zero-out the lower sub-diagonals */
+		for (size_t i = 0; i < n; i++) {
+			for (size_t j = 0; j < i; j++) {
+				data[i*n+j] = 0.0f;
+			}
+		}
+	}
+}
+
+static void choleskyF64(size_t n, double data[restrict static n*n], bool isLower) {
+	for (size_t i = 0; i < n; i++) {
+		/* Compute the diagonal value */
+		const double Lii = sqrt(data[i*n+i]);
+		data[i*n+i] = Lii;
+		const double rcpLii = 1.0 / Lii;
+		/* Update the ith column */
+		for (size_t j = i + 1; j < n; j++) {
+			data[j*n+i] *= rcpLii;
+		}
+		/* Update the ith row */
+		for (size_t j = i + 1; j < n; j++) {
+			data[i*n+j] *= rcpLii;
+		}
+		/* Compute Schur complement */
+		for (size_t j = i + 1; j < n; j++) {
+			for (size_t k = i + 1; k < n; k++) {
+				data[j*n+k] -= data[j*n+i] * data[i*n+k];
+			}
+		}
+	}
+	if (isLower) {
+		/* Zero-out the upper sub-diagonals */
+		for (size_t i = 0; i < n; i++) {
+			for (size_t j = i + 1; j < n; j++) {
+				data[i*n+j] = 0.0;
+			}
+		}
+	} else {
+		/* Zero-out the lower sub-diagonals */
+		for (size_t i = 0; i < n; i++) {
+			for (size_t j = 0; j < i; j++) {
+				data[i*n+j] = 0.0;
 			}
 		}
 	}

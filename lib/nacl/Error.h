@@ -40,6 +40,8 @@ enum FJS_Error {
 	FJS_Error_InvalidLength,
 	/* Invalid dimensions */
 	FJS_Error_InvalidDimensions,
+	/* Invalid shape */
+	FJS_Error_InvalidShape,
 	/* Axis is either negative or exceeds valid array dimensions */
 	FJS_Error_AxisOutOfRange,
 	/* Repeats arguments does not exceed 2 */

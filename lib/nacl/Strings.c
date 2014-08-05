@@ -40,6 +40,7 @@ static struct StringLiteral strings[FJS_StringVariable_NumberOfEntries] = {
 	[FJS_StringVariable_MismatchingLength] = FJS_INIT_STRING_LITERAL("mismatching length"),
 	[FJS_StringVariable_InvalidLength] = FJS_INIT_STRING_LITERAL("invalid length"),
 	[FJS_StringVariable_InvalidDimensions] = FJS_INIT_STRING_LITERAL("invalid dimensions"),
+	[FJS_StringVariable_InvalidShape] = FJS_INIT_STRING_LITERAL("invalid shape"),
 	[FJS_StringVariable_AxisOutOfRange] = FJS_INIT_STRING_LITERAL("axis out of range"),
 	[FJS_StringVariable_RepeatsOutOfRange] = FJS_INIT_STRING_LITERAL("repeats out of range"),
 	[FJS_StringVariable_OutOfMemory] = FJS_INIT_STRING_LITERAL("out of memory"),	
