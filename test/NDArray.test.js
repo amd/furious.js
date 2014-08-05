@@ -3,6 +3,7 @@ var expect = require("chai").expect;
 
 var context = null;
 before(function(done) {
+	this.timeout(10000);
 	furious.init(function(ctx) {
 		context = ctx;
 		done();
