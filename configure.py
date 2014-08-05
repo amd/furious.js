@@ -67,6 +67,6 @@ if __name__ == '__main__':
             ninja.build(object, 'COMPILE_PNACL_CXX', source,
                 variables={'optflags': '-O3',
                     'cxxflags': '-I$nacl_sdk_dir/include -pthread -g -std=gnu++11 -fno-exceptions -Wno-long-long -Wall -Werror -Wno-unused-variable -Wno-error=unused-function'})
-        ninja.build(os.path.join(c_build_dir, 'furious.unstable.pexe'), 'LINK_PNACL_CXX', c_objects + cxx_objects,
+        ninja.build(os.path.join(root_dir, 'furious.bc'), 'LINK_PNACL_CXX', c_objects + cxx_objects,
             variables={'ldflags': '-L$nacl_sdk_dir/lib/pnacl/Release -lppapi -lm -lprotobuf-lite'})
-        ninja.build(os.path.join(root_dir, 'furious.pexe'), 'FINALIZE_PNACL', os.path.join(c_build_dir, 'furious.unstable.pexe'))
+        ninja.build(os.path.join(root_dir, 'furious.pexe'), 'FINALIZE_PNACL', os.path.join(root_dir, 'furious.bc'))
