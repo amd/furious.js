@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+#include <sys/types.h>
 
 #include "Error.h"
 #include "DataType.h"
@@ -75,6 +76,16 @@ static void dotF64(size_t aStride, size_t bOuterStride, size_t bInnerStride, siz
 typedef void (*CholeskyDecompositionFunction)(size_t, void*, bool);
 static void choleskyF32(size_t n, float data[restrict static n*n], bool isLower);
 static void choleskyF64(size_t n, double data[restrict static n*n], bool isLower);
+
+typedef void (*SolveTriangularFunction)(size_t, size_t, const void*, void*, bool, bool, bool);
+static void solveTriangularF32(size_t rows, size_t columns,
+	const float dataA[restrict static rows*rows],
+	float dataB[restrict static rows*columns],
+	bool transpose, bool isLower, bool unitDiagonal);
+static void solveTriangularF64(size_t rows, size_t columns,
+	const double dataA[restrict static rows*rows],
+	double dataB[restrict static rows*columns],
+	bool transpose, bool isLower, bool unitDiagonal);
 
 static const BinaryOpFunction binaryOpFunctions[][FJS_DataType_Max] = {
 	[FJS_BinaryOperationType_Add] = {
@@ -187,6 +198,11 @@ static const DotOpFunction dotFunctions[] = {
 static const CholeskyDecompositionFunction choleskyDecompositionFunctions[] = {
 	[FJS_DataType_F64] = (CholeskyDecompositionFunction) choleskyF64,
 	[FJS_DataType_F32] = (CholeskyDecompositionFunction) choleskyF32
+};
+
+static const SolveTriangularFunction solveTriangularFunctions[] = {
+	[FJS_DataType_F64] = (SolveTriangularFunction) solveTriangularF64,
+	[FJS_DataType_F32] = (SolveTriangularFunction) solveTriangularF32
 };
 
 enum FJS_Error FJS_Execute_BinaryOperation(PP_Instance instance,
@@ -904,6 +920,139 @@ enum FJS_Error FJS_Execute_CholeskyDecomposition(PP_Instance instance,
 
 	return FJS_Error_Ok;
 }
+
+enum FJS_Error FJS_Execute_SolveTriangular(PP_Instance instance,
+	int32_t idA,
+	int32_t idY,
+	uint32_t idX,
+	bool isLower,
+	bool transpose,
+	bool unitDiagonal)
+{
+	/* Validate the id for input array A and get NDArray object for array A */
+	struct NDArray* arrayA = FJS_GetPointerFromId(instance, __builtin_abs(idA));
+	if (arrayA == NULL) {
+		return FJS_Error_InvalidId;
+	}
+
+	/* Load information on the input array A */
+	const uint32_t lengthA = arrayA->length;
+	const uint32_t dimensionsA = arrayA->dimensions;
+	const uint32_t* shapeA = FJS_NDArray_GetShape(arrayA);
+	const void* dataA = FJS_NDArray_GetData(arrayA);
+	const enum FJS_DataType dataTypeA = arrayA->dataType;
+
+	/* Check the dimension of input array A */
+	if (dimensionsA != 2) {
+		return FJS_Error_InvalidDimensions;
+	}
+
+	/* Check that A is a square matrix */
+	const size_t rows = shapeA[0];
+	if (rows != shapeA[1]) {
+		return FJS_Error_InvalidShape;
+	}
+
+	/* Validate the id for input array A and get NDArray object for array A */
+	struct NDArray* arrayY = FJS_GetPointerFromId(instance, __builtin_abs(idY));
+	if (arrayY == NULL) {
+		return FJS_Error_InvalidId;
+	}
+
+	/* Load information on the input array Y */
+	const uint32_t lengthY = arrayY->length;
+	const uint32_t dimensionsY = arrayY->dimensions;
+	const uint32_t* shapeY = FJS_NDArray_GetShape(arrayY);
+	const void* dataY = FJS_NDArray_GetData(arrayY);
+	const enum FJS_DataType dataTypeY = arrayY->dataType;
+
+	/* Check the dimension of the input array Y */
+	if ((dimensionsY != 1) && (dimensionsY != 2)) {
+		return FJS_Error_InvalidDimensions;
+	}
+
+	if (rows != shapeY[0]) {
+		return FJS_Error_MismatchingShape;
+	}
+
+	size_t columns = 1;
+	if (dimensionsY > 1) {
+		columns = shapeY[1];
+	}
+
+	if (dataTypeY != dataTypeA) {
+		return FJS_Error_MismatchingDataType;
+	}
+
+	/*
+	 * Validate input data type and choose the compute function for this data type
+	 */
+	if ((uint32_t) dataTypeA >= FJS_DataType_Max) {
+		return FJS_Error_InvalidDataType;
+	}
+	const SolveTriangularFunction computeFunction = solveTriangularFunctions[dataTypeA];
+	if (computeFunction == NULL) {
+		return FJS_Error_InvalidDataType;
+	}
+
+	/*
+	 * Try to get NDArray for the provided output id.
+	 * If there is an NDArray associated with the supplied id, validate it.
+	 * Otherwise, create an NDArray and associate it with the provided id.
+	 */
+	struct NDArray* arrayX = FJS_GetPointerFromId(instance, idX);
+	if (arrayX == NULL) {
+		/* Create output array */
+		arrayX = FJS_NDArray_Create(dimensionsY, lengthY, shapeY, dataTypeY);
+		if (arrayX == NULL) {
+			return FJS_Error_OutOfMemory;
+		}
+
+		/* Associate the output array with its id */
+		FJS_AllocateId(instance, idX, arrayX);
+	} else {
+		/* Load information on the output array */
+		const uint32_t lengthX = arrayX->length;
+		const uint32_t dimensionsX = arrayX->dimensions;
+		const uint32_t* shapeX = FJS_NDArray_GetShape(arrayX);
+		const enum FJS_DataType dataTypeX = arrayX->dataType;
+
+		/* Check the dimension of the output array */
+		if (dimensionsX != dimensionsY) {
+			return FJS_Error_MismatchingDimensions;
+		}
+
+		/* Check the shape of the output array */
+		if (memcmp(shapeX, shapeY, dimensionsX * sizeof(uint32_t)) != 0) {
+			return FJS_Error_MismatchingShape;
+		}
+
+		/* Check that the output array has the same data type as input array */
+		if (dataTypeX != dataTypeY) {
+			return FJS_Error_MismatchingDataType;
+		}
+	}
+	/* Initialize output array with input data (short-cut: no copy for in-place operation) */
+	void* dataX = FJS_NDArray_GetData(arrayX);
+	if (dataX != dataY) {
+		memcpy(dataX, dataY, lengthY * FJS_DataType_GetSize(dataTypeY));
+	}
+
+	computeFunction(rows, columns, dataA, dataX, transpose, isLower, unitDiagonal);
+
+	/* De-allocate input array if needed */
+	if (idA < 0) {
+		FJS_NDArray_Delete(arrayA);
+		FJS_ReleaseId(instance, -idA);
+	}
+	if (idY < 0) {
+		FJS_NDArray_Delete(arrayY);
+		FJS_ReleaseId(instance, -idY);
+	}
+
+	return FJS_Error_Ok;
+}
+
 
 /* Binary element-wise operations */
 
@@ -1668,6 +1817,110 @@ static void choleskyF64(size_t n, double data[restrict static n*n], bool isLower
 		for (size_t i = 0; i < n; i++) {
 			for (size_t j = 0; j < i; j++) {
 				data[i*n+j] = 0.0;
+			}
+		}
+	}
+}
+
+static void solveTriangularF32(size_t rows, size_t columns,
+	const float dataA[restrict static rows*rows],
+	float dataB[restrict static rows*columns],
+	bool transpose, bool isLower, bool unitDiagonal)
+{
+	if (isLower) {
+		if (transpose) {
+			for (ssize_t i = (ssize_t) (rows - 1); i >= 0; i--) {
+				for (size_t k = 0; k < columns; k++){
+					float Xii = dataB[i*columns+k];
+					for (ssize_t j = rows - 1; j > i; j--) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (size_t i = 0; i < rows; ++i) {
+				for (size_t k = 0; k < columns; ++k){
+					float Xii = dataB[i*columns+k];
+					for (size_t j = 0; j < i; ++j) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		}
+	} else {
+		if (transpose) {
+			for (size_t i = 0; i < rows; ++i) {
+				for (size_t k = 0; k < columns; ++k){
+					float Xii = dataB[i*columns+k];
+					for (size_t j = 0; j < i; ++j) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (ssize_t i = rows - 1; i >= 0; i--) {
+				for (size_t k = 0; k < columns; k++){
+					float Xii = dataB[i*columns+k];
+					for (ssize_t j = rows - 1; j > i; j--) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		}
+	}
+}
+
+static void solveTriangularF64(size_t rows, size_t columns,
+	const double dataA[restrict static rows*rows],
+	double dataB[restrict static rows*columns],
+	bool transpose, bool isLower, bool unitDiagonal)
+{
+	if (isLower) {
+		if (transpose) {
+			for (ssize_t i = (ssize_t) (rows - 1); i >= 0; i--) {
+				for (size_t k = 0; k < columns; k++){
+					double Xii = dataB[i*columns+k];
+					for (ssize_t j = rows - 1; j > i; j--) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (size_t i = 0; i < rows; ++i) {
+				for (size_t k = 0; k < columns; ++k){
+					double Xii = dataB[i*columns+k];
+					for (size_t j = 0; j < i; ++j) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		}
+	} else {
+		if (transpose) {
+			for (size_t i = 0; i < rows; ++i) {
+				for (size_t k = 0; k < columns; ++k){
+					double Xii = dataB[i*columns+k];
+					for (size_t j = 0; j < i; ++j) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (ssize_t i = rows - 1; i >= 0; i--) {
+				for (size_t k = 0; k < columns; k++){
+					double Xii = dataB[i*columns+k];
+					for (ssize_t j = rows - 1; j > i; j--) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
 			}
 		}
 	}

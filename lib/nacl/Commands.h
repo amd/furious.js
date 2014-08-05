@@ -151,6 +151,7 @@ enum FJS_Error FJS_Execute_Reduction(PP_Instance instance, enum FJS_ReductionTyp
 enum FJS_Error FJS_Execute_AxisReduction(PP_Instance instance, enum FJS_AxisReductionType type, int32_t idA, uint32_t axis, uint32_t idOut);
 enum FJS_Error FJS_Execute_DotOperation(PP_Instance instance, int32_t idA, int32_t idB, uint32_t idOut);
 enum FJS_Error FJS_Execute_CholeskyDecomposition(PP_Instance instance, int32_t idA, bool isLower, uint32_t idOut);
+enum FJS_Error FJS_Execute_SolveTriangular(PP_Instance instance, int32_t idA, int32_t idY, uint32_t idX, bool isLower, bool transpose, bool unitDiagonal);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -239,7 +239,13 @@ extern "C" enum FJS_Error FJS_Dispatch_Request(PP_Instance instance, const void*
 				choleskyDecomposition.id_out());
 		}
 		case furious::Request_Type_SOLVE_TRIANGULAR:
-			FJS_LOG_INFO("SOLVE_TRIANGULAR");
-			return FJS_Error_Ok;
+			const furious::SolveTriangularRequest& solveTriangular = request.solve_triangular_request();
+			return FJS_Execute_SolveTriangular(instance,
+				solveTriangular.id_a(),
+				solveTriangular.id_y(),
+				solveTriangular.id_x(),
+				solveTriangular.a_type() == furious::TriangularMatrixType::LOWER,
+				solveTriangular.a_transposition() == furious::TranspositionType::TRANSPOSE,
+				solveTriangular.unit_diagonal());
 	}
 }
