@@ -110,16 +110,9 @@ i, em { font-style: italic }
 a {
     color: inherit;
     text-decoration: none;
-    padding: 0 0.1em;
     background: rgba(255,255,255,0.5);
     text-shadow: -1px -1px 2px rgba(100,100,100,0.9);
     border-radius: 0.2em;
-
-    -webkit-transition: 0.5s;
-    -moz-transition:    0.5s;
-    -ms-transition:     0.5s;
-    -o-transition:      0.5s;
-    transition:         0.5s;
 }
 
 a:hover,
@@ -167,6 +160,9 @@ a:focus {
 
 #title h1 {
     font-size: 72pt;
+}
+#title p {
+    text-align: center;
 }
 
 /*
