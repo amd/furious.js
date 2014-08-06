@@ -864,6 +864,101 @@ function dotOperation(requestId, type, idA, idB, idOut) {
 	}
 }
 
+function choleskyDecomposition(requestId, idA, aType, idOut) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	if (arrayA.shape.length !== 2) {
+		throw new Error("Invalid shape");
+	}
+	if (arrayA.shape[0] !== arrayA.shape[1]) {
+		throw new Error("Invalid shape");
+	}
+
+	var arrayOut = idMap[idOut];
+	if (typeof arrayOut !== "undefined") {
+		if (!util.arrayEquals(arrayA.shape, arrayOut.shape)) {
+			throw new Error("Incompatible shapes");
+		}
+		if (!arrayA.dataType.equals(arrayOut.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+	} else {
+		arrayOut = new MaybeNDArray(arrayA.shape, arrayA.dataType, arrayA.data);
+		idMap[idOut] = arrayOut;
+	}
+
+	if (arrayOut.data !== arrayA.data) {
+		arrayOut.data.set(arrayA.data);
+	}
+	jsmath.cholesky(arrayOut.data, arrayA.shape[0], aType === requests.TriangularMatrixType.LOWER);
+
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+}
+
+function solveTriangular(requestId, idA, aType, aTransposition, unitDiagonal, idY, idX) {
+	var arrayA = idMap[Math.abs(idA)];
+	if (typeof arrayA === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	if (arrayA.shape.length !== 2) {
+		throw new Error("Invalid shape");
+	}
+	if (arrayA.shape[0] !== arrayA.shape[1]) {
+		throw new Error("Invalid shape");
+	}
+
+	var arrayY = idMap[Math.abs(idY)];
+	if (typeof arrayY === "undefined") {
+		throw new Error("Invalid input ID");
+	}
+	if ((arrayY.shape.length !== 1) && (arrayY.shape.length !== 2)) {
+		throw new Error("Invalid shape");
+	}
+	if (arrayA.shape[0] !== arrayY.shape[0]) {
+		throw new Error("Incompatible shapes");
+	}
+	if (!arrayA.dataType.equals(arrayY.dataType)) {
+		throw new Error("Incompatible data type");
+	}
+
+	var arrayX = idMap[idX];
+	if (typeof arrayX === "undefined") {
+		arrayX = new MaybeNDArray(arrayY.shape, arrayY.dataType, arrayY.data);
+		idMap[idX] = arrayX;
+	} else {
+		if (!util.arrayEquals(arrayX.shape, arrayY.shape)) {
+			throw new Error("Incompatible shapes");
+		}
+		if (!arrayX.dataType.equals(arrayY.dataType)) {
+			throw new Error("Incompatible data type");
+		}
+	}
+
+	if (arrayX.data !== arrayY.data) {
+		arrayX.data.set(arrayY.data);
+	}
+
+	jsmath.solveTriangular(arrayA.data, arrayX.data,
+		arrayX.shape[0], arrayX.shape[1] || 1,
+		aTransposition === requests.TranspositionType.TRANSPOSE,
+		aType === requests.TriangularMatrixType.LOWER,
+		unitDiagonal);
+
+	if (idA < 0) {
+		arrayA.deallocate();
+		delete idMap[-idA];
+	}
+	if (idY < 0) {
+		arrayY.deallocate();
+		delete idMap[-idY];
+	}
+}
+
 function init() {
 	var response = new Response();
 	response.id = 0;
@@ -986,6 +1081,23 @@ function onMessage(event) {
 				dotOperationRequest.idA,
 				dotOperationRequest.idB,
 				dotOperationRequest.idOut);
+			break;
+		case Request.Type.CHOLESKY_DECOMPOSITION:
+			var choleskyDecompositionRequest = request.choleskyDecompositionRequest;
+			choleskyDecomposition(request.id,
+				choleskyDecompositionRequest.idA,
+				choleskyDecompositionRequest.aType,
+				choleskyDecompositionRequest.idOut);
+			break;
+		case Request.Type.SOLVE_TRIANGULAR:
+			var solveTriangularRequest = request.solveTriangularRequest;
+			solveTriangular(request.id,
+				solveTriangularRequest.idA,
+				solveTriangularRequest.aType,
+				solveTriangularRequest.aTransposition,
+				solveTriangularRequest.unitDiagonal,
+				solveTriangularRequest.idY,
+				solveTriangularRequest.idX);
 			break;
 	}
 }
@@ -1534,18 +1646,130 @@ exports.repeat = function(dataA, dataOut, outerStride, innerStride, expansionDim
 	}
 };
 
+/**
+ * Solves a triangular system of equations.
+ *
+ * @param {ArrayBufferView} dataA - the NxN triangular matrix that defines the system.
+ * @param {ArrayBufferView} dataB - the NxM matrix of right-hand sides.
+ * @param {Number} rows - the number of rows (*N*) in the matrices.
+ * @param {Number} columns - the number of columns (*M*) in the right-hand sides matrix.
+ * @param {Boolean} transpose - indicator of whether the matrix **a** must be transposed.
+ * @param {Boolean} lower - indicator of whether a lower or upper decomposition is to be computed.
+ * @param {Boolean} unitDiagonal - specifies if the diagonal elements are implied to equal 1.
+ *
+ * @private
+ * @static
+ * @method solveTriangular
+ */
+exports.solveTriangular = function(dataA, dataB, rows, columns, transpose, lower, unitDiagonal) {
+	if (lower) {
+		if (transpose) {
+			for (var i = rows - 1; i >= 0; --i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = rows - 1; j > i; --j) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (var i = 0; i < rows; ++i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = 0; j < i; ++j) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		}
+	} else {
+		if (transpose) {
+			for (var i = 0; i < rows; ++i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = 0; j < i; ++j) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (var i = rows - 1; i >= 0; --i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = rows - 1; j > i; --j) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		}
+	}
+};
+
+
+/**
+ * Computes upper or lower cholesky decomposition.
+ *
+ * @param {ArrayBufferView} data - the matrix to be factored.
+ * @param {Number} n - the number of rows and columns in the arrays.
+ * @param {Boolean} lower - indicator of whether a lower or upper decomposition is to be computed.
+ *
+ * @private
+ * @static
+ * @method cholesky
+ */
+exports.cholesky = function(data, n, lower) {
+	for (var i = 0; i < n; ++i) {
+		/* Compute the diagonal value */
+		var Lii = Math.sqrt(data[i*n+i]);
+		data[i*n+i] = Lii;
+		/* Update the ith column */
+		for (var j = i + 1; j < n; ++j) {
+			data[j*n+i] /= Lii;
+		}
+		/* Update the ith row */
+		for (var j = i + 1; j < n; ++j) {
+			data[i*n+j] /= Lii;
+		}
+		/* Compute Schur complement */
+		for (var j = i + 1; j < n; ++j) {
+			for (var k = i + 1; k < n; ++k) {
+				data[j*n+k] -= data[j*n+i] * data[i*n+k];
+			}
+		}
+	}
+	if (lower) {
+		/* Zero-out the upper sub-diagonals */
+		for (var i = 0; i < n; ++i) {
+			for (var j = i + 1; j < n; ++j) {
+				data[i*n+j] = 0.0;
+			}
+		}
+	} else {
+		/* Zero-out the lower sub-diagonals */
+		for (var i = 0; i < n; ++i) {
+			for (var j = 0; j < i; ++j) {
+				data[i*n+j] = 0.0;
+			}
+		}
+	}
+};
+
 },{}],6:[function(require,module,exports){
 
 var protobufjs = require("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
-var requestsProto = "package furious;\n\noption optimize_for = LITE_RUNTIME;\n\nenum DataType {\n\tFLOAT64 = 0;\n\tFLOAT32 = 1;\n}\n\nmessage Request {\n\tenum Type {\n\t\tEMPTY_ARRAY              =  0;\n\t\tDATA_ARRAY               =  1;\n\t\tCONST_ARRAY              =  2;\n\t\tLINSPACE                 =  3;\n\t\tRESHAPE                  =  4;\n\t\tREPEAT                   =  5;\n\t\tDEALLOCATE               =  6;\n\t\tFETCH                    =  7;\n\t\tBARRIER                  =  8;\n\t\tINFO                     =  9;\n\t\tBINARY_OPERATION         = 10;\n\t\tBINARY_CONST_OPERATION   = 11;\n\t\tUNARY_OPERATION          = 12;\n\t\tREDUCTION_OPERATION      = 13;\n\t\tAXIS_REDUCTION_OPERATION = 14;\n\t\tDOT_OPERATION            = 15;\n\t}\n\trequired fixed32                     id                             =  1;\n\trequired Type                        type                           =  2;\n\n\toptional EmptyArrayRequest           empty_array_request            =  3;\n\toptional DataArrayRequest            data_array_request             =  4;\n\toptional ConstArrayRequest           const_array_request            =  5;\n\toptional LinspaceRequest             linspace_request               =  6;\n\toptional ReshapeRequest              reshape_request                =  7;\n\toptional RepeatRequest               repeat_request                 =  8;\n\toptional DeallocateRequest           deallocate_request             =  9;\n\toptional FetchRequest                fetch_request                  = 10;\n\toptional BinaryOperationRequest      binary_operation_request       = 11;\n\toptional BinaryConstOperationRequest binary_const_operation_request = 12;\n\toptional UnaryOperationRequest       unary_operation_request        = 13;\n\toptional ReductionRequest            reduction_request              = 14;\n\toptional AxisReductionRequest        axis_reduction_request         = 15;\n\toptional DotOperationRequest         dot_operation_request          = 16;\n}\n\nmessage EmptyArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n}\n\nmessage DataArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n\trequired bytes    data_buffer = 4;\n}\n\nmessage ConstArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n\trequired double   fill_value  = 4;\n}\n\nmessage LinspaceRequest {\n\trequired sfixed32  id_out     = 1;\n\trequired double    start      = 2;\n\trequired double    stop       = 3;\n\trequired uint32    samples    = 4;\n\trequired bool      closed     = 5;\n\trequired DataType  data_type  = 6;\n}\n\nmessage ReshapeRequest {\n\trequired sfixed32  id_a      = 1;\n\trequired fixed32   id_out    = 2;\n\trepeated uint32    shape_out = 3 [packed=true];\n}\n\nmessage RepeatRequest {\n\trequired sfixed32 id_a    = 1;\n\trequired fixed32  id_out  = 2;\n\trequired uint32   axis    = 3;\n\trequired uint32   repeats = 4;\n}\n\nmessage DeallocateRequest {\n\trequired fixed32 id_a = 1;\n}\n\nmessage FetchRequest {\n\trequired sfixed32 id_a = 1;\n}\n\nmessage BinaryOperationRequest {\n\tenum Type {\n\t\tADD = 0;\n\t\tSUB = 1;\n\t\tMUL = 2;\n\t\tDIV = 3;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired sfixed32 id_b   = 3;\n\trequired fixed32  id_out = 4;\n}\n\nmessage BinaryConstOperationRequest {\n\tenum Type {\n\t\tADDC  = 0;\n\t\tSUBC  = 1;\n\t\tSUBRC = 2;\n\t\tMULC  = 3;\n\t\tDIVC  = 4;\n\t\tDIVRC = 5;\n\t}\n\trequired Type     type    = 1;\n\trequired sfixed32 id_a    = 2;\n\trequired double   value_b = 3;\n\trequired fixed32  id_out  = 4;\n}\n\nmessage UnaryOperationRequest {\n\tenum Type {\n\t\tNEG    = 0;\n\t\tABS    = 1;\n\t\tEXP    = 2;\n\t\tLOG    = 3;\n\t\tSQRT   = 4;\n\t\tSQUARE = 5;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired fixed32  id_out = 3;\n}\n\nmessage ReductionRequest {\n\tenum Type {\n\t\tSUM = 0;\n\t\tMIN = 1;\n\t\tMAX = 2;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired fixed32  id_out = 3;\n}\n\nmessage AxisReductionRequest {\n\tenum Type {\n\t\tSUM = 0;\n\t\tMIN = 1;\n\t\tMAX = 2;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired uint32   axis   = 3;\n\trequired fixed32  id_out = 4;\n}\n\nmessage DotOperationRequest {\n\trequired sfixed32 id_a   = 1;\n\trequired sfixed32 id_b   = 2;\n\trequired fixed32  id_out = 3;\n}\n";
+var requestsProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nenum DataType {\r\n\tFLOAT64 = 0;\r\n\tFLOAT32 = 1;\r\n}\r\n\r\nenum TriangularMatrixType {\r\n\tUPPER = 0;\r\n\tLOWER = 1;\r\n}\r\n\r\nenum TranspositionType {\r\n\tNORMAL    = 0;\r\n\tTRANSPOSE = 1;\r\n}\r\n\r\nmessage Request {\r\n\tenum Type {\r\n\t\tEMPTY_ARRAY              =  0;\r\n\t\tDATA_ARRAY               =  1;\r\n\t\tCONST_ARRAY              =  2;\r\n\t\tLINSPACE                 =  3;\r\n\t\tRESHAPE                  =  4;\r\n\t\tREPEAT                   =  5;\r\n\t\tDEALLOCATE               =  6;\r\n\t\tFETCH                    =  7;\r\n\t\tBARRIER                  =  8;\r\n\t\tINFO                     =  9;\r\n\t\tBINARY_OPERATION         = 10;\r\n\t\tBINARY_CONST_OPERATION   = 11;\r\n\t\tUNARY_OPERATION          = 12;\r\n\t\tREDUCTION_OPERATION      = 13;\r\n\t\tAXIS_REDUCTION_OPERATION = 14;\r\n\t\tDOT_OPERATION            = 15;\r\n\t\tCHOLESKY_DECOMPOSITION   = 16;\r\n\t\tSOLVE_TRIANGULAR         = 17;\r\n\t}\r\n\trequired fixed32                      id                             =  1;\r\n\trequired Type                         type                           =  2;\r\n\r\n\toptional EmptyArrayRequest            empty_array_request            =  3;\r\n\toptional DataArrayRequest             data_array_request             =  4;\r\n\toptional ConstArrayRequest            const_array_request            =  5;\r\n\toptional LinspaceRequest              linspace_request               =  6;\r\n\toptional ReshapeRequest               reshape_request                =  7;\r\n\toptional RepeatRequest                repeat_request                 =  8;\r\n\toptional DeallocateRequest            deallocate_request             =  9;\r\n\toptional FetchRequest                 fetch_request                  = 10;\r\n\toptional BinaryOperationRequest       binary_operation_request       = 11;\r\n\toptional BinaryConstOperationRequest  binary_const_operation_request = 12;\r\n\toptional UnaryOperationRequest        unary_operation_request        = 13;\r\n\toptional ReductionRequest             reduction_request              = 14;\r\n\toptional AxisReductionRequest         axis_reduction_request         = 15;\r\n\toptional DotOperationRequest          dot_operation_request          = 16;\r\n\toptional CholeskyDecompositionRequest cholesky_decomposition_request = 17;\r\n\toptional SolveTriangularRequest       solve_triangular_request       = 18;\r\n}\r\n\r\nmessage EmptyArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n}\r\n\r\nmessage DataArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired bytes    data_buffer = 4;\r\n}\r\n\r\nmessage ConstArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired double   fill_value  = 4;\r\n}\r\n\r\nmessage LinspaceRequest {\r\n\trequired sfixed32  id_out     = 1;\r\n\trequired double    start      = 2;\r\n\trequired double    stop       = 3;\r\n\trequired uint32    samples    = 4;\r\n\trequired bool      closed     = 5;\r\n\trequired DataType  data_type  = 6;\r\n}\r\n\r\nmessage ReshapeRequest {\r\n\trequired sfixed32  id_a      = 1;\r\n\trequired fixed32   id_out    = 2;\r\n\trepeated uint32    shape_out = 3 [packed=true];\r\n}\r\n\r\nmessage RepeatRequest {\r\n\trequired sfixed32 id_a    = 1;\r\n\trequired fixed32  id_out  = 2;\r\n\trequired uint32   axis    = 3;\r\n\trequired uint32   repeats = 4;\r\n}\r\n\r\nmessage DeallocateRequest {\r\n\trequired fixed32 id_a = 1;\r\n}\r\n\r\nmessage FetchRequest {\r\n\trequired sfixed32 id_a = 1;\r\n}\r\n\r\nmessage BinaryOperationRequest {\r\n\tenum Type {\r\n\t\tADD = 0;\r\n\t\tSUB = 1;\r\n\t\tMUL = 2;\r\n\t\tDIV = 3;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired sfixed32 id_b   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage BinaryConstOperationRequest {\r\n\tenum Type {\r\n\t\tADDC  = 0;\r\n\t\tSUBC  = 1;\r\n\t\tSUBRC = 2;\r\n\t\tMULC  = 3;\r\n\t\tDIVC  = 4;\r\n\t\tDIVRC = 5;\r\n\t}\r\n\trequired Type     type    = 1;\r\n\trequired sfixed32 id_a    = 2;\r\n\trequired double   value_b = 3;\r\n\trequired fixed32  id_out  = 4;\r\n}\r\n\r\nmessage UnaryOperationRequest {\r\n\tenum Type {\r\n\t\tNEG    = 0;\r\n\t\tABS    = 1;\r\n\t\tEXP    = 2;\r\n\t\tLOG    = 3;\r\n\t\tSQRT   = 4;\r\n\t\tSQUARE = 5;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage ReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage AxisReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired uint32   axis   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage DotOperationRequest {\r\n\trequired sfixed32 id_a   = 1;\r\n\trequired sfixed32 id_b   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage CholeskyDecompositionRequest {\r\n\trequired sfixed32             id_a   = 1;\r\n\trequired TriangularMatrixType a_type = 2;\r\n\trequired fixed32              id_out = 3;\r\n}\r\n\r\nmessage SolveTriangularRequest {\r\n\trequired sfixed32             id_a            = 1;\r\n\trequired TriangularMatrixType a_type          = 2;\r\n\trequired TranspositionType    a_transposition = 3;\r\n\trequired bool                 unit_diagonal   = 4;\r\n\trequired sfixed32             id_y            = 5;\r\n\trequired fixed32              id_x            = 6;\r\n}\r\n";
 module.exports = protobufjs.loadProto(requestsProto).build("furious");
 
 },{"protobufjs":13}],7:[function(require,module,exports){
 
 var protobufjs = require("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
-var responsesProto = "package furious;\n\noption optimize_for = LITE_RUNTIME;\n\nmessage Response {\n\tenum Type {\n\t\tFETCH   = 0;\n\t\tERROR   = 1;\n\t\tINIT    = 2;\n\t\tBARRIER = 3;\n\t\tINFO    = 4;\n\t}\n\trequired fixed32         id               = 1;\n\trequired Type            type             = 2;\n\n\toptional FetchResponse   fetch_response   = 3;\n\toptional ErrorResponse   error_response   = 4;\n\toptional InitResponse    init_response    = 5;\n\toptional InfoResponse    info_response    = 7;\n}\n\nmessage FetchResponse {\n\trequired bytes data_buffer = 1;\n}\n\nmessage ErrorResponse {\n\tenum Type {\n\t\tRUNTIME  = 0;\n\t\tARGUMENT = 1;\n\t\tPARSE    = 2;\n\t}\n\trequired Type   type        = 1;\n\toptional string description = 2;\n}\n\nmessage InitResponse {\n\toptional uint32 concurrency = 1;\n}\n\nmessage InfoResponse {\n}\n";
+var responsesProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nmessage Response {\r\n\tenum Type {\r\n\t\tFETCH   = 0;\r\n\t\tERROR   = 1;\r\n\t\tINIT    = 2;\r\n\t\tBARRIER = 3;\r\n\t\tINFO    = 4;\r\n\t}\r\n\trequired fixed32         id               = 1;\r\n\trequired Type            type             = 2;\r\n\r\n\toptional FetchResponse   fetch_response   = 3;\r\n\toptional ErrorResponse   error_response   = 4;\r\n\toptional InitResponse    init_response    = 5;\r\n\toptional InfoResponse    info_response    = 7;\r\n}\r\n\r\nmessage FetchResponse {\r\n\trequired bytes data_buffer = 1;\r\n}\r\n\r\nmessage ErrorResponse {\r\n\tenum Type {\r\n\t\tRUNTIME  = 0;\r\n\t\tARGUMENT = 1;\r\n\t\tPARSE    = 2;\r\n\t}\r\n\trequired Type   type        = 1;\r\n\toptional string description = 2;\r\n}\r\n\r\nmessage InitResponse {\r\n\toptional uint32 concurrency = 1;\r\n}\r\n\r\nmessage InfoResponse {\r\n}\r\n";
 module.exports = protobufjs.loadProto(responsesProto).build("furious");
 
 },{"protobufjs":13}],8:[function(require,module,exports){
@@ -1575,10 +1799,6 @@ exports.isInt = isInt;
 
 exports.isPositiveInt = function(n) {
 	return (n === +n) && (n === (n|0)) && (n > 0);
-};
-
-exports.isNonNegativeInt = function(n) {
-	return (n === +n) && (n === (n|0)) && (n >= 0);
 };
 
 var isArray = function(list) {
@@ -1813,6 +2033,50 @@ exports.checkNDArray = function(array, varname) {
 };
 
 /**
+ * Validates an NDArray parameter and ensures that it is a 2-dimensional array.
+ * Throws an error if the expected NDArray argument has other type, if it has been invalidated, or if the number of dimensions is different than 2.
+ * If the argument is a valid 2-dimensional NDArray, the function does nothing.
+ *
+ * @param {NDArray} array - the expectedly NDArray argument to be validated.
+ * @param {String} vaname - the name of the NDArray argument to be used in error messages.
+ *
+ * @example
+ *     util.check2DArray(a, "a");
+ *
+ * @private
+ * @static
+ * @method check2DArray
+ */
+exports.check2DArray = function(array, varname) {
+	exports.checkNDArray(array, varname);
+	if (array.shape.length !== 2) {
+		throw new Error(varname + " is not a 2-dimensional array");
+	}
+};
+
+/**
+ * Validates an NDArray parameter and ensures that it is a square 2-dimensional array.
+ * Throws an error if the expected NDArray argument has other type, if it has been invalidated, or if the number of dimensions is different than 2, or the number of rows is different than the number of columns.
+ * If the argument is a valid square 2-dimensional NDArray, the function does nothing.
+ *
+ * @param {NDArray} array - the expectedly NDArray argument to be validated.
+ * @param {String} vaname - the name of the NDArray argument to be used in error messages.
+ *
+ * @example
+ *     util.checkSquare2DArray(a, "a");
+ *
+ * @private
+ * @static
+ * @method checkSquare2DArray
+ */
+exports.checkSquare2DArray = function(array, varname) {
+	exports.check2DArray(array, varname);
+	if (array.shape[0] !== array.shape[1]) {
+		throw new Error(varname + " has different number of rows and columns");
+	}
+};
+
+/**
  * Checks that the two arrays are different.
  * Throws an error if they refer to the same object.
  * If the arrays are different, the function does nothing.
@@ -1874,7 +2138,7 @@ exports.checkRepeats = function(repeats) {
  *
  * @private
  * @static
- * @method
+ * @method checkAxis
  */
 exports.checkAxis = function(axis, numDimensions) {
 	if (!isInt(axis)) {
@@ -1888,6 +2152,41 @@ exports.checkAxis = function(axis, numDimensions) {
 		throw new RangeError("Axis out of range");
 	}
 	return axis|0;
+};
+
+exports.checkTransposeKind = function(kind, defaultKind) {
+	if (typeof kind === "undefined") {
+		return defaultKind;
+	} else if ((kind === "N") || (kind === "T")) {
+		return kind;
+	} else {
+		throw new Error("The kind of transposition is neither N(normal) nor T(ranspose)");
+	}
+};
+
+/**
+ * Validates the kind of triangular matrix.
+ * Throws an error if the kind is neither "L" (for lower) nor "U" (for upper).
+ * If the kind is valid, the function does nothing.
+ *
+ * @param {Number} kind - the kind of triangular matrix.
+ * @param {Number} defaultKind - the value to be returned if kind is undefined.
+ *
+ * @example
+ *     kind = util.checkTriangularKind(kind, "U");
+ *
+ * @private
+ * @static
+ * @method checkTriangularKind
+ */
+exports.checkTriangularKind = function(kind, defaultKind) {
+	if (typeof kind === "undefined") {
+		return defaultKind;
+	} else if ((kind === "L") || (kind === "U")) {
+		return kind;
+	} else {
+		throw new Error("The kind of a triangular matrix is neither L(ower) nor U(pper)");
+	}
 };
 
 /**
@@ -2277,8 +2576,8 @@ var substr = 'ab'.substr(-1) === 'b'
     }
 ;
 
-}).call(this,require("JkpR2F"))
-},{"JkpR2F":11}],11:[function(require,module,exports){
+}).call(this,require("+NscNm"))
+},{"+NscNm":11}],11:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};

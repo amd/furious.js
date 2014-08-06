@@ -444,6 +444,8 @@ var UnaryOperationRequest = requests.UnaryOperationRequest;
 var ReductionRequest = requests.ReductionRequest;
 var AxisReductionRequest = requests.AxisReductionRequest;
 var DotOperationRequest = requests.DotOperationRequest;
+var CholeskyDecompositionRequest = requests.CholeskyDecompositionRequest;
+var SolveTriangularRequest = requests.SolveTriangularRequest;
 var Response = _dereq_("./responses.pb").Response;
 
 var dataTypeMap = {
@@ -1226,6 +1228,124 @@ PBContext.prototype.dot = function(a, b, out) {
 	return dotArithOp(a, b, out, this);
 };
 
+PBContext.prototype.solveTriangular = function(a, b, triangularKind, transposeKind, unitDiagonal, out) {
+	util.checkSquare2DArray(a, "a");
+	util.checkNDArray(b, "b");
+	util.checkDataTypesCompatibility(a.dataType, b.dataType);
+	if ((b.shape.length !== 1) && (b.shape.length !== 2)) {
+		throw new Error("The right-hand must be a 1D or 2D array");
+	}
+	if (a.shape[0] != b.shape[0]) {
+		throw new Error("The arrays have incompatible shapes");
+	}
+	transposeKind = util.checkTransposeKind(transposeKind, "N");
+	triangularKind = util.checkTriangularKind(triangularKind, "U");
+	if (typeof unitDiagonal === "undefined") {
+		unitDiagonal = false;
+	} else {
+		unitDiagonal = !!unitDiagonal;
+	}
+	var idA = a._id, idB = b._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
+	var releaseIdB = !b._decRef();
+	if (releaseIdB) {
+		b._id = 0;
+	}
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(b.shape, b.dataType, this);
+			if (releaseIdB) {
+				out._id = idB;
+				releaseIdB = false;
+			} else {
+				out._id = allocator.newArrayId();
+			}
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(b.shape, out.shape);
+			util.checkDataTypesCompatibility(b.dataType, out.dataType);
+			out._incRef();
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		b._incRef();
+		throw e;
+	}
+
+	var request = new Request();
+	request.id = allocator.newMessageId();
+	request.type = Request.Type.SOLVE_TRIANGULAR;
+	var solveTriangularRequest = new SolveTriangularRequest();
+	solveTriangularRequest.idA = (releaseIdA ? -idA : idA);
+	solveTriangularRequest.aType = {
+		"U": requests.TriangularMatrixType.UPPER,
+		"L": requests.TriangularMatrixType.LOWER
+	}[triangularKind];
+	solveTriangularRequest.aTransposition = {
+		"N": requests.TranspositionType.NORMAL,
+		"T": requests.TranspositionType.TRANSPOSE
+	}[transposeKind];
+	solveTriangularRequest.unitDiagonal = unitDiagonal;
+	solveTriangularRequest.idY = (releaseIdB ? -idB : idB);
+	solveTriangularRequest.idX = out._id;
+	request.solveTriangularRequest = solveTriangularRequest;
+	this._postMessage(request.encodeAB());
+
+	a._tryInvalidate();
+	b._tryInvalidate();
+	return out;
+};
+
+PBContext.prototype.cholesky = function(a, kind, out) {
+	util.checkSquare2DArray(a, "a");
+	kind = util.checkTriangularKind(kind, "U");
+	var idA = a._id;
+	var releaseIdA = !a._decRef();
+	if (releaseIdA) {
+		a._id = 0;
+	}
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(a.shape, a.dataType, this);
+			if (releaseIdA) {
+				out._id = idA;
+				releaseIdA = false;
+			} else {
+				out._id = allocator.newArrayId();
+			}
+		} else {
+			util.checkSquare2DArray(out, "out");
+			util.checkShapesCompatibility(out.shape, a.shape);
+			util.checkDataTypesCompatibility(out.dataType, a.dataType);
+			out._incRef();
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		throw e;
+	}
+
+	var request = new Request();
+	request.id = allocator.newMessageId();
+	request.type = Request.Type.CHOLESKY_DECOMPOSITION;
+	var choleskyDecompositionRequest = new CholeskyDecompositionRequest();
+	choleskyDecompositionRequest.idA = (releaseIdA ? -idA : idA);
+	choleskyDecompositionRequest.aType = {
+		"U": requests.TriangularMatrixType.UPPER,
+		"L": requests.TriangularMatrixType.LOWER
+	}[kind];
+	choleskyDecompositionRequest.idOut = out._id;
+	request.choleskyDecompositionRequest = choleskyDecompositionRequest;
+	this._postMessage(request.encodeAB());
+
+	a._tryInvalidate();
+	return out;
+};
+
 module.exports = PBContext;
 
 },{"./DataType":1,"./NDArray":2,"./allocator":5,"./requests.pb":10,"./responses.pb":11,"./util":12}],4:[function(_dereq_,module,exports){
@@ -1367,6 +1487,14 @@ PNaClContext.prototype.sum = function(a, axis) {
 
 PNaClContext.prototype.dot = function(a, b, out) {
 	return this._messagingContext.dot(a, b, out);
+};
+
+PNaClContext.prototype.solveTriangular = function(a, b, triangularKind, transposeKind, unitDiagonal, out) {
+	return this._messagingContext.solveTriangular(a, b, triangularKind, transposeKind, unitDiagonal, out);
+};
+
+PNaClContext.prototype.cholesky = function(a, kind, out) {
+	return this._messagingContext.cholesky(a, kind, out);
 };
 
 module.exports = PNaClContext;
@@ -2347,7 +2475,7 @@ JSContext.prototype.dot = function(a, b, out) {
 	}
 	if (typeof out === "undefined") {
 		out = this.empty(shapeOut, a.dataType);
-	} else if (out instanceof NDArray) {
+	} else {
 		util.checkNDArray(out, "out");
 		util.checkShapesCompatibility(out.shape, shapeOut);
 		util.checkDataTypesCompatibility(out.dataType, a.dataType);
@@ -2358,6 +2486,104 @@ JSContext.prototype.dot = function(a, b, out) {
 	jsmath.dot(a._data, b._data, out._data, strideA, outerStrideB, innerStrideB, reductionDim);
 	a._tryRelease();
 	b._tryRelease();
+	return out;
+};
+
+/**
+ * Solves a triangular linear system.
+ *
+ * @method solveTriangular
+ * @param {NDArray} a - the triangular matrix that defines the system.
+ * @param {NDArray} b - the matrix of right-hand sides of the system.
+ * @param {String} [triangularKind="U"] - the kind of triangular matrix in **a**. "L" denotes lower triangular, "U" denotes upper triangular. Other values are invalid.
+ * @param {String} [transposeKind="N"] - the type of transposition to be applied to **a**. Use "T" to transpose the matrix on-the-fly in the computation, "N" to use it as-is.
+ * @param {Boolean} [unitDiagonal=false] - indicates that the diagonal elements should be assumed to equal 1.
+ * @param {NDArray} [out] - an array to be used for the solutions vector or matrix. If supplied, must match the dimensions and data type of the **b** array.
+ */
+JSContext.prototype.solveTriangular = function(a, b, triangularKind, transposeKind, unitDiagonal, out) {
+	util.checkSquare2DArray(a, "a");
+	util.checkNDArray(b, "b");
+	util.checkDataTypesCompatibility(a.dataType, b.dataType);
+	if ((b.shape.length !== 1) && (b.shape.length !== 2)) {
+		throw new Error("The right-hand must be a 1D or 2D array");
+	}
+	if (a.shape[0] != b.shape[0]) {
+		throw new Error("The arrays have incompatible shapes");
+	}
+	transposeKind = util.checkTransposeKind(transposeKind, "N");
+	triangularKind = util.checkTriangularKind(triangularKind, "U");
+	if (typeof unitDiagonal === "undefined") {
+		unitDiagonal = false;
+	} else {
+		unitDiagonal = !!unitDiagonal;
+	}
+	a._decRef();
+	b._decRef();
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(b.shape, b.dataType, this);
+			if (!b._hasRefs()) {
+				out._data = b._data;
+			} else {
+				out._data = new out.dataType.arrayType(b._data);
+			}
+		} else {
+			util.checkNDArray(out, "out");
+			util.checkShapesCompatibility(b.shape, out.shape);
+			util.checkDataTypesCompatibility(b.dataType, out.dataType);
+			out._data.set(b._data);
+			out._incRef();
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		b._incRef();
+		throw e;
+	}
+	jsmath.solveTriangular(a._data, out._data,
+		b.shape[0], b.shape[1] || 1,
+		transposeKind === "T",
+		triangularKind === "L",
+		unitDiagonal);
+	a._tryInvalidate();
+	b._tryInvalidate();
+	return out;
+};
+
+/**
+ * Computes Cholesky decomposition of an s.p.d. matrix
+ *
+ * @method cholesky
+ * @param {NDArray} a - a square 2-dimensional matrix to be factored.
+ * @param {String} [kind="U"] - the kind of Cholesky factorization. Pass "L" for lower Cholesky, "U" for upper Cholesky. Other values are invalid.
+ * @param {NDArray} [out] - a square 2-dimensional array to be used to the Cholesky factor. If supplied, must match the dimensions and data type of the **a** array.
+ */
+JSContext.prototype.cholesky = function(a, kind, out) {
+	util.checkSquare2DArray(a, "a");
+	kind = util.checkTriangularKind(kind, "U");
+	a._decRef();
+	try {
+		if (typeof out === "undefined") {
+			out = new NDArray(a.shape, a.dataType, this);
+			if (!a._hasRefs()) {
+				out._data = a._data;
+			} else {
+				out._data = new out.dataType.arrayType(a._data);
+			}
+		} else {
+			util.checkSquare2DArray(out, "out");
+			util.checkShapesCompatibility(out.shape, a.shape);
+			util.checkDataTypesCompatibility(out.dataType, a.dataType);
+			out._data.set(a._data);
+			out._incRef();
+		}
+	} catch (e) {
+		/* Restore the previous state */
+		a._incRef();
+		throw e;
+	}
+	jsmath.cholesky(out._data, a.shape[0], kind === "L");
+	a._tryInvalidate();
 	return out;
 };
 
@@ -2426,9 +2652,9 @@ WebWorkerContext.isSupported = function() {
 
 WebWorkerContext.getWorkerURL = function(baseUrl) {
 	if (baseUrl) {
-		return baseUrl + "furious-worker.min.js";
+		return baseUrl + "furious-worker.js";
 	} else {
-		return "furious-worker.min.js";
+		return "furious-worker.js";
 	}
 };
 
@@ -2534,6 +2760,14 @@ WebWorkerContext.prototype.sum = function(a, axis) {
 
 WebWorkerContext.prototype.dot = function(a, b, out) {
 	return this._messagingContext.dot(a, b, out);
+};
+
+WebWorkerContext.prototype.solveTriangular = function(a, b, triangularKind, transposeKind, unitDiagonal, out) {
+	return this._messagingContext.solveTriangular(a, b, triangularKind, transposeKind, unitDiagonal, out);
+};
+
+WebWorkerContext.prototype.cholesky = function(a, kind, out) {
+	return this._messagingContext.cholesky(a, kind, out);
 };
 
 module.exports = WebWorkerContext;
@@ -3053,18 +3287,130 @@ exports.repeat = function(dataA, dataOut, outerStride, innerStride, expansionDim
 	}
 };
 
+/**
+ * Solves a triangular system of equations.
+ *
+ * @param {ArrayBufferView} dataA - the NxN triangular matrix that defines the system.
+ * @param {ArrayBufferView} dataB - the NxM matrix of right-hand sides.
+ * @param {Number} rows - the number of rows (*N*) in the matrices.
+ * @param {Number} columns - the number of columns (*M*) in the right-hand sides matrix.
+ * @param {Boolean} transpose - indicator of whether the matrix **a** must be transposed.
+ * @param {Boolean} lower - indicator of whether a lower or upper decomposition is to be computed.
+ * @param {Boolean} unitDiagonal - specifies if the diagonal elements are implied to equal 1.
+ *
+ * @private
+ * @static
+ * @method solveTriangular
+ */
+exports.solveTriangular = function(dataA, dataB, rows, columns, transpose, lower, unitDiagonal) {
+	if (lower) {
+		if (transpose) {
+			for (var i = rows - 1; i >= 0; --i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = rows - 1; j > i; --j) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (var i = 0; i < rows; ++i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = 0; j < i; ++j) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		}
+	} else {
+		if (transpose) {
+			for (var i = 0; i < rows; ++i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = 0; j < i; ++j) {
+						Xii -= dataA[j*rows+i] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		} else {
+			for (var i = rows - 1; i >= 0; --i) {
+				for (var k = 0; k < columns; ++k){
+					var Xii = dataB[i*columns+k];
+					for (var j = rows - 1; j > i; --j) {
+						Xii -= dataA[i*rows+j] * dataB[j*columns+k];
+					}
+					dataB[i*columns+k] = unitDiagonal ? Xii : Xii / dataA[i*rows+i];
+				}
+			}
+		}
+	}
+};
+
+
+/**
+ * Computes upper or lower cholesky decomposition.
+ *
+ * @param {ArrayBufferView} data - the matrix to be factored.
+ * @param {Number} n - the number of rows and columns in the arrays.
+ * @param {Boolean} lower - indicator of whether a lower or upper decomposition is to be computed.
+ *
+ * @private
+ * @static
+ * @method cholesky
+ */
+exports.cholesky = function(data, n, lower) {
+	for (var i = 0; i < n; ++i) {
+		/* Compute the diagonal value */
+		var Lii = Math.sqrt(data[i*n+i]);
+		data[i*n+i] = Lii;
+		/* Update the ith column */
+		for (var j = i + 1; j < n; ++j) {
+			data[j*n+i] /= Lii;
+		}
+		/* Update the ith row */
+		for (var j = i + 1; j < n; ++j) {
+			data[i*n+j] /= Lii;
+		}
+		/* Compute Schur complement */
+		for (var j = i + 1; j < n; ++j) {
+			for (var k = i + 1; k < n; ++k) {
+				data[j*n+k] -= data[j*n+i] * data[i*n+k];
+			}
+		}
+	}
+	if (lower) {
+		/* Zero-out the upper sub-diagonals */
+		for (var i = 0; i < n; ++i) {
+			for (var j = i + 1; j < n; ++j) {
+				data[i*n+j] = 0.0;
+			}
+		}
+	} else {
+		/* Zero-out the lower sub-diagonals */
+		for (var i = 0; i < n; ++i) {
+			for (var j = 0; j < i; ++j) {
+				data[i*n+j] = 0.0;
+			}
+		}
+	}
+};
+
 },{}],10:[function(_dereq_,module,exports){
 
 var protobufjs = _dereq_("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
-var requestsProto = "package furious;\n\noption optimize_for = LITE_RUNTIME;\n\nenum DataType {\n\tFLOAT64 = 0;\n\tFLOAT32 = 1;\n}\n\nmessage Request {\n\tenum Type {\n\t\tEMPTY_ARRAY              =  0;\n\t\tDATA_ARRAY               =  1;\n\t\tCONST_ARRAY              =  2;\n\t\tLINSPACE                 =  3;\n\t\tRESHAPE                  =  4;\n\t\tREPEAT                   =  5;\n\t\tDEALLOCATE               =  6;\n\t\tFETCH                    =  7;\n\t\tBARRIER                  =  8;\n\t\tINFO                     =  9;\n\t\tBINARY_OPERATION         = 10;\n\t\tBINARY_CONST_OPERATION   = 11;\n\t\tUNARY_OPERATION          = 12;\n\t\tREDUCTION_OPERATION      = 13;\n\t\tAXIS_REDUCTION_OPERATION = 14;\n\t\tDOT_OPERATION            = 15;\n\t}\n\trequired fixed32                     id                             =  1;\n\trequired Type                        type                           =  2;\n\n\toptional EmptyArrayRequest           empty_array_request            =  3;\n\toptional DataArrayRequest            data_array_request             =  4;\n\toptional ConstArrayRequest           const_array_request            =  5;\n\toptional LinspaceRequest             linspace_request               =  6;\n\toptional ReshapeRequest              reshape_request                =  7;\n\toptional RepeatRequest               repeat_request                 =  8;\n\toptional DeallocateRequest           deallocate_request             =  9;\n\toptional FetchRequest                fetch_request                  = 10;\n\toptional BinaryOperationRequest      binary_operation_request       = 11;\n\toptional BinaryConstOperationRequest binary_const_operation_request = 12;\n\toptional UnaryOperationRequest       unary_operation_request        = 13;\n\toptional ReductionRequest            reduction_request              = 14;\n\toptional AxisReductionRequest        axis_reduction_request         = 15;\n\toptional DotOperationRequest         dot_operation_request          = 16;\n}\n\nmessage EmptyArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n}\n\nmessage DataArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n\trequired bytes    data_buffer = 4;\n}\n\nmessage ConstArrayRequest {\n\trequired fixed32  id_out      = 1;\n\trepeated uint32   shape       = 2 [packed=true];\n\trequired DataType data_type   = 3;\n\trequired double   fill_value  = 4;\n}\n\nmessage LinspaceRequest {\n\trequired sfixed32  id_out     = 1;\n\trequired double    start      = 2;\n\trequired double    stop       = 3;\n\trequired uint32    samples    = 4;\n\trequired bool      closed     = 5;\n\trequired DataType  data_type  = 6;\n}\n\nmessage ReshapeRequest {\n\trequired sfixed32  id_a      = 1;\n\trequired fixed32   id_out    = 2;\n\trepeated uint32    shape_out = 3 [packed=true];\n}\n\nmessage RepeatRequest {\n\trequired sfixed32 id_a    = 1;\n\trequired fixed32  id_out  = 2;\n\trequired uint32   axis    = 3;\n\trequired uint32   repeats = 4;\n}\n\nmessage DeallocateRequest {\n\trequired fixed32 id_a = 1;\n}\n\nmessage FetchRequest {\n\trequired sfixed32 id_a = 1;\n}\n\nmessage BinaryOperationRequest {\n\tenum Type {\n\t\tADD = 0;\n\t\tSUB = 1;\n\t\tMUL = 2;\n\t\tDIV = 3;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired sfixed32 id_b   = 3;\n\trequired fixed32  id_out = 4;\n}\n\nmessage BinaryConstOperationRequest {\n\tenum Type {\n\t\tADDC  = 0;\n\t\tSUBC  = 1;\n\t\tSUBRC = 2;\n\t\tMULC  = 3;\n\t\tDIVC  = 4;\n\t\tDIVRC = 5;\n\t}\n\trequired Type     type    = 1;\n\trequired sfixed32 id_a    = 2;\n\trequired double   value_b = 3;\n\trequired fixed32  id_out  = 4;\n}\n\nmessage UnaryOperationRequest {\n\tenum Type {\n\t\tNEG    = 0;\n\t\tABS    = 1;\n\t\tEXP    = 2;\n\t\tLOG    = 3;\n\t\tSQRT   = 4;\n\t\tSQUARE = 5;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired fixed32  id_out = 3;\n}\n\nmessage ReductionRequest {\n\tenum Type {\n\t\tSUM = 0;\n\t\tMIN = 1;\n\t\tMAX = 2;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired fixed32  id_out = 3;\n}\n\nmessage AxisReductionRequest {\n\tenum Type {\n\t\tSUM = 0;\n\t\tMIN = 1;\n\t\tMAX = 2;\n\t}\n\trequired Type     type   = 1;\n\trequired sfixed32 id_a   = 2;\n\trequired uint32   axis   = 3;\n\trequired fixed32  id_out = 4;\n}\n\nmessage DotOperationRequest {\n\trequired sfixed32 id_a   = 1;\n\trequired sfixed32 id_b   = 2;\n\trequired fixed32  id_out = 3;\n}\n";
+var requestsProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nenum DataType {\r\n\tFLOAT64 = 0;\r\n\tFLOAT32 = 1;\r\n}\r\n\r\nenum TriangularMatrixType {\r\n\tUPPER = 0;\r\n\tLOWER = 1;\r\n}\r\n\r\nenum TranspositionType {\r\n\tNORMAL    = 0;\r\n\tTRANSPOSE = 1;\r\n}\r\n\r\nmessage Request {\r\n\tenum Type {\r\n\t\tEMPTY_ARRAY              =  0;\r\n\t\tDATA_ARRAY               =  1;\r\n\t\tCONST_ARRAY              =  2;\r\n\t\tLINSPACE                 =  3;\r\n\t\tRESHAPE                  =  4;\r\n\t\tREPEAT                   =  5;\r\n\t\tDEALLOCATE               =  6;\r\n\t\tFETCH                    =  7;\r\n\t\tBARRIER                  =  8;\r\n\t\tINFO                     =  9;\r\n\t\tBINARY_OPERATION         = 10;\r\n\t\tBINARY_CONST_OPERATION   = 11;\r\n\t\tUNARY_OPERATION          = 12;\r\n\t\tREDUCTION_OPERATION      = 13;\r\n\t\tAXIS_REDUCTION_OPERATION = 14;\r\n\t\tDOT_OPERATION            = 15;\r\n\t\tCHOLESKY_DECOMPOSITION   = 16;\r\n\t\tSOLVE_TRIANGULAR         = 17;\r\n\t}\r\n\trequired fixed32                      id                             =  1;\r\n\trequired Type                         type                           =  2;\r\n\r\n\toptional EmptyArrayRequest            empty_array_request            =  3;\r\n\toptional DataArrayRequest             data_array_request             =  4;\r\n\toptional ConstArrayRequest            const_array_request            =  5;\r\n\toptional LinspaceRequest              linspace_request               =  6;\r\n\toptional ReshapeRequest               reshape_request                =  7;\r\n\toptional RepeatRequest                repeat_request                 =  8;\r\n\toptional DeallocateRequest            deallocate_request             =  9;\r\n\toptional FetchRequest                 fetch_request                  = 10;\r\n\toptional BinaryOperationRequest       binary_operation_request       = 11;\r\n\toptional BinaryConstOperationRequest  binary_const_operation_request = 12;\r\n\toptional UnaryOperationRequest        unary_operation_request        = 13;\r\n\toptional ReductionRequest             reduction_request              = 14;\r\n\toptional AxisReductionRequest         axis_reduction_request         = 15;\r\n\toptional DotOperationRequest          dot_operation_request          = 16;\r\n\toptional CholeskyDecompositionRequest cholesky_decomposition_request = 17;\r\n\toptional SolveTriangularRequest       solve_triangular_request       = 18;\r\n}\r\n\r\nmessage EmptyArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n}\r\n\r\nmessage DataArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired bytes    data_buffer = 4;\r\n}\r\n\r\nmessage ConstArrayRequest {\r\n\trequired fixed32  id_out      = 1;\r\n\trepeated uint32   shape       = 2 [packed=true];\r\n\trequired DataType data_type   = 3;\r\n\trequired double   fill_value  = 4;\r\n}\r\n\r\nmessage LinspaceRequest {\r\n\trequired sfixed32  id_out     = 1;\r\n\trequired double    start      = 2;\r\n\trequired double    stop       = 3;\r\n\trequired uint32    samples    = 4;\r\n\trequired bool      closed     = 5;\r\n\trequired DataType  data_type  = 6;\r\n}\r\n\r\nmessage ReshapeRequest {\r\n\trequired sfixed32  id_a      = 1;\r\n\trequired fixed32   id_out    = 2;\r\n\trepeated uint32    shape_out = 3 [packed=true];\r\n}\r\n\r\nmessage RepeatRequest {\r\n\trequired sfixed32 id_a    = 1;\r\n\trequired fixed32  id_out  = 2;\r\n\trequired uint32   axis    = 3;\r\n\trequired uint32   repeats = 4;\r\n}\r\n\r\nmessage DeallocateRequest {\r\n\trequired fixed32 id_a = 1;\r\n}\r\n\r\nmessage FetchRequest {\r\n\trequired sfixed32 id_a = 1;\r\n}\r\n\r\nmessage BinaryOperationRequest {\r\n\tenum Type {\r\n\t\tADD = 0;\r\n\t\tSUB = 1;\r\n\t\tMUL = 2;\r\n\t\tDIV = 3;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired sfixed32 id_b   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage BinaryConstOperationRequest {\r\n\tenum Type {\r\n\t\tADDC  = 0;\r\n\t\tSUBC  = 1;\r\n\t\tSUBRC = 2;\r\n\t\tMULC  = 3;\r\n\t\tDIVC  = 4;\r\n\t\tDIVRC = 5;\r\n\t}\r\n\trequired Type     type    = 1;\r\n\trequired sfixed32 id_a    = 2;\r\n\trequired double   value_b = 3;\r\n\trequired fixed32  id_out  = 4;\r\n}\r\n\r\nmessage UnaryOperationRequest {\r\n\tenum Type {\r\n\t\tNEG    = 0;\r\n\t\tABS    = 1;\r\n\t\tEXP    = 2;\r\n\t\tLOG    = 3;\r\n\t\tSQRT   = 4;\r\n\t\tSQUARE = 5;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage ReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage AxisReductionRequest {\r\n\tenum Type {\r\n\t\tSUM = 0;\r\n\t\tMIN = 1;\r\n\t\tMAX = 2;\r\n\t}\r\n\trequired Type     type   = 1;\r\n\trequired sfixed32 id_a   = 2;\r\n\trequired uint32   axis   = 3;\r\n\trequired fixed32  id_out = 4;\r\n}\r\n\r\nmessage DotOperationRequest {\r\n\trequired sfixed32 id_a   = 1;\r\n\trequired sfixed32 id_b   = 2;\r\n\trequired fixed32  id_out = 3;\r\n}\r\n\r\nmessage CholeskyDecompositionRequest {\r\n\trequired sfixed32             id_a   = 1;\r\n\trequired TriangularMatrixType a_type = 2;\r\n\trequired fixed32              id_out = 3;\r\n}\r\n\r\nmessage SolveTriangularRequest {\r\n\trequired sfixed32             id_a            = 1;\r\n\trequired TriangularMatrixType a_type          = 2;\r\n\trequired TranspositionType    a_transposition = 3;\r\n\trequired bool                 unit_diagonal   = 4;\r\n\trequired sfixed32             id_y            = 5;\r\n\trequired fixed32              id_x            = 6;\r\n}\r\n";
 module.exports = protobufjs.loadProto(requestsProto).build("furious");
 
 },{"protobufjs":18}],11:[function(_dereq_,module,exports){
 
 var protobufjs = _dereq_("protobufjs");
 protobufjs.convertFieldsToCamelCase = true;
-var responsesProto = "package furious;\n\noption optimize_for = LITE_RUNTIME;\n\nmessage Response {\n\tenum Type {\n\t\tFETCH   = 0;\n\t\tERROR   = 1;\n\t\tINIT    = 2;\n\t\tBARRIER = 3;\n\t\tINFO    = 4;\n\t}\n\trequired fixed32         id               = 1;\n\trequired Type            type             = 2;\n\n\toptional FetchResponse   fetch_response   = 3;\n\toptional ErrorResponse   error_response   = 4;\n\toptional InitResponse    init_response    = 5;\n\toptional InfoResponse    info_response    = 7;\n}\n\nmessage FetchResponse {\n\trequired bytes data_buffer = 1;\n}\n\nmessage ErrorResponse {\n\tenum Type {\n\t\tRUNTIME  = 0;\n\t\tARGUMENT = 1;\n\t\tPARSE    = 2;\n\t}\n\trequired Type   type        = 1;\n\toptional string description = 2;\n}\n\nmessage InitResponse {\n\toptional uint32 concurrency = 1;\n}\n\nmessage InfoResponse {\n}\n";
+var responsesProto = "package furious;\r\n\r\noption optimize_for = LITE_RUNTIME;\r\n\r\nmessage Response {\r\n\tenum Type {\r\n\t\tFETCH   = 0;\r\n\t\tERROR   = 1;\r\n\t\tINIT    = 2;\r\n\t\tBARRIER = 3;\r\n\t\tINFO    = 4;\r\n\t}\r\n\trequired fixed32         id               = 1;\r\n\trequired Type            type             = 2;\r\n\r\n\toptional FetchResponse   fetch_response   = 3;\r\n\toptional ErrorResponse   error_response   = 4;\r\n\toptional InitResponse    init_response    = 5;\r\n\toptional InfoResponse    info_response    = 7;\r\n}\r\n\r\nmessage FetchResponse {\r\n\trequired bytes data_buffer = 1;\r\n}\r\n\r\nmessage ErrorResponse {\r\n\tenum Type {\r\n\t\tRUNTIME  = 0;\r\n\t\tARGUMENT = 1;\r\n\t\tPARSE    = 2;\r\n\t}\r\n\trequired Type   type        = 1;\r\n\toptional string description = 2;\r\n}\r\n\r\nmessage InitResponse {\r\n\toptional uint32 concurrency = 1;\r\n}\r\n\r\nmessage InfoResponse {\r\n}\r\n";
 module.exports = protobufjs.loadProto(responsesProto).build("furious");
 
 },{"protobufjs":18}],12:[function(_dereq_,module,exports){
@@ -3094,10 +3440,6 @@ exports.isInt = isInt;
 
 exports.isPositiveInt = function(n) {
 	return (n === +n) && (n === (n|0)) && (n > 0);
-};
-
-exports.isNonNegativeInt = function(n) {
-	return (n === +n) && (n === (n|0)) && (n >= 0);
 };
 
 var isArray = function(list) {
@@ -3332,6 +3674,50 @@ exports.checkNDArray = function(array, varname) {
 };
 
 /**
+ * Validates an NDArray parameter and ensures that it is a 2-dimensional array.
+ * Throws an error if the expected NDArray argument has other type, if it has been invalidated, or if the number of dimensions is different than 2.
+ * If the argument is a valid 2-dimensional NDArray, the function does nothing.
+ *
+ * @param {NDArray} array - the expectedly NDArray argument to be validated.
+ * @param {String} vaname - the name of the NDArray argument to be used in error messages.
+ *
+ * @example
+ *     util.check2DArray(a, "a");
+ *
+ * @private
+ * @static
+ * @method check2DArray
+ */
+exports.check2DArray = function(array, varname) {
+	exports.checkNDArray(array, varname);
+	if (array.shape.length !== 2) {
+		throw new Error(varname + " is not a 2-dimensional array");
+	}
+};
+
+/**
+ * Validates an NDArray parameter and ensures that it is a square 2-dimensional array.
+ * Throws an error if the expected NDArray argument has other type, if it has been invalidated, or if the number of dimensions is different than 2, or the number of rows is different than the number of columns.
+ * If the argument is a valid square 2-dimensional NDArray, the function does nothing.
+ *
+ * @param {NDArray} array - the expectedly NDArray argument to be validated.
+ * @param {String} vaname - the name of the NDArray argument to be used in error messages.
+ *
+ * @example
+ *     util.checkSquare2DArray(a, "a");
+ *
+ * @private
+ * @static
+ * @method checkSquare2DArray
+ */
+exports.checkSquare2DArray = function(array, varname) {
+	exports.check2DArray(array, varname);
+	if (array.shape[0] !== array.shape[1]) {
+		throw new Error(varname + " has different number of rows and columns");
+	}
+};
+
+/**
  * Checks that the two arrays are different.
  * Throws an error if they refer to the same object.
  * If the arrays are different, the function does nothing.
@@ -3393,7 +3779,7 @@ exports.checkRepeats = function(repeats) {
  *
  * @private
  * @static
- * @method
+ * @method checkAxis
  */
 exports.checkAxis = function(axis, numDimensions) {
 	if (!isInt(axis)) {
@@ -3407,6 +3793,41 @@ exports.checkAxis = function(axis, numDimensions) {
 		throw new RangeError("Axis out of range");
 	}
 	return axis|0;
+};
+
+exports.checkTransposeKind = function(kind, defaultKind) {
+	if (typeof kind === "undefined") {
+		return defaultKind;
+	} else if ((kind === "N") || (kind === "T")) {
+		return kind;
+	} else {
+		throw new Error("The kind of transposition is neither N(normal) nor T(ranspose)");
+	}
+};
+
+/**
+ * Validates the kind of triangular matrix.
+ * Throws an error if the kind is neither "L" (for lower) nor "U" (for upper).
+ * If the kind is valid, the function does nothing.
+ *
+ * @param {Number} kind - the kind of triangular matrix.
+ * @param {Number} defaultKind - the value to be returned if kind is undefined.
+ *
+ * @example
+ *     kind = util.checkTriangularKind(kind, "U");
+ *
+ * @private
+ * @static
+ * @method checkTriangularKind
+ */
+exports.checkTriangularKind = function(kind, defaultKind) {
+	if (typeof kind === "undefined") {
+		return defaultKind;
+	} else if ((kind === "L") || (kind === "U")) {
+		return kind;
+	} else {
+		throw new Error("The kind of a triangular matrix is neither L(ower) nor U(pper)");
+	}
 };
 
 /**
@@ -3951,12 +4372,12 @@ var createKernels = function(program) {
 
 function WebCLContext(options, callback) {
 	initWebCL();
-	var binaryKernelsSource = "kernel void add_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b[id];\n\t}\n}\nkernel void add_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b[id];\n\t}\n}\nkernel void sub_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b[id];\n\t}\n}\nkernel void sub_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b[id];\n\t}\n}\nkernel void mul_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b[id];\n\t}\n}\nkernel void mul_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b[id];\n\t}\n}\nkernel void div_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b[id];\n\t}\n}\nkernel void div_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b[id];\n\t}\n}\nkernel void addc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b;\n\t}\n}\nkernel void addc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] + b;\n\t}\n}\nkernel void subc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b;\n\t}\n}\nkernel void subc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] - b;\n\t}\n}\nkernel void subrc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void subrc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void mulc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b;\n\t}\n}\nkernel void mulc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] * b;\n\t}\n}\nkernel void divc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b;\n\t}\n}\nkernel void divc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = a[id] / b;\n\t}\n}\nkernel void divrc_f32(\n\tuint length,\n\tglobal float* a,\n\tfloat b,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\nkernel void divrc_f64(\n\tuint length,\n\tglobal double* a,\n\tdouble b,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = b / a[id];\n\t}\n}\n";
-	var unaryKernelsSource = "kernel void neg_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = -a[id];\n\t}\n}\nkernel void neg_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = -a[id];\n\t}\n}\nkernel void abs_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = fabs(a[id]);\n\t}\n}\nkernel void abs_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = fabs(a[id]);\n\t}\n}\nkernel void exp_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = exp(a[id]);\n\t}\n}\nkernel void exp_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = exp(a[id]);\n\t}\n}\nkernel void log_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = log(a[id]);\n\t}\n}\nkernel void log_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = log(a[id]);\n\t}\n}\nkernel void sqrt_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = sqrt(a[id]);\n\t}\n}\nkernel void sqrt_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = sqrt(a[id]);\n\t}\n}\nkernel void square_f32(\n\tuint length,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tconst float aVal = a[id]; \n\t\tout[id] = aVal * aVal;\n\t}\n}\nkernel void square_f64(\n\tuint length,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tconst double aVal = a[id];\n\t\tout[id] = aVal * aVal;\n\t}\n}\n";
-	var reductionKernelsSource = "kernel void sum_f32_gpu(\n\tuint length,\n\tglobal float* a,\n\tlocal float* scratch,\n\tglobal float* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tfloat accumulator = 0.0f;\n\twhile (globalIndex < length) {\n\t\taccumulator += a[globalIndex];\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void sum_f64_gpu(\n\tuint length,\n\tglobal double* a,\n\tlocal double* scratch,\n\tglobal double* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tdouble accumulator = 0.0;\n\twhile (globalIndex < length) {\n\t\taccumulator += a[globalIndex];\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void min_f32_gpu(\n\tuint length,\n\tglobal float* a,\n\tlocal float* scratch,\n\tglobal float* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tfloat accumulator = INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = min(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void min_f64_gpu(\n\tuint length,\n\tglobal double* a,\n\tlocal double* scratch,\n\tglobal double* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tdouble accumulator = INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = min(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void max_f32_gpu(\n\tuint length,\n\tglobal float* a,\n\tlocal float* scratch,\n\tglobal float* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tfloat accumulator = -INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = max(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n\nkernel void max_f64_gpu(\n\tuint length,\n\tglobal double* a,\n\tlocal double* scratch,\n\tglobal double* out)\n{\n\tconst uint globalSize = get_global_size(0);\n\tuint globalIndex = get_global_id(0);\n\tdouble accumulator = -INFINITY;\n\twhile (globalIndex < length) {\n\t\taccumulator = max(accumulator, a[globalIndex]);\n\t\tglobalIndex += globalSize;\n\t}\n\n\tuint localIndex = get_local_id(0);\n\tscratch[localIndex] = accumulator;\n\tbarrier(CLK_LOCAL_MEM_FENCE);\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\n\t\tif (localIndex < offset) {\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\n\t\t}\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\n\t}\n\tif (localIndex == 0) {\n\t\tout[get_group_id(0)] = scratch[0];\n\t}\n}\n";
-	var axisReductionKernelsSource = "kernel void asum_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tfloat accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator += *a;\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void asum_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tdouble accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator += *a;\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amin_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tfloat accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = min(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amin_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tdouble accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = min(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amax_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tfloat accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = max(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n\nkernel void amax_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* out)\n{\n\tconst uint innerStride = get_global_size(1);\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\ta += i * reductionDim * innerStride + k;\n\tdouble accumulator = *a;\n\twhile (--reductionDim) {\n\t\ta += innerStride;\n\t\taccumulator = max(accumulator, *a);\n\t}\n\tout[i * innerStride + k] = accumulator;\n}\n";
-	var productKernelsSource = "kernel void dot_f32(\n\tuint reductionDim,\n\tglobal float* a,\n\tglobal float* b,\n\tglobal float* out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\tconst uint l = get_global_id(2);\n\tconst uint outerStrideB = get_global_size(1);\n\tconst uint innerStrideB = get_global_size(2);\n\n\tfloat accumulator = 0.0f;\n\tfor (uint j = 0; j < reductionDim; ++j) {\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\n\t}\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\n}\n\nkernel void dot_f64(\n\tuint reductionDim,\n\tglobal double* a,\n\tglobal double* b,\n\tglobal double* out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint k = get_global_id(1);\n\tconst uint l = get_global_id(2);\n\tconst uint outerStrideB = get_global_size(1);\n\tconst uint innerStrideB = get_global_size(2);\n\n\tdouble accumulator = 0.0;\n\tfor (uint j = 0; j < reductionDim; ++j) {\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\n\t}\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\n}\n";
-	var utilKernelsSource = "kernel void set_f32(\n\tuint length,\n\tglobal float* out,\n\tfloat value)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = value;\n\t}\n}\nkernel void set_f64(\n\tuint length,\n\tglobal double* out,\n\tdouble value)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = value;\n\t}\n}\n\nkernel void linspace_f32(\n\tuint length,\n\tglobal float* out,\n\tfloat start,\n\tfloat step)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = start + step * ((float) id);\n\t}\n}\nkernel void linspace_f64(\n\tuint length,\n\tglobal double* out,\n\tdouble start,\n\tdouble step)\n{\n\tconst uint id = get_global_id(0);\n\tif (id < length) {\n\t\tout[id] = start + step * ((double) id);\n\t}\n}\n\nkernel void repeat_f32(\n\tuint expansionDim,\n\tuint innerStride,\n\tuint repeats,\n\tglobal float *restrict a,\n\tglobal float *restrict out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint j = get_global_id(1);\n\tconst uint k = get_global_id(2);\n\tconst float value = a[(i * expansionDim + j) * innerStride + k];\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\n\tfor (uint c = 0; c < repeats; ++c) {\n\t\tout[offsetOut] = value;\n\t\toffsetOut += innerStride;\n\t}\n}\nkernel void repeat_f64(\n\tuint expansionDim,\n\tuint innerStride,\n\tuint repeats,\n\tglobal double *restrict a,\n\tglobal double *restrict out)\n{\n\tconst uint i = get_global_id(0);\n\tconst uint j = get_global_id(1);\n\tconst uint k = get_global_id(2);\n\tconst double value = a[(i * expansionDim + j) * innerStride + k];\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\n\tfor (uint c = 0; c < repeats; ++c) {\n\t\tout[offsetOut] = value;\n\t\toffsetOut += innerStride;\n\t}\n}\n";
+	var binaryKernelsSource = "kernel void add_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void add_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b[id];\r\n\t}\r\n}\r\nkernel void sub_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void sub_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b[id];\r\n\t}\r\n}\r\nkernel void mul_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void mul_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b[id];\r\n\t}\r\n}\r\nkernel void div_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void div_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b[id];\r\n\t}\r\n}\r\nkernel void addc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void addc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] + b;\r\n\t}\r\n}\r\nkernel void subc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void subc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] - b;\r\n\t}\r\n}\r\nkernel void subrc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\nkernel void subrc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\nkernel void mulc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void mulc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] * b;\r\n\t}\r\n}\r\nkernel void divc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void divc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = a[id] / b;\r\n\t}\r\n}\r\nkernel void divrc_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tfloat b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\nkernel void divrc_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tdouble b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = b / a[id];\r\n\t}\r\n}\r\n";
+	var unaryKernelsSource = "kernel void neg_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void neg_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = -a[id];\r\n\t}\r\n}\r\nkernel void abs_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void abs_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = fabs(a[id]);\r\n\t}\r\n}\r\nkernel void exp_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void exp_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = exp(a[id]);\r\n\t}\r\n}\r\nkernel void log_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void log_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = log(a[id]);\r\n\t}\r\n}\r\nkernel void sqrt_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void sqrt_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = sqrt(a[id]);\r\n\t}\r\n}\r\nkernel void square_f32(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst float aVal = a[id]; \r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\nkernel void square_f64(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tconst double aVal = a[id];\r\n\t\tout[id] = aVal * aVal;\r\n\t}\r\n}\r\n";
+	var reductionKernelsSource = "kernel void sum_f32_gpu(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tlocal float* scratch,\r\n\tglobal float* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tfloat accumulator = 0.0f;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator += a[globalIndex];\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void sum_f64_gpu(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tlocal double* scratch,\r\n\tglobal double* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tdouble accumulator = 0.0;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator += a[globalIndex];\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] += scratch[localIndex + offset];\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void min_f32_gpu(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tlocal float* scratch,\r\n\tglobal float* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tfloat accumulator = INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = min(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void min_f64_gpu(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tlocal double* scratch,\r\n\tglobal double* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tdouble accumulator = INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = min(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = min(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void max_f32_gpu(\r\n\tuint length,\r\n\tglobal float* a,\r\n\tlocal float* scratch,\r\n\tglobal float* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tfloat accumulator = -INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = max(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n\r\nkernel void max_f64_gpu(\r\n\tuint length,\r\n\tglobal double* a,\r\n\tlocal double* scratch,\r\n\tglobal double* out)\r\n{\r\n\tconst uint globalSize = get_global_size(0);\r\n\tuint globalIndex = get_global_id(0);\r\n\tdouble accumulator = -INFINITY;\r\n\twhile (globalIndex < length) {\r\n\t\taccumulator = max(accumulator, a[globalIndex]);\r\n\t\tglobalIndex += globalSize;\r\n\t}\r\n\r\n\tuint localIndex = get_local_id(0);\r\n\tscratch[localIndex] = accumulator;\r\n\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\tfor (uint offset = get_local_size(0) / 2; offset != 0; offset >>= 1) {\r\n\t\tif (localIndex < offset) {\r\n\t\t\tscratch[localIndex] = max(scratch[localIndex], scratch[localIndex + offset]);\r\n\t\t}\r\n\t\tbarrier(CLK_LOCAL_MEM_FENCE);\r\n\t}\r\n\tif (localIndex == 0) {\r\n\t\tout[get_group_id(0)] = scratch[0];\r\n\t}\r\n}\r\n";
+	var axisReductionKernelsSource = "kernel void asum_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tfloat accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator += *a;\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void asum_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tdouble accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator += *a;\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amin_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tfloat accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = min(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amin_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tdouble accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = min(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amax_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tfloat accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = max(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n\r\nkernel void amax_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* out)\r\n{\r\n\tconst uint innerStride = get_global_size(1);\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\ta += i * reductionDim * innerStride + k;\r\n\tdouble accumulator = *a;\r\n\twhile (--reductionDim) {\r\n\t\ta += innerStride;\r\n\t\taccumulator = max(accumulator, *a);\r\n\t}\r\n\tout[i * innerStride + k] = accumulator;\r\n}\r\n";
+	var productKernelsSource = "kernel void dot_f32(\r\n\tuint reductionDim,\r\n\tglobal float* a,\r\n\tglobal float* b,\r\n\tglobal float* out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\tconst uint l = get_global_id(2);\r\n\tconst uint outerStrideB = get_global_size(1);\r\n\tconst uint innerStrideB = get_global_size(2);\r\n\r\n\tfloat accumulator = 0.0f;\r\n\tfor (uint j = 0; j < reductionDim; ++j) {\r\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\r\n\t}\r\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\r\n}\r\n\r\nkernel void dot_f64(\r\n\tuint reductionDim,\r\n\tglobal double* a,\r\n\tglobal double* b,\r\n\tglobal double* out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint k = get_global_id(1);\r\n\tconst uint l = get_global_id(2);\r\n\tconst uint outerStrideB = get_global_size(1);\r\n\tconst uint innerStrideB = get_global_size(2);\r\n\r\n\tdouble accumulator = 0.0;\r\n\tfor (uint j = 0; j < reductionDim; ++j) {\r\n\t\taccumulator += a[i*reductionDim+j] * b[(k*reductionDim+j)*innerStrideB+l];\r\n\t}\r\n\tout[(i*outerStrideB + k) * innerStrideB + l] = accumulator;\r\n}\r\n";
+	var utilKernelsSource = "kernel void set_f32(\r\n\tuint length,\r\n\tglobal float* out,\r\n\tfloat value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\nkernel void set_f64(\r\n\tuint length,\r\n\tglobal double* out,\r\n\tdouble value)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = value;\r\n\t}\r\n}\r\n\r\nkernel void linspace_f32(\r\n\tuint length,\r\n\tglobal float* out,\r\n\tfloat start,\r\n\tfloat step)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = start + step * ((float) id);\r\n\t}\r\n}\r\nkernel void linspace_f64(\r\n\tuint length,\r\n\tglobal double* out,\r\n\tdouble start,\r\n\tdouble step)\r\n{\r\n\tconst uint id = get_global_id(0);\r\n\tif (id < length) {\r\n\t\tout[id] = start + step * ((double) id);\r\n\t}\r\n}\r\n\r\nkernel void repeat_f32(\r\n\tuint expansionDim,\r\n\tuint innerStride,\r\n\tuint repeats,\r\n\tglobal float *restrict a,\r\n\tglobal float *restrict out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint j = get_global_id(1);\r\n\tconst uint k = get_global_id(2);\r\n\tconst float value = a[(i * expansionDim + j) * innerStride + k];\r\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\r\n\tfor (uint c = 0; c < repeats; ++c) {\r\n\t\tout[offsetOut] = value;\r\n\t\toffsetOut += innerStride;\r\n\t}\r\n}\r\nkernel void repeat_f64(\r\n\tuint expansionDim,\r\n\tuint innerStride,\r\n\tuint repeats,\r\n\tglobal double *restrict a,\r\n\tglobal double *restrict out)\r\n{\r\n\tconst uint i = get_global_id(0);\r\n\tconst uint j = get_global_id(1);\r\n\tconst uint k = get_global_id(2);\r\n\tconst double value = a[(i * expansionDim + j) * innerStride + k];\r\n\tuint offsetOut = (i * expansionDim + j) * repeats * innerStride + k;\r\n\tfor (uint c = 0; c < repeats; ++c) {\r\n\t\tout[offsetOut] = value;\r\n\t\toffsetOut += innerStride;\r\n\t}\r\n}\r\n";
 	var source = binaryKernelsSource + unaryKernelsSource + 
 		reductionKernelsSource + axisReductionKernelsSource + 
 		productKernelsSource + utilKernelsSource;
@@ -4911,8 +5332,8 @@ var substr = 'ab'.substr(-1) === 'b'
     }
 ;
 
-}).call(this,_dereq_("JkpR2F"))
-},{"JkpR2F":16}],16:[function(_dereq_,module,exports){
+}).call(this,_dereq_("+NscNm"))
+},{"+NscNm":16}],16:[function(_dereq_,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
