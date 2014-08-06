@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1024" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<title>Furious.js</title>
+		<meta name="author" content="Marat Dukhan" />
+		<link href="http://fonts.googleapis.com/css?family=Open+Sans:regular,semibold,italic,italicsemibold|PT+Sans:400,700,400italic,700italic|PT+Serif:400,700,400italic,700italic" rel="stylesheet" />
+
+		<link href="css/impress-demo.css" rel="stylesheet" />
+		<link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.0/styles/monokai_sublime.min.css" rel="stylesheet" />
+		<link rel="shortcut icon" href="favicon.png" />
+		<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+	</head>
+	<body class="impress-not-supported">
+		<div class="fallback-message">
+			<p>Your browser <b>doesn't support the features required</b> by impress.js, so you are presented with a simplified version of this presentation.</p>
+			<p>For the best experience please use the latest <b>Chrome</b>, <b>Safari</b> or <b>Firefox</b> browser.</p>
+		</div>
+
+		<div id="impress">
+			<div id="title" class="step">
+				<h1>Furious.js</h1>
+				<h2>Scientific Computing<br />For The Web</h2>
+			</div>
+			<div id="atwoodslaw" class="step" data-x="4000" data-z="3000" data-rotate-y="240">
+				<img src="img/gmail.png" style="transform: translate(-250px, 1300px) scale(0.60);" />
+				<img src="img/prezi.png" style="transform: translate(-150px, 200px) scale(0.30);" />
+				<img src="img/google-docs.png" style="transform: translate(-550px, -900px) scale(0.35);" />
+				<blockquote>Atwood's Law: any application that can be written in JavaScript, will eventually be written in JavaScript</blockquote>
+				<!--<p>Adobe Creative Cloud</p>
+				<p>Microsoft Office 365</p>
+				<p>Cloud9 IDE</p>-->
+			</div>
+			<div id="webcomputing" class="step" data-x="6000" data-z="4500" data-rotate-y="240">
+				<h1>Scientific Computing Applications on the Web</h1>
+				<img src="img/matlab.jpg"/>
+				<!--<ul>
+					<li>R Fiddle</li>
+					<li>Shiny</li>
+					<li>Python Anywhere</li>
+				</ul>-->
+			</div>
+			<div id="challenges" class="step" data-x="2000" data-z="1500" data-rotate-y="240">
+				<div class="slide">
+					<h1>Challenges</h1>
+					<ul>
+						<li>Performance</li>
+						<ul>
+							<li>Multi-core parallelisation</li>
+							<li>SIMD and FMA instruction sets</li>
+							<li>Offloading computations to GPGPU</li>
+						</ul>
+						<li>Integration with JavaScript</li>
+						<ul>
+							<li>JavaScript API</li>
+							<li>Non-blocking interface</li>
+						</ul>
+						<li>Interactive computing</li>
+					</ul>
+				</div>
+			</div>
+			<div id="performance" class="step" data-x="-4000" data-z="-3000" data-rotate-y="-240">
+				<div class="slide">
+					<h1>Computing on the Web</h1>
+					<ul>
+						<li>JavaScript</li>
+						<li>Web Workers</li>
+						<li>Asm.js</li>
+						<li>Native Client (NaCl)</li>
+						<li>Portable Native Client (PNaCl)</li>
+						<li>ParallelJS (River Trail)</li>
+						<li>WebCL</li>
+					</ul>
+				</div>
+			</div>
+			<div id="initialization" class="step" data-z="3000">
+				<div class="slide">
+					<h1>Furious.js API:<br />Context Initialization</h1>
+					<pre><code class="javascript">
+/* Initialization with default parameters */
+furious.init(function(context) {
+	/* Compute using context */
+	compute(context);
+});
+
+/* Initialization with specific parameters */
+var options = { "device": "dGPU" };
+furious.init("webcl", options, function(context) {
+	/* Compute using WebCL dGPU context */
+	compute(context);
+});
+					</code></pre>
+				</div>
+			</div>
+			<div id="array-creation" class="step" data-z="6000">
+				<div class="slide">
+					<h1>Creating NDArrays</h1>
+					<pre><code class="javascript">
+var a = context.array([[1, 3, 5, 7],
+                       [2, 4, 6, 8]],
+                       new furious.DataType("f32"));
+var b = context.ones([5, 5]);
+var c = context.linspace(0, 1, 100);
+					</code></pre>
+					<p>The API is similar to NumPy, e.g.</p>
+					<pre><code class="python">
+a = numpy.array([[1, 3, 5, 7],
+                 [2, 4, 6, 8]]], numpy.float32)
+b = numpy.ones([5, 5])
+c = numpy.linspace(0, 1, 100)
+					</code></pre>
+				</div>
+			</div>
+			<div id="array-arithmetics" class="step" data-z="8000">
+				<div class="slide">
+					<h1>Arithmetics on NDArrays</h1>
+					<pre><code class="javascript">
+var a = ..., b = ...;
+
+/* Array addition */
+var c = a.add(b);
+
+/* Multiplication by constant */
+var d = a.mul(Math.PI);
+
+/* Divide constant by array elements */
+var e = context.div(10.0, a);
+
+/* Exponentiate all elements */
+var f = context.exp(a);
+
+/* Square root of all elements */
+var g = context.sqrt(a);
+					</code></pre>
+				</div>
+			</div>
+			<div id="matrix-arithmetics" class="step" data-z="10000">
+				<div class="slide">
+					<h1>More arithmetic operations</h1>
+					<pre><code class="javascript">
+/* Array minimum, maximum, sum */
+var m = a.min(), M = a.max(), s = a.sum();
+
+/* Array reduction along an axis */
+var am = a.min(0);
+
+/* Dot product */
+var c = context.dot(a, b);
+
+/* Cholesky decomposition */
+var l = context.cholesky(a, "L");
+var u = context.cholesky(a, "U");
+
+/* Forward and backward substitution */
+var x = context.solveTridiagonal(l, y, "L");
+var X = context.solveTrigiagonal(l, Y, "L", "T");
+					</code></pre>
+				</div>
+			</div>
+			<div id="kerneldemo" class="step" data-y="2000" data-rotate-x="90" data-rotate-z="90">
+				<iframe src="demo/kernel-regression.html" width="1024" height="740"></iframe>
+			</div>
+		    <div id="overview" class="step" data-x="3000" data-y="1500" data-scale="10">
+		    </div>
+		</div>
+
+		<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.0/highlight.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.0/languages/javascript.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.0/languages/python.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/impress.js/0.5.3/impress.min.js"></script>
+		<script>
+			hljs.initHighlightingOnLoad();
+
+			var api = impress();
+			api.init();
+
+			window.addEventListener('impress:stepenter', function() {
+			});
+			window.addEventListener('impress:stepleave', function() {
+			});
+		</script>
+	</body>
+</html>
