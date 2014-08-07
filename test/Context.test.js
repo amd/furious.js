@@ -136,6 +136,72 @@ describe("Context", function(){
 			});
 		});
 	});
+	describe("eye", function() {
+		it("Creates array with specified shape", function() {
+			var x = context.eye(10);
+			var y = context.eye(20, 20);
+			var z = context.eye(11, 6);
+			expect(x.shape).to.deep.equal([10, 10]);
+			expect(y.shape).to.deep.equal([20, 20]);
+			expect(z.shape).to.deep.equal([11, 6]);
+			x.invalidate();
+			y.invalidate();
+			z.invalidate();
+		});
+		it("Creates array with specified data type (f64 by default)", function() {
+			var x = context.eye(10);
+			var y = context.eye(10, 10, 0, new furious.DataType("f64"));
+			var z = context.eye(10, 10, 0, new furious.DataType("f32"));
+			expect(x.dataType.equals(new furious.DataType("f64"))).to.be.true;
+			expect(y.dataType.equals(new furious.DataType("f64"))).to.be.true;
+			expect(z.dataType.equals(new furious.DataType("f32"))).to.be.true;
+			x.invalidate();
+			y.invalidate();
+			z.invalidate();
+		});
+		it("Creates a square identity array when called with one argument", function() {
+			var x = context.eye(5);
+			x.get(function(xVal) {
+				for (var i = 0; i < x.shape[0]; i++) {
+					for (var j = 0; j < x.shape[1]; j++) {
+						expect(xVal[i][j]).to.equal((i === j)|0);
+					}
+				}
+			});
+		});
+		it("Creates an identity array when called with two arguments", function() {
+			var x = context.eye(3, 4);
+			x.get(function(xVal) {
+				for (var i = 0; i < x.shape[0]; i++) {
+					for (var j = 0; j < x.shape[1]; j++) {
+						expect(xVal[i][j]).to.equal((i === j)|0);
+					}
+				}
+			});
+		});
+		it("Creates an array with unit diagonal above the main diagonal when diagonal > 0", function(done) {
+			var x = context.eye(3, 4, 3);
+			context.get(x, function(xVal) {
+				for (var i = 0; i < x.shape[0]; i++) {
+					for (var j = 0; j < x.shape[1]; j++) {
+						expect(xVal[i][j]).to.equal(+((i === 0) && (j === 3)));
+					}
+				}
+				done();
+			});
+		});
+		it("Creates an array with unit diagonal below the main diagonal when diagonal < 0", function(done) {
+			var x = context.eye(4, 3, -3);
+			context.get(x, function(xVal) {
+				for (var i = 0; i < x.shape[0]; i++) {
+					for (var j = 0; j < x.shape[1]; j++) {
+						expect(xVal[i][j]).to.equal(+((i === 3) && (j === 0)));
+					}
+				}
+				done();
+			});
+		});
+	});
 	describe("array", function(){
 		it("Creates array of the same length as the provided array", function(){
 			var x = context.array([0, 1]);
