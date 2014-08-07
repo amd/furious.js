@@ -154,6 +154,27 @@ a:focus {
     display: none;
 }
 
+#gmail-pic {
+    -webkit-transform: translate(-250px, 1300px) scale(0.60);
+    -moz-transform: translate(-250px, 1300px) scale(0.60);
+    -o-transform: translate(-250px, 1300px) scale(0.60);
+    transform: translate(-250px, 1300px) scale(0.60);
+}
+
+#prezi-pic {
+    -webkit-transform: translate(-150px, 200px) scale(0.30);
+    -moz-transform: translate(-150px, 200px) scale(0.30);
+    -o-transform: translate(-150px, 200px) scale(0.30);
+    transform: translate(-150px, 200px) scale(0.30);
+}
+
+#google-docs-pic {
+    -webkit-transform: translate(-550px, -900px) scale(0.35);
+    -moz-transform: translate(-550px, -900px) scale(0.35);
+    -o-transform: translate(-550px, -900px) scale(0.35);
+    transform: translate(-550px, -900px) scale(0.35);
+}
+
 #atwoodslaw img {
     opacity: 0.7;
 }
