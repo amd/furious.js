@@ -25,3 +25,7 @@ inline static bool FJS_Util_Add32u(uint32_t a, uint32_t b, uint32_t out[restrict
 	return sum >= a;
 #endif
 }
+
+inline static uint32_t FJS_Util_Min32u(uint32_t a, uint32_t b) {
+	return a < b ? a : b;
+}

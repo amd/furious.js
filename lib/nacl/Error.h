@@ -46,6 +46,8 @@ enum FJS_Error {
 	FJS_Error_AxisOutOfRange,
 	/* Repeats arguments does not exceed 2 */
 	FJS_Error_RepeatsOutOfRange,
+	/* Diagonal argument is out of range */
+	FJS_Error_DiagonalOutOfRange,
 	FJS_Error_OutOfMemory
 };
 

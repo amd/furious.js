@@ -19,6 +19,10 @@ typedef void (*StepInitFunction)(uint32_t, double, double, void*);
 static void initLinearF32(uint32_t samples, double start, double step, float dataOut[restrict static samples]);
 static void initLinearF64(uint32_t samples, double start, double step, double dataOut[restrict static samples]);
 
+typedef void (*IdentityInitFunction)(uint32_t, uint32_t, int32_t, void*, double);
+static void initIdentityF32(uint32_t rows, uint32_t columns, int32_t diagonal, float data[restrict static rows*columns], double diagonalValue);
+static void initIdentityF64(uint32_t rows, uint32_t columns, int32_t diagonal, double data[restrict static rows*columns], double diagonalValue);
+
 static const ConstInitFunction constInitFunctions[] = {
 	[FJS_DataType_F64] = (ConstInitFunction) initConstF64,
 	[FJS_DataType_F32] = (ConstInitFunction) initConstF32
@@ -27,6 +31,11 @@ static const ConstInitFunction constInitFunctions[] = {
 static const StepInitFunction stepInitFunctions[] = {
 	[FJS_DataType_F64] = (StepInitFunction) initLinearF64,
 	[FJS_DataType_F32] = (StepInitFunction) initLinearF32
+};
+
+static const IdentityInitFunction identityInitFunctions[] = {
+	[FJS_DataType_F64] = (IdentityInitFunction) initIdentityF64,
+	[FJS_DataType_F32] = (IdentityInitFunction) initIdentityF32
 };
 
 enum FJS_Error FJS_Execute_CreateEmptyArray(PP_Instance instance,
@@ -150,6 +159,63 @@ enum FJS_Error FJS_Execute_CreateDataArray(PP_Instance instance,
 	memcpy(dataOut, dataBuffer.pointer, dataBuffer.size);
 
 	FJS_AllocateId(instance, idOut, arrayOut);
+	return FJS_Error_Ok;
+}
+
+enum FJS_Error FJS_Execute_CreateIdentityMatrix(PP_Instance instance,
+	uint32_t idOut,
+	uint32_t rows,
+	uint32_t columns,
+	int32_t diagonal,
+	enum FJS_DataType dataType)
+{
+	/* Validate the shape of the new array */
+	if (rows == 0) {
+		return FJS_Error_DegenerateShape;
+	}
+	if (columns == 0) {
+		return FJS_Error_DegenerateShape;
+	}
+
+	/* Validate the diagonal argument */
+	if ((diagonal > 0) && ((uint32_t) diagonal >= columns)) {
+		return FJS_Error_DiagonalOutOfRange;
+	}
+	if ((diagonal < 0) && ((uint32_t) (-diagonal) >= rows)) {
+		return FJS_Error_DiagonalOutOfRange;
+	}
+
+	/* Check that the data type is supported and choose the initialization function for this data type */
+	IdentityInitFunction initFunction;
+	switch (dataType) {
+		case FJS_DataType_F64:
+		case FJS_DataType_F32:
+			initFunction = identityInitFunctions[dataType];
+			break;
+		case FJS_DataType_Invalid:
+		default:
+			return FJS_Error_InvalidDataType;
+	}
+
+	/* Define parameters for the output array */
+	const uint32_t lengthOut = rows * columns;
+	const uint32_t shapeOut[2] = { rows, columns };
+	const uint32_t dimensionsOut = 2;
+
+	/* Create output array */
+	struct NDArray* arrayOut = FJS_NDArray_Create(dimensionsOut, lengthOut, shapeOut, dataType);
+	if (arrayOut == NULL) {
+		return FJS_Error_OutOfMemory;
+	}
+
+	/* Associate the output array with its id */
+	FJS_AllocateId(instance, idOut, arrayOut);
+
+	/* Do the initialization */
+	void* dataOut = FJS_NDArray_GetData(arrayOut);
+	memset(dataOut, 0, lengthOut * FJS_DataType_GetSize(dataType));
+	initFunction(rows, columns, diagonal, dataOut, 1.0);
+
 	return FJS_Error_Ok;
 }
 
@@ -543,5 +609,44 @@ static void initLinearF32(uint32_t samples, double start, double step, float dat
 static void initLinearF64(uint32_t samples, double start, double step, double dataOut[restrict static samples]) {
 	for (uint32_t i = 0; i < samples; i++) {
 		*dataOut++ = start + step * ((double) i);
+	}
+}
+
+static void initIdentityF32(uint32_t rows, uint32_t columns, int32_t diagonal, float data[restrict static rows*columns], double diagonalValue) {
+	const float diagonalValueF32 = diagonalValue;
+	if (diagonal == 0) {
+		const uint32_t imax = FJS_Util_Min32u(rows, columns);
+		for (uint32_t i = 0; i < imax; ++i) {
+			data[i*columns+i] = diagonalValueF32;
+		}
+	} else if (diagonal > 0) {
+		const uint32_t imax = FJS_Util_Min32u(rows, columns - diagonal);
+		for (uint32_t i = 0; i < imax; ++i) {
+			data[i*columns+i+diagonal] = diagonalValueF32;
+		}
+	} else {
+		const uint32_t imax = FJS_Util_Min32u(rows + diagonal, columns);
+		for (uint32_t i = 0; i < imax; ++i) {
+			data[(i - diagonal)*columns+i] = diagonalValueF32;
+		}
+	}
+}
+
+static void initIdentityF64(uint32_t rows, uint32_t columns, int32_t diagonal, double data[restrict static rows*columns], double diagonalValue) {
+	if (diagonal == 0) {
+		const uint32_t imax = FJS_Util_Min32u(rows, columns);
+		for (uint32_t i = 0; i < imax; ++i) {
+			data[i*columns+i] = diagonalValue;
+		}
+	} else if (diagonal > 0) {
+		const uint32_t imax = FJS_Util_Min32u(rows, columns - diagonal);
+		for (uint32_t i = 0; i < imax; ++i) {
+			data[i*columns+i+diagonal] = diagonalValue;
+		}
+	} else {
+		const uint32_t imax = FJS_Util_Min32u(rows + diagonal, columns);
+		for (uint32_t i = 0; i < imax; ++i) {
+			data[(i - diagonal)*columns+i] = diagonalValue;
+		}
 	}
 }

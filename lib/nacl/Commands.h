@@ -138,6 +138,7 @@ extern "C" {
 enum FJS_Error FJS_Execute_CreateEmptyArray(PP_Instance instance, uint32_t idOut, struct FJS_Shape shape, enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_CreateConstArray(PP_Instance instance, uint32_t idOut, struct FJS_Shape shape, enum FJS_DataType dataType, double fillValue);
 enum FJS_Error FJS_Execute_CreateDataArray(PP_Instance instance, uint32_t idOut, struct FJS_Shape shape, enum FJS_DataType dataType, struct FJS_Buffer dataBuffer);
+enum FJS_Error FJS_Execute_CreateIdentityMatrix(PP_Instance instance, uint32_t id_out, uint32_t rows, uint32_t columns, int32_t diagonal, enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_LinSpace(PP_Instance instance, uint32_t idOut, double start, double stop, uint32_t samples, bool closed, enum FJS_DataType dataType);
 enum FJS_Error FJS_Execute_ReShape(PP_Instance instance, int32_t idA, uint32_t idOut, struct FJS_Shape shapeOut);
 enum FJS_Error FJS_Execute_Repeat(PP_Instance instance, int32_t idA, uint32_t idOut, uint32_t repeats, uint32_t axis);

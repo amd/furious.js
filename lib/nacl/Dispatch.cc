@@ -89,6 +89,16 @@ extern "C" enum FJS_Error FJS_Dispatch_Request(PP_Instance instance, const void*
 				static_cast<enum FJS_DataType>(constArrayRequest.data_type()),
 				constArrayRequest.fill_value());
 		}
+		case furious::Request_Type_IDENTITY_MATRIX:
+		{
+			const furious::IdentityMatrixRequest& identityMatrixRequest = request.identity_matrix_request();
+			return FJS_Execute_CreateIdentityMatrix(instance,
+				identityMatrixRequest.id_out(),
+				identityMatrixRequest.rows(),
+				identityMatrixRequest.columns(),
+				identityMatrixRequest.diagonal(),
+				static_cast<enum FJS_DataType>(identityMatrixRequest.data_type()));
+		}
 		case furious::Request_Type_LINSPACE:
 		{
 			const furious::LinspaceRequest& linspaceRequest = request.linspace_request();
