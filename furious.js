@@ -4633,7 +4633,7 @@ WebCLContext.prototype.zeros = function(shape, dataType) {
 	kernel.setArg(1, array._buffer);
 	kernel.setArg(2, new dataType.arrayType([0.0]));
 	this.queue.enqueueNDRangeKernel(kernel, 1, [0], [array.length],
-		kernel.getWorkGroupInfo(this.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+		[kernel.getWorkGroupInfo(this.device, cl.KERNEL_WORK_GROUP_SIZE)]);
 	return array;
 };
 
@@ -4651,7 +4651,7 @@ WebCLContext.prototype.ones = function(shape, dataType) {
 	kernel.setArg(1, array._buffer);
 	kernel.setArg(2, new dataType.arrayType([1.0]));
 	this.queue.enqueueNDRangeKernel(kernel, 1, [0], [array.length],
-		kernel.getWorkGroupInfo(this.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+		[kernel.getWorkGroupInfo(this.device, cl.KERNEL_WORK_GROUP_SIZE)]);
 	return array;
 };
 
@@ -4711,7 +4711,7 @@ WebCLContext.prototype.linspace = function(start, stop, samples, closed) {
 	kernel.setArg(2, new dataType.arrayType([start]));
 	kernel.setArg(3, new dataType.arrayType([step]));
 	this.queue.enqueueNDRangeKernel(kernel, 1, [0], [array.length],
-		kernel.getWorkGroupInfo(this.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+		[kernel.getWorkGroupInfo(this.device, cl.KERNEL_WORK_GROUP_SIZE)]);
 
 	return array;
 };
@@ -4906,7 +4906,7 @@ WebCLContext.prototype.repeat = function(a, repeats, axis, out) {
 		kernel.setArg(3, a._buffer);
 		kernel.setArg(4, out._buffer);
 		this.queue.enqueueNDRangeKernel(kernel, 3, [0, 0, 0], [outerStride, expansionDim, innerStride],
-			kernel.getWorkGroupInfo(this.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+			[kernel.getWorkGroupInfo(this.device, cl.KERNEL_WORK_GROUP_SIZE, 1, 1)]);
 	} catch (e) {
 		a._incRef();
 		throw e;
@@ -4969,7 +4969,7 @@ var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryC
 				kernel.setArg(2, bufferB);
 				kernel.setArg(3, out._buffer);
 				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, [0], [out.length],
-					kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+					[kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_WORK_GROUP_SIZE)]);
 			} else {
 				var kernel = binaryConstOpKernels[dataTypeOut.type];
 				kernel.setArg(0, new Uint32Array([out.length]));
@@ -4977,7 +4977,7 @@ var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryC
 				kernel.setArg(2, new dataTypeOut.arrayType([b]));
 				kernel.setArg(3, out._buffer);
 				furiousContext.queue.enqueueNDRangeKernel(kernel, 1, [0], [out.length],
-					kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+					[kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_WORK_GROUP_SIZE)]);
 			}
 		} else {
 			var kernel = binaryRevConstKernels[dataTypeOut.type];
@@ -4986,7 +4986,7 @@ var binaryArithOp = function(a, b, out, furiousContext, binaryOpKernels, binaryC
 			kernel.setArg(2, new dataTypeOut.arrayType([a]));
 			kernel.setArg(3, out._buffer);
 			furiousContext.queue.enqueueNDRangeKernel(kernel, 1, [0], [out.length],
-				kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+				[kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_WORK_GROUP_SIZE)]);
 		}
 	} catch (e) {
 		/* Restore the previous state */
@@ -5031,7 +5031,7 @@ var unaryArithOp = function(a, out, furiousContext, unaryOpKernels) {
 		kernel.setArg(1, bufferA);
 		kernel.setArg(2, out._buffer);
 		furiousContext.queue.enqueueNDRangeKernel(kernel, 1, [0], [out.length],
-			kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+			[kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_WORK_GROUP_SIZE)]);
 	} catch (e) {
 		/* Restore the previous state */
 		a._incRef();
@@ -5119,7 +5119,7 @@ var axisReduceOp = function(a, axis, out, furiousContext, reduceKernels, axisRed
 		kernel.setArg(2, out._buffer);
 		furiousContext.queue.enqueueNDRangeKernel(kernel, 2, [0, 0],
 			[outerStride, innerStride],
-			kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+			[kernel.getWorkGroupInfo(furiousContext.device, cl.KERNEL_WORK_GROUP_SIZE), 1]);
 		a._tryRelease();
 		return out;
 	}
@@ -5222,7 +5222,7 @@ WebCLContext.prototype.dot = function(a, b, out) {
 	kernel.setArg(3, out._buffer);
 	this.queue.enqueueNDRangeKernel(kernel, 3, [0, 0, 0],
 		[strideA, outerStrideB, innerStrideB],
-		kernel.getWorkGroupInfo(this.device, cl.KERNEL_COMPILE_WORK_GROUP_SIZE));
+		[kernel.getWorkGroupInfo(this.device, cl.KERNEL_WORK_GROUP_SIZE), 1, 1]);
 	a._tryRelease();
 	b._tryRelease();
 	return out;
