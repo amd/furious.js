@@ -22,21 +22,22 @@ message Request {
 		EMPTY_ARRAY              =  0;
 		DATA_ARRAY               =  1;
 		CONST_ARRAY              =  2;
-		LINSPACE                 =  3;
-		RESHAPE                  =  4;
-		REPEAT                   =  5;
-		DEALLOCATE               =  6;
-		FETCH                    =  7;
-		BARRIER                  =  8;
-		INFO                     =  9;
-		BINARY_OPERATION         = 10;
-		BINARY_CONST_OPERATION   = 11;
-		UNARY_OPERATION          = 12;
-		REDUCTION_OPERATION      = 13;
-		AXIS_REDUCTION_OPERATION = 14;
-		DOT_OPERATION            = 15;
-		CHOLESKY_DECOMPOSITION   = 16;
-		SOLVE_TRIANGULAR         = 17;
+		IDENTITY_MATRIX          =  3;
+		LINSPACE                 =  4;
+		RESHAPE                  =  5;
+		REPEAT                   =  6;
+		DEALLOCATE               =  7;
+		FETCH                    =  8;
+		BARRIER                  =  9;
+		INFO                     = 10;
+		BINARY_OPERATION         = 11;
+		BINARY_CONST_OPERATION   = 12;
+		UNARY_OPERATION          = 13;
+		REDUCTION_OPERATION      = 14;
+		AXIS_REDUCTION_OPERATION = 15;
+		DOT_OPERATION            = 16;
+		CHOLESKY_DECOMPOSITION   = 17;
+		SOLVE_TRIANGULAR         = 18;
 	}
 	required fixed32                      id                             =  1;
 	required Type                         type                           =  2;
@@ -44,19 +45,20 @@ message Request {
 	optional EmptyArrayRequest            empty_array_request            =  3;
 	optional DataArrayRequest             data_array_request             =  4;
 	optional ConstArrayRequest            const_array_request            =  5;
-	optional LinspaceRequest              linspace_request               =  6;
-	optional ReshapeRequest               reshape_request                =  7;
-	optional RepeatRequest                repeat_request                 =  8;
-	optional DeallocateRequest            deallocate_request             =  9;
-	optional FetchRequest                 fetch_request                  = 10;
-	optional BinaryOperationRequest       binary_operation_request       = 11;
-	optional BinaryConstOperationRequest  binary_const_operation_request = 12;
-	optional UnaryOperationRequest        unary_operation_request        = 13;
-	optional ReductionRequest             reduction_request              = 14;
-	optional AxisReductionRequest         axis_reduction_request         = 15;
-	optional DotOperationRequest          dot_operation_request          = 16;
-	optional CholeskyDecompositionRequest cholesky_decomposition_request = 17;
-	optional SolveTriangularRequest       solve_triangular_request       = 18;
+	optional IdentityMatrixRequest        identity_matrix_request        =  6;
+	optional LinspaceRequest              linspace_request               =  7;
+	optional ReshapeRequest               reshape_request                =  8;
+	optional RepeatRequest                repeat_request                 =  9;
+	optional DeallocateRequest            deallocate_request             = 10;
+	optional FetchRequest                 fetch_request                  = 11;
+	optional BinaryOperationRequest       binary_operation_request       = 12;
+	optional BinaryConstOperationRequest  binary_const_operation_request = 13;
+	optional UnaryOperationRequest        unary_operation_request        = 14;
+	optional ReductionRequest             reduction_request              = 15;
+	optional AxisReductionRequest         axis_reduction_request         = 16;
+	optional DotOperationRequest          dot_operation_request          = 17;
+	optional CholeskyDecompositionRequest cholesky_decomposition_request = 18;
+	optional SolveTriangularRequest       solve_triangular_request       = 19;
 }
 
 message EmptyArrayRequest {
@@ -77,6 +79,14 @@ message ConstArrayRequest {
 	repeated uint32   shape       = 2 [packed=true];
 	required DataType data_type   = 3;
 	required double   fill_value  = 4;
+}
+
+message IdentityMatrixRequest {
+	required fixed32  id_out      = 1;
+	required fixed32  rows        = 2;
+	required fixed32  columns     = 3;
+	required sfixed32 diagonal    = 4;
+	required DataType data_type   = 5;
 }
 
 message LinspaceRequest {
