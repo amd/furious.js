@@ -4906,7 +4906,7 @@ WebCLContext.prototype.repeat = function(a, repeats, axis, out) {
 		kernel.setArg(3, a._buffer);
 		kernel.setArg(4, out._buffer);
 		this.queue.enqueueNDRangeKernel(kernel, 3, [0, 0, 0], [outerStride, expansionDim, innerStride],
-			[kernel.getWorkGroupInfo(this.device, cl.KERNEL_WORK_GROUP_SIZE, 1, 1)]);
+			[1, 1, 1]);
 	} catch (e) {
 		a._incRef();
 		throw e;
