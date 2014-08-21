@@ -25,6 +25,6 @@ Currently Furious.js provides three computational backends:
 
 - JavaScript backend that works in all modern JS engines (Typed Array support required).
 - Portable Native Client that works in Google Chrome and other Chromium-based browsers.
-- WebCL backend that can be used with Node.js (via node-webcl) and WebKit-WebCL.
+- WebCL backend that can be used with Node.js (via [node-webcl](https://www.npmjs.org/package/node-webcl)) and [WebKit-WebCL](https://github.com/SRA-SiliconValley/webkit-webcl).
 
 Normally Furious.js would automatically detect the optimal backend, but it is possible to specify it manually.
