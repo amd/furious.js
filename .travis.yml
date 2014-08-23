@@ -21,6 +21,8 @@ before_install:
  - export NACL_SDK_ROOT=/tmp/nacl_sdk/pepper_canary
  - git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
  - export PATH=$PWD/depot_tools:$PATH
+ - git config --global user.email "furious.js@example.com"
+ - git config --global user.name "Furious.js buildbot"
  - mkdir naclports
  - pushd naclports
  - gclient config --name=src  https://chromium.googlesource.com/external/naclports.git
