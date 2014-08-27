@@ -63,6 +63,42 @@ npm install -g grunt-cli
 
 If you plan to use Node-WebCL, you'll need to install the upstream version of Node-WebCL, and its dependencies.
 
+- Clone and build `node-glfw` repository
+```bash
+git clone https://github.com/mikeseven/node-glfw.git
+cd node-glfw
+npm link
+```
+- Clone and build `node-image` repository
+```bash
+git clone https://github.com/mikeseven/node-image.git
+cd node-image
+npm link
+```
+- Clone `node-webgl` repository, link its `node-glfw` dependency, and build
+```bash
+git clone https://github.com/mikeseven/node-webgl.git
+cd node-webgl
+sudo npm link node-glfw
+npm link
+```
+
+- Clone the `node-webcl` repository, link its `node-image` and `node-webgl` dependencies, and build
+```bash
+git clone https://github.com/Motorola-Mobility/node-webcl.git
+cd node-webcl
+sudo npm link node-webgl
+sudo npm link node-image
+npm link
+```
+
+- Navigate to Furious.js directory, link `node-webcl` dependency, and install other dependencies
+```bash
+sudo npm link node-webcl
+npm install
+npm install -g grunt-cli
+```
+
 ### Building everything
 ```bash
 grunt
