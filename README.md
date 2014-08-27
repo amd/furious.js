@@ -99,6 +99,13 @@ npm install
 npm install -g grunt-cli
 ```
 
+### Installing Native Client libraries
+
+Follow the [official instructions](https://code.google.com/p/naclports/wiki/HowTo_Checkout) to get a copy of `naclports` repository. Next, navigate to `src` directory and install `protobuf` library for your PNaCl toolchain:
+```bash
+NACL_ARCH=pnacl make protobuf
+```
+
 ### Building everything
 ```bash
 grunt
