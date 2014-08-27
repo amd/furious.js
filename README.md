@@ -46,12 +46,12 @@ If you intend to develop Furious.js, we recommend that you fork the repository. 
 git clone https://github.com/<GITHUB-USERNAME>/furious.js.git
 ```
 
-# Building everything
+### Building everything
 ```bash
 grunt
 ```
 
-# Building the PNaCl backend only
+### Building the PNaCl backend only
 
 ```bash
 python configure.py
