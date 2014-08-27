@@ -40,11 +40,28 @@ Normally Furious.js would automatically detect the optimal backend, but it is po
 - [Native Client SDK](https://developer.chrome.com/native-client/sdk/download). Use the `naclsdk`/`naclsdk.bat` script to install one of the Pepper toolchains. For development, we recommend to use `pepper_canary` toolchain. For deployment, the current stable toolchain is recommended. Make an environment variable `NACL_SDK_ROOT` point to the toolchain directory (e.g. `C:/naclsdk/pepper_canary` if you use `pepper_canary` toolchain and the Native Client SDK is unpacked to `C:/naclsdk`)
 - [Node.js](http://nodejs.org/) and Node Package Manager (`npm`).
 
+#### Node-WebCL prerequisited (optional)
+
+- OpenCL SDK from Intel, AMD, or nVidia
+- GLEW library (except on Windows)
+- GLFW 3 library (except on Windows)
+- FreeImage library (except on Windows)
+- AntTweakBar library (except on Windows)
+
 ### Cloning the repository
 If you intend to develop Furious.js, we recommend that you fork the repository. Then clone your fork with
 ```bash
 git clone https://github.com/<GITHUB-USERNAME>/furious.js.git
 ```
+
+### Installing Node.js modules
+If you do not intend to use Node-WebCL, navigate to Furious.js directory and execute
+```bash
+npm install
+npm install -g grunt-cli
+```
+
+If you plan to use Node-WebCL, you'll need to install the upstream version of Node-WebCL, and its dependencies.
 
 ### Building everything
 ```bash
