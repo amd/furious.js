@@ -42,7 +42,7 @@ Normally Furious.js would automatically detect the optimal backend, but it is po
 
 #### Node-WebCL prerequisited (optional)
 
-- OpenCL SDK from Intel, AMD, or nVidia
+- OpenCL SDK from Intel, AMD, or nVidia (except on Mac)
 - GLEW library (except on Windows)
 - GLFW 3 library (except on Windows)
 - FreeImage library (except on Windows)
