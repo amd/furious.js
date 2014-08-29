@@ -57,7 +57,7 @@ git clone https://github.com/<GITHUB-USERNAME>/furious.js.git
 ### Installing Node.js modules
 If you do not intend to use Node-WebCL, navigate to Furious.js directory and execute
 ```bash
-npm install
+npm install --no-optional
 npm install -g grunt-cli
 ```
 
