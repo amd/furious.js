@@ -65,19 +65,19 @@ If you plan to use Node-WebCL, you'll need to install the upstream version of No
 
 - Clone and build `node-glfw` repository
 ```bash
-git clone https://github.com/Maratyszcza/node-glfw.git
+git clone https://github.com/mikeseven/node-glfw.git
 cd node-glfw
 npm link
 ```
 - Clone and build `node-image` repository
 ```bash
-git clone https://github.com/Maratyszcza/node-image.git
+git clone https://github.com/mikeseven/node-image.git
 cd node-image
 npm link
 ```
 - Clone `node-webgl` repository, link its `node-glfw` dependency, and build
 ```bash
-git clone https://github.com/Maratyszcza/node-webgl.git
+git clone https://github.com/mikeseven/node-glfw.git
 cd node-webgl
 npm link node-glfw
 npm link
@@ -85,7 +85,7 @@ npm link
 
 - Clone the `node-webcl` repository, link its `node-image` and `node-webgl` dependencies, and build
 ```bash
-git clone https://github.com/Maratyszcza/node-webcl.git
+git clone https://github.com/Motorola-Mobility/node-webcl.git
 cd node-webcl
 npm link node-webgl
 npm link node-image
