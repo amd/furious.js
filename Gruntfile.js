@@ -20,6 +20,7 @@ module.exports = function(grunt) {
 			},
 			furious: ["lib/**/*.js"],
 			test: ["test/*.test.js"],
+			bench: ["bench/*.js"],
 			build: ["Gruntfile.js"]
 		},
 
@@ -58,6 +59,18 @@ module.exports = function(grunt) {
 				},
 				files: {
 					"test.js": ["test/*.test.js"]
+				}
+			},
+			benchmark: {
+				options: {
+					exclude: ["node-webcl"],
+					transform: ["brfs"],
+					browserifyOptions : {
+						debug: true
+					}
+				},
+				files: {
+					"bench.js": ["bench/demo.js"]
 				}
 			}
 		},

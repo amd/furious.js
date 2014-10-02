@@ -42,6 +42,7 @@
     "node-webcl": "^0.9.1"
   },
   "devDependencies": {
+    "benchmark": "^1.0.0",
     "brfs": "^1.2.0",
     "browserify": "^5.9.1",
     "chai": "^1.9.1",
