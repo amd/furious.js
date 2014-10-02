@@ -39,7 +39,8 @@
     "protobufjs": "^3.2.2"
   },
   "optionalDependencies": {
-    "node-webcl": "^0.9.1"
+    "node-webcl": "^0.9.1",
+    "ws": "^0.4.32"
   },
   "devDependencies": {
     "brfs": "^1.2.0",
