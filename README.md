@@ -1,11 +1,11 @@
-[![License](http://img.shields.io/badge/license-MIT-brightgreen.png)](http://github.com/amd/furious.js/blob/master/LICENSE)
-[![Build Status](https://travis-ci.org/amd/furious.js.svg?branch=master)](https://travis-ci.org/amd/furious.js)
+[![License](http://img.shields.io/badge/license-MIT-brightgreen.png)](http://github.com/hpcgarage/furious.js/blob/master/LICENSE)
+[![Build Status](https://travis-ci.org/hpcgarage/furious.js.svg?branch=master)](https://travis-ci.org/hpcgarage/furious.js)
 
-[![Dependency Status](https://david-dm.org/amd/furious.js.png)](https://david-dm.org/amd/furious.js)
-[![OptionalDependency Status](https://david-dm.org/amd/furious.js/optional-status.png)](https://david-dm.org/amd/furious.js#info=optionalDependencies)
-[![devDependency Status](https://david-dm.org/amd/furious.js/dev-status.png)](https://david-dm.org/amd/furious.js#info=devDependencies)
+[![Dependency Status](https://david-dm.org/hpcgarage/furious.js.png)](https://david-dm.org/hpcgarage/furious.js)
+[![OptionalDependency Status](https://david-dm.org/hpcgarage/furious.js/optional-status.png)](https://david-dm.org/hpcgarage/furious.js#info=optionalDependencies)
+[![devDependency Status](https://david-dm.org/hpcgarage/furious.js/dev-status.png)](https://david-dm.org/hpcgarage/furious.js#info=devDependencies)
 
-[![Browser Support](https://ci.testling.com/amd/furious.js.png)](https://ci.testling.com/amd/furious.js)
+[![Browser Support](https://ci.testling.com/hpcgarage/furious.js.png)](https://ci.testling.com/hpcgarage/furious.js)
 
 # Furious.js
 
@@ -16,7 +16,7 @@ Furious.js is a scientific computing package for JavaScript. Furious.js features
 - Works with all modern browsers and Node.js
 - Accelerates computation on Portable Native Client (PNaCl) and WebCL
 - Computes asynchronously, without stalling the GUI
-- Functionality covered with unit tests ([Try it!](https://amd.github.io/furious.js/unittest.html))
+- Functionality covered with unit tests ([Try it!](https://hpcgarage.github.io/furious.js/unittest.html))
 - Comes with extensive documentation
 
 ## Backends
@@ -42,7 +42,7 @@ Normally Furious.js would automatically detect the optimal backend, but it is po
 
 #### Node-WebCL prerequisited (optional)
 
-- OpenCL SDK from Intel, AMD, or nVidia
+- OpenCL SDK from Intel, AMD, or nVidia (except on Mac)
 - GLEW library (except on Windows)
 - GLFW 3 library (except on Windows)
 - FreeImage library (except on Windows)
@@ -57,7 +57,7 @@ git clone https://github.com/<GITHUB-USERNAME>/furious.js.git
 ### Installing Node.js modules
 If you do not intend to use Node-WebCL, navigate to Furious.js directory and execute
 ```bash
-npm install
+npm install --no-optional
 npm install -g grunt-cli
 ```
 
@@ -77,9 +77,9 @@ npm link
 ```
 - Clone `node-webgl` repository, link its `node-glfw` dependency, and build
 ```bash
-git clone https://github.com/mikeseven/node-webgl.git
+git clone https://github.com/mikeseven/node-glfw.git
 cd node-webgl
-sudo npm link node-glfw
+npm link node-glfw
 npm link
 ```
 
@@ -87,14 +87,14 @@ npm link
 ```bash
 git clone https://github.com/Motorola-Mobility/node-webcl.git
 cd node-webcl
-sudo npm link node-webgl
-sudo npm link node-image
+npm link node-webgl
+npm link node-image
 npm link
 ```
 
 - Navigate to Furious.js directory, link `node-webcl` dependency, and install other dependencies
 ```bash
-sudo npm link node-webcl
+npm link node-webcl
 npm install
 npm install -g grunt-cli
 ```

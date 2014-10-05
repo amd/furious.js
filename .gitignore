@@ -31,3 +31,10 @@ build.ninja
 # C++ sources and headers generated from Protobufs
 *.pb.cc
 *.pb.h
+
+# System files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+*.lnk
