@@ -36,7 +36,7 @@
     "statistics"
   ],
   "dependencies": {
-    "protobufjs": "^3.2.2"
+    "protobufjs": "^3.6.0"
   },
   "optionalDependencies": {
     "node-webcl": "^0.9.1",
