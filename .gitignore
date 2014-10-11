@@ -38,3 +38,4 @@ build.ninja
 Thumbs.db
 Desktop.ini
 *.lnk
+.idea/workspace.xml
