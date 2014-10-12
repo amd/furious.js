@@ -21,11 +21,12 @@ Furious.js is a scientific computing package for JavaScript. Furious.js features
 
 ## Backends
 
-Currently Furious.js provides three computational backends:
+Currently Furious.js provides four computational backends:
 
 - JavaScript backend that works in all modern JS engines (Typed Array support required).
 - Portable Native Client that works in Google Chrome and other Chromium-based browsers.
-- WebCL backend that can be used with Node.js (via [node-webcl](https://www.npmjs.org/package/node-webcl)) and [WebKit-WebCL](https://github.com/SRA-SiliconValley/webkit-webcl).
+- WebCL backend that can be used with Node.js (via [Node-WebCL](https://www.npmjs.org/package/node-webcl)) and [WebKit-WebCL](https://github.com/SRA-SiliconValley/webkit-webcl).
+- Web Socket backend that sends compute commands to a cloud server for execution. Furious.js includes implementation of compute server based on [ws](https://www.npmjs.org/package/ws) and [Node-WebCL](https://www.npmjs.org/package/node-webcl).
 
 Normally Furious.js would automatically detect the optimal backend, but it is possible to specify it manually.
 
