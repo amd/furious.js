@@ -30,6 +30,52 @@ Currently Furious.js provides four computational backends:
 
 Normally Furious.js would automatically detect the optimal backend, but it is possible to specify it manually.
 
+## Configuration
+
+Client-side backends require that the server is configured to server files with extensions `.js`, `.nmf` (Native Client Manifest), `.pexe` (Portable Native Client module), and, for debugging only, `.map` (JavaScript source maps).
+
+WebSocket backend needs additional configuration. Furious.js will choose WebSocket backend in two cases:
+
+- It is explicitly specified in the `furious.init` call. Then the caller might specify the URL that will be used for the Web Socket connection in `options.url` argument of `furious.init`. If this option is not specified, Furious.js will try to use the value of `furious-websocket-url` cookie as a connection URL (see below). If this cookie is not set, Furious.js will derive the URL of the Web Socket connection from the URL of its own script by changing protocol schema to `ws` (`wss` if the script was loaded through `https`) and replacing extension with `.ws`. E.g. if the Furious.js script was accessed at `http://example.com/lib/furious.js`, it will derive `ws://example.com/lib/furious.ws` as the Web Socket connection URL.
+- If the cookie `furious-websocket-url` is set, Furious.js will choose WebSocket backend by default and use cookie value as the connection URL.
+
+The server administrator must ensure that the computational Web Socket server is available at the URL expected by Furious.js
+
+The Node-WebCL-based implementation of computational server is located in `lib/WebSocketServer.js`. By default, it starts on port `8081` and accepts all incoming connections regardless of host name and URL.
+
+#### Example: Nginx configuration to run both a Web site and a Web Socket server on the port 80:
+
+```
+# Bypass only Web Socket connections (with HTTP Upgrade header) to the computational server
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+# Parameters of the computational server
+upstream websocket {
+    # The WS server by default uses port 8081
+    server localhost:8081;
+}
+
+server {
+    listen 80;
+    location / {
+        # Assume that the static content of the Web site is located at /home/www
+        root /home/www;
+        # Set the furious-websocket-url cookie with the URL for the WS connection
+        add_header Set-Cookie furious-websocket-url=ws://$host/furious.ws;
+    }
+    # WS connections to $host/furious.ws will be redirected to the computational server
+    location /furious.ws {
+        proxy_pass http://websocket;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}
+```
+
 ## Development
 
 ### System pre-requisites
