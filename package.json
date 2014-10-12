@@ -36,10 +36,12 @@
     "statistics"
   ],
   "dependencies": {
-    "protobufjs": "^3.2.2"
+    "protobufjs": "^3.6.0"
   },
   "optionalDependencies": {
-    "node-webcl": "^0.9.1"
+    "node-webcl": "^0.9.1",
+    "nopt": "^3.0.1",
+    "ws": "^0.4.32"
   },
   "devDependencies": {
     "benchmark": "^1.0.0",
