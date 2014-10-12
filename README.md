@@ -43,7 +43,7 @@ The server administrator must ensure that the computational Web Socket server is
 
 The Node-WebCL-based implementation of computational server is located in `lib/WebSocketServer.js`. By default, it starts on port `8081` and accepts all incoming connections regardless of host name and URL.
 
-#### Example: Nginx configuration to run both a Web site and a Web Socket server on the port 80:
+#### Example: Nginx configuration to serve both Web site and Web Socket requests on the port 80:
 
 ```
 # Bypass only Web Socket connections (with HTTP Upgrade header) to the computational server
