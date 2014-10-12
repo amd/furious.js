@@ -40,6 +40,7 @@
   },
   "optionalDependencies": {
     "node-webcl": "^0.9.1",
+    "nopt": "^3.0.1",
     "ws": "^0.4.32"
   },
   "devDependencies": {
