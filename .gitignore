@@ -29,8 +29,8 @@ node_modules/**
 build.ninja
 
 # C++ sources and headers generated from Protobufs
-*.pb.cc
-*.pb.h
+*.pb-c.c
+*.pb-c.h
 
 # System files
 .DS_Store

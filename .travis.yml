@@ -28,7 +28,7 @@ before_install:
  - gclient config --name=src  https://chromium.googlesource.com/external/naclports.git
  - gclient sync
  - pushd src
- - NACL_ARCH=pnacl make protobuf
+ - NACL_ARCH=pnacl make protobuf-c
  - popd
  - popd
  - npm install -g grunt-cli

@@ -83,7 +83,7 @@ server {
 - Windows, Linux, or OS X operating systems.
 - Python `2.x` (we recommend to use the latest `2.7` release).
 - [Ninja](https://martine.github.io/ninja/) build system. Add the directory with `ninja` (or `ninja.exe`) executable to the `PATH` environment variable. Add the `misc` directory with [`ninja_syntax.py`](https://github.com/martine/ninja/blob/master/misc/ninja_syntax.py) to the `PYTHONPATH` environment variable.
-- [Protocol Buffers](https://code.google.com/p/protobuf/) compiler. Add the directory with `protoc` executable to the `PATH` environment variable.
+- [Protocol Buffers C](https://github.com/protobuf-c/protobuf-c) compiler. Add the directory with `protoc-c` executable to the `PATH` environment variable.
 - [Native Client SDK](https://developer.chrome.com/native-client/sdk/download). Use the `naclsdk`/`naclsdk.bat` script to install one of the Pepper toolchains. For development, we recommend to use `pepper_canary` toolchain. For deployment, the current stable toolchain is recommended. Make an environment variable `NACL_SDK_ROOT` point to the toolchain directory (e.g. `C:/naclsdk/pepper_canary` if you use `pepper_canary` toolchain and the Native Client SDK is unpacked to `C:/naclsdk`)
 - [Node.js](http://nodejs.org/) and Node Package Manager (`npm`).
 
@@ -148,9 +148,9 @@ npm install -g grunt-cli
 
 ### Installing Native Client libraries
 
-Follow the [official instructions](https://code.google.com/p/naclports/wiki/HowTo_Checkout) to get a copy of `naclports` repository. Next, navigate to `src` directory and install `protobuf` library for your PNaCl toolchain:
+Follow the [official instructions](https://code.google.com/p/naclports/wiki/HowTo_Checkout) to get a copy of `naclports` repository. Next, navigate to `src` directory and install `protobuf-c` library for your PNaCl toolchain:
 ```bash
-NACL_ARCH=pnacl make protobuf
+NACL_ARCH=pnacl make protobuf-c
 ```
 
 ### Building everything
