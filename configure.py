@@ -47,9 +47,6 @@ if __name__ == '__main__':
         ninja.rule('COMPILE_PNACL_C', '$pnacl_cc -o $out -c $in -MMD -MF $out.d $optflags $cflags',
             deps='gcc', depfile='$out.d',
             description='CC[PNaCl] $in')
-        ninja.rule('COMPILE_PNACL_CXX', '$pnacl_cxx -o $out -c $in -MMD -MF $out.d $optflags $cxxflags',
-            deps='gcc', depfile='$out.d',
-            description='CXX[PNaCl] $in')
         ninja.rule('LINK_PNACL_C', '$pnacl_cc -o $out $in $ldflags',
             description='CCLD[PNaCl] $out')
         ninja.rule('FINALIZE_PNACL', '$pnacl_finalize -o $out $in',
