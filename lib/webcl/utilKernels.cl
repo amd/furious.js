@@ -42,6 +42,29 @@ kernel void linspace_f64(
 	}
 }
 
+kernel void eye_f32(
+	uint rows,
+	uint columns,
+	int diagonal,
+	global float* out)
+{
+	const uint i = get_global_id(0);
+	const uint j = get_global_id(1);
+
+	out[columns * i + j] = ((int) (j - i) == diagonal) ? 1.0f : 0.0f;
+}
+kernel void eye_f64(
+	uint rows,
+	uint columns,
+	int diagonal,
+	global double* out) 
+{
+	const uint i = get_global_id(0);
+	const uint j = get_global_id(1);
+
+	out[columns * i + j] = ((int) (j - i) == diagonal) ? 1.0 : 0.0;
+}
+
 kernel void repeat_f32(
 	uint expansionDim,
 	uint innerStride,
