@@ -60,6 +60,7 @@
 						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="AsmJSBackend" data-backend="asmjs">Asm.js</a></li>
 						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="PNaClBackend" data-backend="pnacl">PNaCl</a></li>
 						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="WebCLBackend" data-backend="webcl">WebCL</a></li>
+						<li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="WebSocketBackend" data-backend="websocket">WebSocket</a></li>
 					</ul>
 				</div>
 				<div class="dropdown">
@@ -286,6 +287,8 @@
 						return "PNaCl";
 					case "webcl":
 						return "WebCL";
+					case "websocket":
+						return "WebSocket";
 					default:
 						return backend;
 				}
