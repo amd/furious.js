@@ -22,6 +22,10 @@ static void mulF32(size_t length, const float dataA[static length], const float 
 static void mulF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
 static void divF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]);
 static void divF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
+static void laeF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]);
+static void laeF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
+static void lae2F32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]);
+static void lae2F64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]);
 
 typedef void (*BinaryConstOpFunction)(size_t, const void*, double, void*);
 static void addConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
@@ -32,6 +36,10 @@ static void mulConstF32(size_t length, const float dataA[static length], double 
 static void mulConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
 static void divConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
 static void divConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
+static void roundConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
+static void roundConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
+static void matPConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]);
+static void matPConstF64(size_t length, const double dataA[static length], double dataB, double dataOut[static length]);
 
 typedef void (*UnaryOpFunction)(size_t, const void*, void*);
 static void negF32(size_t length, const float dataInt[static length], float dataOut[static length]);
@@ -40,12 +48,46 @@ static void absF32(size_t length, const float dataInt[static length], float data
 static void absF64(size_t length, const double dataInt[static length], double dataOut[static length]);
 static void expF32(size_t length, const float dataInt[static length], float dataOut[static length]);
 static void expF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void expm1F32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void expm1F64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void exp2F32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void exp2F64(size_t length, const double dataInt[static length], double dataOut[static length]);
 static void logF32(size_t length, const float dataInt[static length], float dataOut[static length]);
 static void logF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void log10F32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void log10F64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void log2F32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void log2F64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void log1pF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void log1pF64(size_t length, const double dataInt[static length], double dataOut[static length]);
 static void sqrtF32(size_t length, const float dataInt[static length], float dataOut[static length]);
 static void sqrtF64(size_t length, const double dataInt[static length], double dataOut[static length]);
 static void squareF32(size_t length, const float dataInt[static length], float dataOut[static length]);
 static void squareF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void sinF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void sinF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void cosF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void cosF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void tanF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void tanF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void arcsinF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void arcsinF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void arccosF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void arccosF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void arctanF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void arctanF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void degreesF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void degreesF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void radiansF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void radiansF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void rintF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void rintF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void floorF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void floorF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void ceilF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void ceilF64(size_t length, const double dataInt[static length], double dataOut[static length]);
+static void truncF32(size_t length, const float dataInt[static length], float dataOut[static length]);
+static void truncF64(size_t length, const double dataInt[static length], double dataOut[static length]);
 
 typedef void (*ReduceOpFunction)(size_t, const void*, void*);
 static void minF32(size_t length, const float dataIn[restrict static length], float dataOut[restrict static 1]);
@@ -103,6 +145,14 @@ static const BinaryOpFunction binaryOpFunctions[][FJS_DataType_Max] = {
 	[FJS_BinaryOperationType_Div] = {
 		[FJS_DataType_F64] = (BinaryOpFunction) divF64,
 		[FJS_DataType_F32] = (BinaryOpFunction) divF32
+	},
+	[FJS_BinaryOperationType_LAE] = {
+		[FJS_DataType_F64] = (BinaryOpFunction) laeF64,
+		[FJS_DataType_F32] = (BinaryOpFunction) laeF32
+	},
+	[FJS_BinaryOperationType_LAE2] = {
+		[FJS_DataType_F64] = (BinaryOpFunction) lae2F64,
+		[FJS_DataType_F32] = (BinaryOpFunction) lae2F32
 	}
 };
 
@@ -146,9 +196,29 @@ static const UnaryOpFunction unaryOpFunctions[][FJS_DataType_Max] = {
 		[FJS_DataType_F64] = (UnaryOpFunction) expF64,
 		[FJS_DataType_F32] = (UnaryOpFunction) expF32
 	},
+	[FJS_UnaryOperationType_Expm1] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) expm1F64,
+		[FJS_DataType_F32] = (UnaryOpFunction) expm1F32
+	},
+	[FJS_UnaryOperationType_Exp2] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) exp2F64,
+		[FJS_DataType_F32] = (UnaryOpFunction) exp2F32
+	},
 	[FJS_UnaryOperationType_Log] = {
 		[FJS_DataType_F64] = (UnaryOpFunction) logF64,
 		[FJS_DataType_F32] = (UnaryOpFunction) logF32
+	},
+	[FJS_UnaryOperationType_Log10] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) log10F64,
+		[FJS_DataType_F32] = (UnaryOpFunction) log10F32
+	},
+	[FJS_UnaryOperationType_Log2] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) log2F64,
+		[FJS_DataType_F32] = (UnaryOpFunction) log2F32
+	},
+	[FJS_UnaryOperationType_Log1p] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) log1pF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) log1pF32
 	},
 	[FJS_UnaryOperationType_Sqrt] = {
 		[FJS_DataType_F64] = (UnaryOpFunction) sqrtF64,
@@ -158,6 +228,54 @@ static const UnaryOpFunction unaryOpFunctions[][FJS_DataType_Max] = {
 		[FJS_DataType_F64] = (UnaryOpFunction) squareF64,
 		[FJS_DataType_F32] = (UnaryOpFunction) squareF32
 	},
+	[FJS_UnaryOperationType_Sin] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) sinF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) sinF32
+	},
+	[FJS_UnaryOperationType_Cos] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) cosF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) cosF32
+	},
+	[FJS_UnaryOperationType_Tan] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) tanF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) tanF32
+	},
+	[FJS_UnaryOperationType_Arcsin] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) arcsinF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) arcsinF32
+	},
+	[FJS_UnaryOperationType_Arccos] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) arccosF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) arccosF32
+	},
+	[FJS_UnaryOperationType_Arctan] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) arctanF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) arctanF32
+	},
+	[FJS_UnaryOperationType_Degrees] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) degreesF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) degreesF32
+	},
+	[FJS_UnaryOperationType_Radians] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) radiansF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) radiansF32
+	},
+	[FJS_UnaryOperationType_Rint] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) rintF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) rintF32
+	},
+	[FJS_UnaryOperationType_Floor] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) floorF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) floorF32
+	},
+	[FJS_UnaryOperationType_Ceil] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) ceilF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) ceilF32
+	},
+	[FJS_UnaryOperationType_Trunc] = {
+		[FJS_DataType_F64] = (UnaryOpFunction) truncF64,
+		[FJS_DataType_F32] = (UnaryOpFunction) truncF32
+	}
 };
 
 static const ReduceOpFunction reductionFunctions[][FJS_DataType_Max] = {
@@ -1224,6 +1342,121 @@ static void divF64(size_t length, const double dataA[static length], const doubl
 	}
 }
 
+static void laeF32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = logf(expf((*dataOut) + (*dataB++)));
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] / out[i] */
+		while (length--) {
+			*dataOut = logf(expf((*dataA++) + (*dataOut)));
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut++ = logf(expf((*dataA++) + (*dataB++)));
+		}
+	}
+}
+
+static void laeF64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = log(exp((*dataOut) + (*dataB++)));
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] / out[i] */
+		while (length--) {
+			*dataOut = log(exp((*dataA++) + (*dataOut)));
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut++ = log(exp((*dataA++) + (*dataB++)));
+		}
+	}
+}
+
+static void lae2F32(size_t length, const float dataA[static length], const float dataB[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = log2f(exp2f((*dataOut) + (*dataB++)));
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] / out[i] */
+		while (length--) {
+			*dataOut = log2f(exp2f((*dataA++) + (*dataOut)));
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut++ = log2f(exp2f((*dataA++) + (*dataB++)));
+		}
+	}
+}
+
+static void lae2F64(size_t length, const double dataA[static length], const double dataB[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = log2(exp2((*dataOut) + (*dataB++)));
+			dataOut++;
+		}
+	} else if (dataOut == dataB) {
+		/* In-place operation: out[i] = a[i] / out[i] */
+		while (length--) {
+			*dataOut = log2(exp2((*dataA++) + (*dataOut)));
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut++ = exp2((*dataA++) + (*dataB++));
+		}
+	}
+}
+
+
+static void roundF32(size_t length, const float dataA[static length], const float dataB, float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = roundf(*dataOut * exp10f(dataB))/exp10f(dataB);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut = roundf(*dataA++ * exp10f(dataB))/exp10f(dataB);
+		}
+	}
+}
+
+
+static void roundF64(size_t length, const double dataA[static length], const double dataB, double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = out[i] / b[i] */
+		while (length--) {
+			*dataOut = round(*dataOut * exp10(dataB))/exp10(dataB);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = a[i] / b[i] */
+		while (length--) {
+			*dataOut = round(*dataA++ * exp10(dataB))/exp10(dataB);
+		}
+	}
+}
 /* Binary element-wise operations with a constant */
 
 static void addConstF32(size_t length, const float dataA[static length], double dataB, float dataOut[static length]) {
@@ -1442,6 +1675,66 @@ static void expF64(size_t length, const double dataA[static length], double data
 	}
 }
 
+static void expm1F32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = exp(out[i]) */
+		while (length--) {
+			*dataOut = expm1f(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = exp(a[i]) */
+		while (length--) {
+			*dataOut++ = expm1f(*dataA++);
+		}
+	}
+}
+
+static void expm1F64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = exp(out[i]) */
+		while (length--) {
+			*dataOut = expm1(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = exp(a[i]) */
+		while (length--) {
+			*dataOut++ = expm1(*dataA++) - 1;
+		}
+	}
+}
+
+static void exp2F32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = exp(out[i]) */
+		while (length--) {
+			*dataOut = exp2f(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = exp(a[i]) */
+		while (length--) {
+			*dataOut++ = exp2f(*dataA++);
+		}
+	}
+}
+
+static void exp2F64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = exp(out[i]) */
+		while (length--) {
+			*dataOut = exp2(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = exp(a[i]) */
+		while (length--) {
+			*dataOut++ = exp2(*dataA++);
+		}
+	}
+}
+
 static void logF32(size_t length, const float dataA[static length], float dataOut[static length]) {
 	if (dataOut == dataA) {
 		/* In-place operation: out[i] = log(out[i]) */
@@ -1468,6 +1761,96 @@ static void logF64(size_t length, const double dataA[static length], double data
 		/* Non-destructive operation: out[i] = log(a[i]) */
 		while (length--) {
 			*dataOut++ = log(*dataA++);
+		}
+	}
+}
+
+static void log10F32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = log10f(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = log10f(*dataA++);
+		}
+	}
+}
+
+static void log10F64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = log10(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = log10(*dataA++);
+		}
+	}
+}
+
+static void log2F32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = log2f(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = log2f(*dataA++);
+		}
+	}
+}
+
+static void log2F64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = log2(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = log2(*dataA++);
+		}
+	}
+}
+
+static void log1pF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = log1pf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = log1pf(*dataA++);
+		}
+	}
+}
+
+static void log1pF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = log1p(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = log1p(*dataA++);
 		}
 	}
 }
@@ -1534,6 +1917,377 @@ static void squareF64(size_t length, const double dataA[static length], double d
 	}
 }
 
+static void sinF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = sinf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = sinf(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void sinF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = sin(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = sin(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void cosF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = cosf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = cosf(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void cosF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = cos(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = cos(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void tanF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = tanf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = tanf(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void tanF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = tan(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = tan(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void arcsinF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = asinf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = asinf(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void arcsinF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = asin(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = asin(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void arccosF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = acosf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = acosf(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void arccosF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = acos(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = acos(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void arctanF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = atanf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = atanf(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void arctanF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = sqrt(out[i]) */
+		while (length--) {
+			*dataOut = atan(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = sqrt(a[i]) */
+		while (length--) {
+			*dataOut++ = atan(*dataA);
+			dataA++;
+		}
+	}
+}
+
+static void degreesF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = (*dataOut) * 180/M_PI;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = (*dataA++) * 180/M_PI;
+		}
+	}
+}
+
+static void degreesF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = (*dataOut) * 180/M_PI;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = (*dataA++) * 180/M_PI;
+		}
+	}
+}
+
+static void radiansF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = (*dataOut) * M_PI/180;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = (*dataA++) * M_PI/180;
+		}
+	}
+}
+
+static void radiansF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = log(out[i]) */
+		while (length--) {
+			*dataOut = (*dataOut) * M_PI/180;
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = log(a[i]) */
+		while (length--) {
+			*dataOut++ = (*dataA++) * M_PI/180;
+		}
+	}
+}
+
+static void rintF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = rint(out[i]) */
+		while (length--) {
+			*dataOut = rintf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = rint(a[i]) */
+		while (length--) {
+			*dataOut++ = rintf(*dataA++);
+		}
+	}
+}
+
+static void rintF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = rint(out[i]) */
+		while (length--) {
+			*dataOut = rint(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = rint(a[i]) */
+		while (length--) {
+			*dataOut++ = rint(*dataA++);
+		}
+	}
+}
+
+static void floorF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = floor(out[i]) */
+		while (length--) {
+			*dataOut = floorf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = floor(a[i]) */
+		while (length--) {
+			*dataOut++ = floorf(*dataA++);
+		}
+	}
+}
+
+static void floorF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = floor(out[i]) */
+		while (length--) {
+			*dataOut = floor(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = floor(a[i]) */
+		while (length--) {
+			*dataOut++ = floor(*dataA++);
+		}
+	}
+}
+
+static void ceilF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = ceil(out[i]) */
+		while (length--) {
+			*dataOut = ceilf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = ceil(a[i]) */
+		while (length--) {
+			*dataOut++ = ceilf(*dataA++);
+		}
+	}
+}
+
+static void ceilF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = ceil(out[i]) */
+		while (length--) {
+			*dataOut = ceil(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = ceil(a[i]) */
+		while (length--) {
+			*dataOut++ = ceil(*dataA++);
+		}
+	}
+}
+
+static void truncF32(size_t length, const float dataA[static length], float dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = trunc(out[i]) */
+		while (length--) {
+			*dataOut = truncf(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = trunc(a[i]) */
+		while (length--) {
+			*dataOut++ = truncf(*dataA++);
+		}
+	}
+}
+
+static void truncF64(size_t length, const double dataA[static length], double dataOut[static length]) {
+	if (dataOut == dataA) {
+		/* In-place operation: out[i] = trunc(out[i]) */
+		while (length--) {
+			*dataOut = trunc(*dataOut);
+			dataOut++;
+		}
+	} else {
+		/* Non-destructive operation: out[i] = trunc(a[i]) */
+		while (length--) {
+			*dataOut++ = trunc(*dataA++);
+		}
+	}
+}
 /* All-array reduction functions */
 
 static void minF32(size_t length, const float data[restrict static length], float minOut[restrict static 1]) {
@@ -1925,3 +2679,4 @@ static void solveTriangularF64(size_t rows, size_t columns,
 		}
 	}
 }
+
