@@ -1,3 +1,5 @@
+<p align="center"><img src="https://amd.github.io/furious.js/logo.png" alt="Furious.js" title="Furious.js Logo"/></p>
+
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.png)](http://github.com/hpcgarage/furious.js/blob/master/LICENSE)
 [![Build Status](https://travis-ci.org/hpcgarage/furious.js.svg?branch=master)](https://travis-ci.org/hpcgarage/furious.js)
 
