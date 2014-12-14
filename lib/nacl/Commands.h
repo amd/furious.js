@@ -62,12 +62,46 @@ enum FJS_Command {
 	FJS_Command_Abs,
 	/* Exponentiation: y[i] <- exp(x[i]) */
 	FJS_Command_Exp,
+	/* Exponentiation: y[i] <- exp(x[i])-1 */
+	FJS_Command_Expm1,
+	/* Exponentiation: y[i] <- 2^(x[i]) */
+	FJS_Command_Exp2,
 	/* Logarithm: y[i] <- log(x[i]) */
 	FJS_Command_Log,
+	/* Logarithm: y[i] <- log10(x[i]) */
+	FJS_Command_Log10,
+	/* Logarithm: y[i] <- log2(x[i]) */
+	FJS_Command_Log2,
+	/* Logarithm: y[i] <- log1p(x[i]) */
+	FJS_Command_Log1p,
 	/* Square root: y[i] <- sqrt(x[i]) */
 	FJS_Command_Sqrt,
 	/* Square: y[i] <- x[i] * x[i] */
 	FJS_Command_Square,
+	/* Sin: y[i] <- sin(x[i]) */
+	FJS_Command_Sin,
+	/* Cos: y[i] <- Cos(x[i]) */
+	FJS_Command_Cos,
+	/* Tan: y[i] <- Tan(x[i]) */
+	FJS_Command_Tan,
+	/* Arcsin: y[i] <- Arcsin(x[i]) */
+	FJS_Command_Arcsin,
+	/* Arccos: y[i] <- Arccos(x[i]) */
+	FJS_Command_Arccos,
+	/* Arctan: y[i] <- Arctan(x[i]) */
+	FJS_Command_Arctan,
+	/* Degrees: y[i] <- degrees(x[i]) */
+	FJS_Command_Degrees,
+	/* Radians: y[i] <- radians(x[i]) */
+	FJS_Command_Radians,
+	/* Round int: y[i] <- rint(x[i]) */
+	FJS_Command_Rint,
+	/* Floor: y[i] <- Floor(x[i]) */
+	FJS_Command_Floor,
+	/* Ceiling: y[i] <- Ceil(x[i]) */
+	FJS_Command_Ceil,
+	/* Trunc: y[i] <- Trunc(x[i]) */
+	FJS_Command_Trunc,
 	/* All-array minimum */
 	FJS_Command_Min,
 	/* All-array maximum */
@@ -95,10 +129,12 @@ struct FJS_Shape {
 };
 
 enum FJS_BinaryOperationType {
-	FJS_BinaryOperationType_Add = 0,
-	FJS_BinaryOperationType_Sub = 1,
-	FJS_BinaryOperationType_Mul = 2,
-	FJS_BinaryOperationType_Div = 3
+	FJS_BinaryOperationType_Add  = 0,
+	FJS_BinaryOperationType_Sub  = 1,
+	FJS_BinaryOperationType_Mul  = 2,
+	FJS_BinaryOperationType_Div  = 3,
+	FJS_BinaryOperationType_LAE  = 4,
+	FJS_BinaryOperationType_LAE2 = 5
 };
 
 enum FJS_BinaryConstOperationType {
@@ -114,9 +150,26 @@ enum FJS_UnaryOperationType {
 	FJS_UnaryOperationType_Neg    = 0,
 	FJS_UnaryOperationType_Abs    = 1,
 	FJS_UnaryOperationType_Exp    = 2,
-	FJS_UnaryOperationType_Log    = 3,
-	FJS_UnaryOperationType_Sqrt   = 4,
-	FJS_UnaryOperationType_Square = 5
+	FJS_UnaryOperationType_Expm1  = 3,
+	FJS_UnaryOperationType_Exp2   = 4,
+	FJS_UnaryOperationType_Log    = 5,
+	FJS_UnaryOperationType_Log10  = 6,
+	FJS_UnaryOperationType_Log2   = 7,
+	FJS_UnaryOperationType_Log1p  = 8,
+	FJS_UnaryOperationType_Sqrt   = 9,
+	FJS_UnaryOperationType_Square = 10,
+	FJS_UnaryOperationType_Sin    = 11,
+	FJS_UnaryOperationType_Cos    = 12,
+	FJS_UnaryOperationType_Tan    = 13,
+	FJS_UnaryOperationType_Arcsin = 14,
+	FJS_UnaryOperationType_Arccos = 15,
+	FJS_UnaryOperationType_Arctan = 16,
+	FJS_UnaryOperationType_Degrees= 17,
+	FJS_UnaryOperationType_Radians= 18,
+	FJS_UnaryOperationType_Rint   = 19,
+	FJS_UnaryOperationType_Floor  = 20,
+	FJS_UnaryOperationType_Ceil   = 21,
+	FJS_UnaryOperationType_Trunc  = 22
 };
 
 enum FJS_ReductionType {
