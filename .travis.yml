@@ -4,7 +4,7 @@ before_install:
  - git clone git://github.com/martine/ninja.git /tmp/ninja
  - pushd /tmp/ninja
  - git checkout release
- - python bootstrap.py
+ - python configure.py --bootstrap
  - export PATH=/tmp/ninja:$PATH
  - export PYTHONPATH=/tmp/ninja/misc
  - popd
