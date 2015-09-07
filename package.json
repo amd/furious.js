@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "High-performance library for n-dimensional array processing in JavaScript",
   "author": "Marat Dukhan <maratek@gmail.com>",
-  ],
   "scripts": {
     "test": "mocha --reporter dot test/*.test.js"
   },
