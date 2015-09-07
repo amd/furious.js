@@ -7,8 +7,6 @@
 [![OptionalDependency Status](https://david-dm.org/hpcgarage/furious.js/optional-status.png)](https://david-dm.org/hpcgarage/furious.js#info=optionalDependencies)
 [![devDependency Status](https://david-dm.org/hpcgarage/furious.js/dev-status.png)](https://david-dm.org/hpcgarage/furious.js#info=devDependencies)
 
-[![Browser Support](https://ci.testling.com/hpcgarage/furious.js.png)](https://ci.testling.com/hpcgarage/furious.js)
-
 # Furious.js
 
 Furious.js is a scientific computing package for JavaScript. Furious.js features:
