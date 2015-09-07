@@ -20,6 +20,7 @@ module.exports = function(grunt) {
 			},
 			furious: ["lib/**/*.js"],
 			test: ["test/*.test.js"],
+			bench: ["bench/*.js"],
 			build: ["Gruntfile.js"]
 		},
 
@@ -59,6 +60,18 @@ module.exports = function(grunt) {
 				files: {
 					"test.js": ["test/*.test.js"]
 				}
+			},
+			benchmark: {
+				options: {
+					exclude: ["node-webcl"],
+					transform: ["brfs"],
+					browserifyOptions : {
+						debug: true
+					}
+				},
+				files: {
+					"bench.js": ["bench/demo.js"]
+				}
 			}
 		},
 
@@ -90,13 +103,10 @@ module.exports = function(grunt) {
 		},
 
 		shell: {
-			protoc: {
-				command: "protoc --proto_path=protobuf --cpp_out=lib/nacl protobuf/Requests.proto protobuf/Responses.proto"
-			},
 			configure: {
 				command: "python configure.py"
 			},
-			buildPNaCl: {
+			build: {
 				command: "ninja"
 			}
 		}
@@ -109,6 +119,6 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks("grunt-contrib-jshint");
 	grunt.loadNpmTasks("grunt-shell");
 
-	grunt.registerTask("default", ["mochaTest", "jshint", "browserify", "uglify", "yuidoc", "shell:protoc", "shell:configure", "shell:buildPNaCl"]);
+	grunt.registerTask("default", ["mochaTest", "jshint", "browserify", "uglify", "yuidoc", "shell:configure", "shell:build"]);
 	grunt.registerTask("test", ["mochaTest"]);
 };
