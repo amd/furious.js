@@ -2,12 +2,7 @@
   "name": "furious",
   "version": "0.0.1",
   "description": "High-performance library for n-dimensional array processing in JavaScript",
-  "author": "Marat Dukhan <marat.dukhan@amd.com>",
-  "contributors": [
-    {
-      "name": "Marat Dukhan",
-      "email": "marat.dukhan@amd.com"
-    }
+  "author": "Marat Dukhan <maratek@gmail.com>",
   ],
   "scripts": {
     "test": "mocha --reporter dot test/*.test.js"
@@ -15,10 +10,10 @@
   "main": "lib/furious.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/amd/furious.js.git"
+    "url": "https://github.com/hpcgarage/furious.js.git"
   },
   "bugs": {
-    "url": "https://github.com/amd/furious.js/issues"
+    "url": "https://github.com/hpcgarage/furious.js/issues"
   },
   "keywords": [
     "ndarray",
