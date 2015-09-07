@@ -61,27 +61,6 @@
     "yuidoc-bootstrap-theme": "^1.0.6",
     "yuidocjs": "^0.9.0"
   },
-  "testling": {
-    "files": "test/*.js",
-    "harness": "mocha-bdd",
-    "browsers": [
-      "iexplore/10.0",
-      "chrome/30.0",
-      "chrome/31.0",
-      "chrome/32.0",
-      "chrome/33.0",
-      "chrome/canary",
-      "firefox/28.0",
-      "firefox/nightly",
-      "safari/5.1",
-      "safari/6.0",
-      "opera/20.0",
-      "opera/next",
-      "iphone/6.0",
-      "ipad/6.0",
-      "android-browser/4.2"
-    ]
-  },
   "license": "MIT",
   "engines": {
     "node": ">= 0.5.5"
